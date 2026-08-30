@@ -1,9 +1,10 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:shipglows_audio/shipglows_audio.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(const MyApp());
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -13,8 +14,14 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final _engine = ShipglowsAudio();
   String _engineStatus = 'Loading native audio engine…';
-  final _shipglowsAudioPlugin = ShipglowsAudio();
+  ShipglowsAudioCaptureStatus? _capture;
+  String? _sessionDirectory;
+  String? _failure;
+  Timer? _statusTimer;
+
+  bool get _isRecording => _capture?.state == 'recording';
 
   @override
   void initState() {
@@ -22,35 +29,123 @@ class _MyAppState extends State<MyApp> {
     _loadEngine();
   }
 
-  // Platform messages are asynchronous, so we initialize in an async method.
+  @override
+  void dispose() {
+    _statusTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadEngine() async {
-    String engineStatus;
     try {
-      final info = await _shipglowsAudioPlugin.getEngineInfo();
-      engineStatus =
-          '${info.name} ${info.version}\n'
-          '${info.platform} · ${info.backend}\n'
-          'Native core: ${info.nativeCoreLoaded ? 'loaded' : 'pending'}';
+      final info = await _engine.getEngineInfo();
+      if (!mounted) return;
+      setState(() {
+        _engineStatus =
+            '${info.name} ${info.version}\n'
+            '${info.platform} · ${info.backend}\n'
+            'Native core: ${info.nativeCoreLoaded ? 'loaded' : 'missing'}';
+      });
     } on Object catch (error) {
-      engineStatus = 'Failed to load the audio engine: $error';
+      if (!mounted) return;
+      setState(() => _failure = 'Engine load failed: $error');
     }
+  }
 
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
+  Future<void> _start() async {
+    final directory = Directory(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}'
+      'shipglows-audio-${DateTime.now().toUtc().microsecondsSinceEpoch}',
+    );
+    try {
+      await directory.create(recursive: true);
+      final status = await _engine.startRecording(
+        sessionDirectory: directory.path,
+      );
+      if (!mounted) return;
+      setState(() {
+        _capture = status;
+        _sessionDirectory = directory.path;
+        _failure = null;
+      });
+      _statusTimer?.cancel();
+      _statusTimer = Timer.periodic(
+        const Duration(milliseconds: 500),
+        (_) => _refreshStatus(),
+      );
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _failure = 'Start failed: $error');
+    }
+  }
 
-    setState(() {
-      _engineStatus = engineStatus;
-    });
+  Future<void> _refreshStatus() async {
+    try {
+      final status = await _engine.getRecordingStatus();
+      if (!mounted) return;
+      setState(() => _capture = status);
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _failure = 'Status failed: $error');
+    }
+  }
+
+  Future<void> _stop() async {
+    _statusTimer?.cancel();
+    try {
+      final status = await _engine.stopRecording();
+      if (!mounted) return;
+      setState(() {
+        _capture = status;
+        _failure = null;
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _failure = 'Stop failed: $error');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final capture = _capture;
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: const Text('ShipGlows Audio Engine')),
-        body: Center(child: Text(_engineStatus, textAlign: TextAlign.center)),
+        appBar: AppBar(title: const Text('ShipGlows Audio Engine Lab')),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Text(_engineStatus, textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _isRecording ? _stop : _start,
+                icon: Icon(_isRecording ? Icons.stop : Icons.mic),
+                label: Text(_isRecording ? 'Stop' : 'Record'),
+              ),
+              const SizedBox(height: 24),
+              if (_failure != null)
+                Text(_failure!, style: const TextStyle(color: Colors.red)),
+              if (capture != null) ...[
+                Text('State: ${capture.state}'),
+                Text(
+                  'Format: ${capture.sampleRate} Hz · '
+                  '${capture.channelCount} ch · ${capture.sampleFormat}',
+                ),
+                Text('Frames captured: ${capture.framesCaptured}'),
+                Text('Frames dropped: ${capture.framesDropped}'),
+                Text('Discontinuities: ${capture.discontinuities}'),
+                Text('Clipped samples: ${capture.clippedSamples}'),
+                Text('Device restarts: ${capture.deviceRestarts}'),
+                Text(
+                  'Error: ${capture.errorCode.isEmpty ? 'none' : capture.errorCode}',
+                ),
+              ],
+              if (_sessionDirectory != null) ...[
+                const SizedBox(height: 16),
+                SelectableText('Session: $_sessionDirectory'),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

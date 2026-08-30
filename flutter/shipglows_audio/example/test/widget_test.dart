@@ -10,8 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shipglows_audio_example/main.dart';
 
 void main() {
-  testWidgets('shows the engine host', (WidgetTester tester) async {
+  testWidgets('shows the engine capture lab', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
-    expect(find.text('ShipGlows Audio Engine'), findsOneWidget);
+    expect(find.text('ShipGlows Audio Engine Lab'), findsOneWidget);
+    expect(find.text('Record'), findsOneWidget);
   });
 }
