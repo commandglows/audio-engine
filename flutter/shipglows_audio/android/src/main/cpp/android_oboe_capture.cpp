@@ -1,6 +1,7 @@
 #include "android_oboe_capture.h"
 
 #include <chrono>
+#include <array>
 #include <span>
 #include <sstream>
 #include <vector>
@@ -79,6 +80,7 @@ bool AndroidOboeCapture::Start(
   }
 
   capture_finished_.store(false);
+  stop_requested_.store(false);
   paused_.store(false);
   storage_command_.store(0);
   storage_thread_ =
@@ -99,6 +101,7 @@ bool AndroidOboeCapture::Start(
 }
 
 void AndroidOboeCapture::Stop() {
+  stop_requested_.store(true, std::memory_order_release);
   std::shared_ptr<oboe::AudioStream> stream;
   {
     std::lock_guard lock(mutex_);
@@ -122,6 +125,9 @@ void AndroidOboeCapture::Stop() {
   capture_finished_.store(true, std::memory_order_release);
   if (storage_thread_.joinable()) {
     storage_thread_.join();
+  }
+  if (recovery_thread_.joinable()) {
+    recovery_thread_.join();
   }
   std::lock_guard lock(mutex_);
   stream_.reset();
@@ -193,11 +199,79 @@ oboe::DataCallbackResult AndroidOboeCapture::onAudioReady(
 
 void AndroidOboeCapture::onErrorAfterClose(
     oboe::AudioStream* /*stream*/, oboe::Result error) {
-  SetError(error == oboe::Result::ErrorDisconnected
-               ? "device_disconnected"
-               : "oboe_stream_failed");
+  if (stop_requested_.load(std::memory_order_acquire)) {
+    return;
+  }
+  if (error != oboe::Result::ErrorDisconnected) {
+    SetError("oboe_stream_failed");
+    session_.fail();
+    capture_finished_.store(true, std::memory_order_release);
+    return;
+  }
+  SetError("device_disconnected");
+  session_.count_discontinuity();
+  {
+    std::lock_guard lock(mutex_);
+    stream_.reset();
+  }
+  if (recovery_thread_.joinable()) {
+    recovery_thread_.join();
+  }
+  recovery_thread_ = std::thread(&AndroidOboeCapture::RecoveryWorker, this);
+}
+
+void AndroidOboeCapture::RecoveryWorker() {
+  static_cast<void>(SubmitStorageCommand(3));
+  constexpr std::array delays{100, 200, 400, 800, 1600};
+  for (const auto delay_ms : delays) {
+    if (stop_requested_.load(std::memory_order_acquire)) {
+      return;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+    if (OpenReplacementStream()) {
+      lifecycle_generation_.fetch_add(1, std::memory_order_relaxed);
+      session_.count_device_restart();
+      session_.count_route_change();
+      SetError({});
+      static_cast<void>(SubmitStorageCommand(4));
+      return;
+    }
+  }
+  SetError("device_reconnect_exhausted");
   session_.fail();
   capture_finished_.store(true, std::memory_order_release);
+}
+
+bool AndroidOboeCapture::OpenReplacementStream() {
+  oboe::AudioStreamBuilder builder;
+  builder.setDirection(oboe::Direction::Input)
+      ->setSharingMode(oboe::SharingMode::Shared)
+      ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+      ->setFormat(oboe::AudioFormat::I16)
+      ->setFormatConversionAllowed(true)
+      ->setInputPreset(oboe::InputPreset::Unprocessed)
+      ->setDataCallback(this)
+      ->setErrorCallback(this);
+  std::shared_ptr<oboe::AudioStream> replacement;
+  auto result = builder.openStream(replacement);
+  if (result != oboe::Result::OK || replacement == nullptr) {
+    builder.setInputPreset(oboe::InputPreset::Generic);
+    result = builder.openStream(replacement);
+  }
+  if (result != oboe::Result::OK || replacement == nullptr ||
+      replacement->getFormat() != oboe::AudioFormat::I16 ||
+      replacement->getSampleRate() != static_cast<int32_t>(format_.sample_rate) ||
+      replacement->getChannelCount() != static_cast<int32_t>(format_.channel_count)) {
+    if (replacement != nullptr) replacement->close();
+    return false;
+  }
+  if (replacement->requestStart() != oboe::Result::OK) {
+    replacement->close();
+    return false;
+  }
+  std::lock_guard lock(mutex_);
+  stream_ = std::move(replacement);
+  return true;
 }
 
 void AndroidOboeCapture::StorageWorker(
@@ -218,6 +292,12 @@ void AndroidOboeCapture::StorageWorker(
           store.checkpoint(shipglows::audio::SessionEvent::pause, "user_pause");
         } else if (command == 2) {
           store.checkpoint(shipglows::audio::SessionEvent::resume, "user_resume");
+        } else if (command == 3) {
+          store.checkpoint(shipglows::audio::SessionEvent::interruption,
+                           "device_disconnected");
+        } else if (command == 4) {
+          store.checkpoint(shipglows::audio::SessionEvent::device_restart,
+                           "default_device");
         }
         if (command != 0) {
           {

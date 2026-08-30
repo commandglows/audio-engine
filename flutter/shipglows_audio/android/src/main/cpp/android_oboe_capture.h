@@ -41,6 +41,8 @@ class AndroidOboeCapture final : public oboe::AudioStreamDataCallback,
 
  private:
   void StorageWorker(std::filesystem::path session_directory);
+  void RecoveryWorker();
+  [[nodiscard]] bool OpenReplacementStream();
   void SetError(std::string error_code);
 
   mutable std::mutex mutex_;
@@ -50,7 +52,9 @@ class AndroidOboeCapture final : public oboe::AudioStreamDataCallback,
   std::string error_code_;
   std::unique_ptr<shipglows::audio::SpscAudioRingBuffer<std::byte>> ring_;
   std::thread storage_thread_;
+  std::thread recovery_thread_;
   std::atomic<bool> capture_finished_{false};
+  std::atomic<bool> stop_requested_{false};
   std::atomic<bool> paused_{false};
   std::atomic<std::uint8_t> storage_command_{0};
   std::condition_variable storage_command_condition_;
