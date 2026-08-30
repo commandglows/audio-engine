@@ -4,8 +4,10 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 
+#include "shipglows/audio/audio_device_manager.hpp"
 #include "shipglows/audio/capture_session.hpp"
 #include "shipglows/audio/segmented_pcm_store.hpp"
 #include "shipglows/audio/spsc_audio_ring_buffer.hpp"
@@ -14,11 +16,101 @@
 namespace {
 
 using shipglows::audio::AudioFormat;
+using shipglows::audio::AudioDeviceManager;
+using shipglows::audio::AudioDeviceProvider;
+using shipglows::audio::AudioDeviceSetup;
+using shipglows::audio::AudioInputDevice;
 using shipglows::audio::CaptureSession;
+using shipglows::audio::DeviceOpenResult;
+using shipglows::audio::DeviceRoute;
+using shipglows::audio::FallbackReason;
+using shipglows::audio::PermissionState;
 using shipglows::audio::SampleFormat;
 using shipglows::audio::SegmentedPcmStore;
 using shipglows::audio::SessionState;
 using shipglows::audio::SpscAudioRingBuffer;
+
+class FakeDeviceProvider final : public AudioDeviceProvider {
+ public:
+  std::vector<AudioInputDevice> devices;
+  std::string rejected_device;
+  std::vector<std::string> open_attempts;
+
+  std::vector<AudioInputDevice> enumerate_inputs() override { return devices; }
+
+  DeviceOpenResult open_input(const AudioDeviceSetup& setup) override {
+    open_attempts.push_back(setup.device_id);
+    if (setup.device_id == rejected_device) {
+      return {.opened = false,
+              .effective_setup = {},
+              .error_code = "device_open_failed"};
+    }
+    return {.opened = true, .effective_setup = setup, .error_code = {}};
+  }
+
+  void close_input() noexcept override {}
+};
+
+AudioInputDevice fake_device(std::string id, bool is_default) {
+  return {
+      .stable_id = std::move(id),
+      .display_name = "Test input",
+      .backend = "fake",
+      .route = DeviceRoute::built_in,
+      .permission = PermissionState::granted,
+      .is_system_default = is_default,
+      .supports_hardware_timestamps = true,
+      .supports_native_xruns = true,
+      .max_input_channels = 2,
+      .default_buffer_frames = 256,
+      .sample_rates = {48'000},
+      .buffer_sizes = {128, 256},
+      .sample_formats = {SampleFormat::float32},
+  };
+}
+
+void test_device_manager_opens_preferred_device() {
+  FakeDeviceProvider provider;
+  provider.devices = {fake_device("default", true),
+                      fake_device("preferred", false)};
+  AudioDeviceManager manager(provider);
+  const AudioDeviceSetup preferred{
+      .device_id = "preferred",
+      .sample_rate = 48'000,
+      .buffer_frames = 128,
+      .channel_count = 2,
+      .sample_format = SampleFormat::float32,
+  };
+  const auto result = manager.open(preferred);
+  assert(result.opened);
+  assert(provider.open_attempts.size() == 1);
+  assert(provider.open_attempts.front() == "preferred");
+  assert(manager.snapshot().fallback_reason == FallbackReason::none);
+  assert(manager.snapshot().generation == 1);
+}
+
+void test_device_manager_falls_back_without_hiding_failure() {
+  FakeDeviceProvider provider;
+  provider.devices = {fake_device("default", true),
+                      fake_device("preferred", false)};
+  provider.rejected_device = "preferred";
+  AudioDeviceManager manager(provider);
+  const auto result = manager.open(AudioDeviceSetup{
+      .device_id = "preferred",
+      .sample_rate = 96'000,
+      .buffer_frames = 64,
+      .channel_count = 2,
+      .sample_format = SampleFormat::float32,
+  });
+  assert(result.opened);
+  assert(provider.open_attempts.size() == 2);
+  assert(provider.open_attempts[0] == "preferred");
+  assert(provider.open_attempts[1] == "default");
+  assert(manager.snapshot().preferred_setup->device_id == "preferred");
+  assert(manager.snapshot().effective_setup->device_id == "default");
+  assert(manager.snapshot().fallback_reason ==
+         FallbackReason::preferred_open_failed);
+}
 
 void test_session_state_machine() {
   CaptureSession session;
@@ -28,12 +120,21 @@ void test_session_state_machine() {
   session.count_captured_frames(480);
   session.count_dropped_frames(2);
   session.count_discontinuity();
+  session.count_native_xruns(2);
+  session.count_timestamp_gap_frames(12);
+  session.count_writer_stall();
+  session.count_route_change();
   assert(session.request_stop());
   assert(session.finish());
   assert(session.state() == SessionState::stopped);
   assert(session.metrics().frames_captured == 480);
   assert(session.metrics().frames_dropped == 2);
   assert(session.metrics().discontinuities == 1);
+  assert(session.metrics().ring_overflow_frames == 2);
+  assert(session.metrics().native_xruns == 2);
+  assert(session.metrics().timestamp_gap_frames == 12);
+  assert(session.metrics().writer_stalls == 1);
+  assert(session.metrics().route_changes == 1);
 }
 
 void test_ring_buffer_wraps_without_overwrite() {
@@ -86,6 +187,8 @@ void test_clipping_analysis() {
 }  // namespace
 
 int main() {
+  test_device_manager_opens_preferred_device();
+  test_device_manager_falls_back_without_hiding_failure();
   test_session_state_machine();
   test_ring_buffer_wraps_without_overwrite();
   test_segment_rotation_and_recovery();

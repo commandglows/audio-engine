@@ -37,6 +37,7 @@ void CaptureSession::count_captured_frames(std::uint64_t frames) noexcept {
 
 void CaptureSession::count_dropped_frames(std::uint64_t frames) noexcept {
   frames_dropped_.fetch_add(frames, std::memory_order_relaxed);
+  ring_overflow_frames_.fetch_add(frames, std::memory_order_relaxed);
 }
 
 void CaptureSession::count_discontinuity() noexcept {
@@ -51,6 +52,22 @@ void CaptureSession::count_device_restart() noexcept {
   device_restarts_.fetch_add(1, std::memory_order_relaxed);
 }
 
+void CaptureSession::count_native_xruns(std::uint64_t xruns) noexcept {
+  native_xruns_.fetch_add(xruns, std::memory_order_relaxed);
+}
+
+void CaptureSession::count_timestamp_gap_frames(std::uint64_t frames) noexcept {
+  timestamp_gap_frames_.fetch_add(frames, std::memory_order_relaxed);
+}
+
+void CaptureSession::count_writer_stall() noexcept {
+  writer_stalls_.fetch_add(1, std::memory_order_relaxed);
+}
+
+void CaptureSession::count_route_change() noexcept {
+  route_changes_.fetch_add(1, std::memory_order_relaxed);
+}
+
 SessionState CaptureSession::state() const noexcept { return state_.load(); }
 
 AudioFormat CaptureSession::format() const noexcept { return format_; }
@@ -62,6 +79,13 @@ CaptureMetrics CaptureSession::metrics() const noexcept {
       .discontinuities = discontinuities_.load(std::memory_order_relaxed),
       .clipped_samples = clipped_samples_.load(std::memory_order_relaxed),
       .device_restarts = device_restarts_.load(std::memory_order_relaxed),
+      .native_xruns = native_xruns_.load(std::memory_order_relaxed),
+      .ring_overflow_frames =
+          ring_overflow_frames_.load(std::memory_order_relaxed),
+      .timestamp_gap_frames =
+          timestamp_gap_frames_.load(std::memory_order_relaxed),
+      .writer_stalls = writer_stalls_.load(std::memory_order_relaxed),
+      .route_changes = route_changes_.load(std::memory_order_relaxed),
   };
 }
 
