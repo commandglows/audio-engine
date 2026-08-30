@@ -46,6 +46,23 @@ android {
 
     defaultConfig {
         minSdk = 24
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++20"
+                arguments += "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
+    buildFeatures {
+        prefab = true
     }
 
     testOptions {
@@ -72,6 +89,7 @@ kotlin {
 }
 
 dependencies {
+    implementation("com.google.oboe:oboe:1.10.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 }

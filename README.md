@@ -34,5 +34,9 @@ buffer and update lock-free counters.
 The private plugin exposes engine identity plus `startRecording`,
 `getRecordingStatus`, and `stopRecording`. A product supplies a private session
 directory and receives negotiated format and integrity metrics. Windows uses
-WASAPI directly; Android reports a pending backend until the Oboe milestone is
-compiled and validated.
+event-driven WASAPI; Android uses Oboe and packages native libraries for the
+three Flutter Android ABIs.
+
+See `docs/verification.md` for the exact proof level of each backend. A native
+build is a compile/package proof, not a substitute for the device matrix needed
+before a production release.

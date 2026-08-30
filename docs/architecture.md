@@ -36,8 +36,23 @@ A clean stop means the ring was drained and `complete=true` was committed to
 the manifest. An interrupted session remains recoverable from its frame-aligned
 segments even when its manifest says `complete=false`.
 
+## Android capture path
+
+The Android adapter uses Oboe with a shared, low-latency input stream. It asks
+for 16-bit PCM and permits Oboe's format conversion so the real-time callback
+always receives one stable format. It first requests the `Unprocessed` input
+preset and retries with `Generic` when a device does not expose that path.
+
+The callback obeys the same real-time invariants as Windows and feeds the same
+ten-second SPSC buffer, five-second segmented store, manifest, recovery, and
+integrity metrics. Oboe stream disconnects are exposed as a stable
+`device_disconnected` error.
+
+The Android native libraries compile and package for arm64-v8a, armeabi-v7a,
+and x86_64. Real-device acoustic and interruption validation remains a release
+gate; an APK build alone cannot prove microphone routing on every OEM device.
+
 ## Planned platform parity
 
-Android will implement the same contract with Oboe/AAudio. Apple platforms can
-later implement it with Core Audio without changing the Flutter product API or
-session format.
+Apple platforms can later implement the same contract with Core Audio without
+changing the Flutter product API or session format.

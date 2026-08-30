@@ -15,13 +15,13 @@ import kotlin.test.Test
 
 internal class ShipglowsAudioPluginTest {
     @Test
-    fun onMethodCall_getPlatformVersion_returnsExpectedValue() {
+    fun onMethodCall_unknownMethod_isNotImplemented() {
         val plugin = ShipglowsAudioPlugin()
 
-        val call = MethodCall("getPlatformVersion", null)
+        val call = MethodCall("unknown", null)
         val mockResult: MethodChannel.Result = Mockito.mock(MethodChannel.Result::class.java)
         plugin.onMethodCall(call, mockResult)
 
-        Mockito.verify(mockResult).success("Android " + android.os.Build.VERSION.RELEASE)
+        Mockito.verify(mockResult).notImplemented()
     }
 }
