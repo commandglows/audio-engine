@@ -180,7 +180,10 @@ std::uint64_t TimestampTracker::observe(std::uint64_t host_time_ns,
     return 0;
   }
 
-  const auto tolerance_ns = 1'000'000'000ULL / sample_rate_;
+  // Hardware clocks have bounded packet-to-packet jitter even when the frame
+  // sequence is continuous. Two milliseconds rejects that jitter while still
+  // surfacing capture holes well below a normal WASAPI/Oboe buffer period.
+  const auto tolerance_ns = 2'000'000ULL;
   std::uint64_t gap_frames = 0;
   if (host_time_ns > expected_next_time_ns_ + tolerance_ns) {
     const auto gap_ns = host_time_ns - expected_next_time_ns_;

@@ -30,7 +30,12 @@ void main() {
     final directory = await Directory.systemTemp.createTemp(
       'shipglows-audio-integration-',
     );
+    final soakSeconds = int.tryParse(
+      Platform.environment['SHIPGLOWS_AUDIO_SOAK_SECONDS'] ?? '',
+    );
+    final isSoak = soakSeconds != null && soakSeconds > 0;
     addTearDown(() async {
+      if (isSoak) return;
       if (await directory.exists()) {
         await directory.delete(recursive: true);
       }
@@ -52,6 +57,31 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
 
+    if (isSoak) {
+      final deadline = DateTime.now().add(Duration(seconds: soakSeconds));
+      var previousFrames = 0;
+      var maximumRss = ProcessInfo.currentRss;
+      while (DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(seconds: 30));
+        final status = await plugin.getRecordingStatus();
+        maximumRss = ProcessInfo.currentRss > maximumRss
+            ? ProcessInfo.currentRss
+            : maximumRss;
+        expect(status.state, 'recording');
+        expect(status.framesCaptured, greaterThan(previousFrames));
+        expect(status.errorCode, isEmpty);
+        previousFrames = status.framesCaptured;
+        // Kept machine-readable so the external soak runner can retain samples.
+        // ignore: avoid_print
+        print(
+          'SOAK_SAMPLE frames=${status.framesCaptured} '
+          'dropped=${status.framesDropped} '
+          'gaps=${status.timestampGapFrames} '
+          'xruns=${status.nativeXruns} rss=$maximumRss',
+        );
+      }
+    }
+
     final stopped = await plugin.stopRecording();
     expect(stopped.state, 'stopped');
     expect(stopped.framesCaptured, greaterThan(0));
@@ -62,10 +92,7 @@ void main() {
       '${directory.path}${Platform.pathSeparator}journal.sga',
     );
     expect(await journal.exists(), isTrue);
-    expect(
-      await journal.readAsString(),
-      contains('event=session_complete'),
-    );
+    expect(await journal.readAsString(), contains('event=session_complete'));
     final segments = await directory
         .list()
         .where((entry) => entry.path.endsWith('.wav'))
@@ -77,5 +104,14 @@ void main() {
       String.fromCharCodes((await first.openRead(0, 4).first)),
       equals('RIFF'),
     );
-  });
+    if (isSoak) {
+      // ignore: avoid_print
+      print(
+        'SOAK_RESULT directory=${directory.path} '
+        'frames=${stopped.framesCaptured} dropped=${stopped.framesDropped} '
+        'gaps=${stopped.timestampGapFrames} xruns=${stopped.nativeXruns} '
+        'timestamps=${stopped.hardwareTimestamps}',
+      );
+    }
+  }, timeout: const Timeout(Duration(hours: 3)));
 }

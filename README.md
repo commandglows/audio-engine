@@ -31,11 +31,12 @@ buffer and update lock-free counters.
 
 ## Flutter API
 
-The private plugin exposes engine identity plus `startRecording`,
+The private plugin exposes engine identity plus `startRecording`, pause/resume,
 `getRecordingStatus`, and `stopRecording`. A product supplies a private session
-directory and receives negotiated format and integrity metrics. Windows uses
-event-driven WASAPI; Android uses Oboe and packages native libraries for the
-three Flutter Android ABIs.
+directory and receives negotiated format, integrity metrics, hardware timestamp
+coverage, and a structured recovery hint. Windows uses event-driven WASAPI with
+bounded default-device recovery; Android uses Oboe and packages native libraries
+for the three Flutter Android ABIs.
 
 See `docs/verification.md` for the exact proof level of each backend. A native
 build is a compile/package proof, not a substitute for the device matrix needed
