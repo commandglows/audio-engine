@@ -44,6 +44,7 @@ enum class SessionState : std::uint8_t {
   idle,
   prepared,
   recording,
+  paused,
   stopping,
   stopped,
   failed,
@@ -65,6 +66,8 @@ enum class DiagnosticCode : std::uint8_t {
       return "prepared";
     case SessionState::recording:
       return "recording";
+    case SessionState::paused:
+      return "paused";
     case SessionState::stopping:
       return "stopping";
     case SessionState::stopped:

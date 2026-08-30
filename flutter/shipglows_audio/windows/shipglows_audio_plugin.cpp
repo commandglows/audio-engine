@@ -164,6 +164,10 @@ void ShipglowsAudioPlugin::HandleMethodCall(
     result->Success(CaptureStatusValue(capture_->Status()));
   } else if (method_call.method_name() == "stopRecording") {
     result->Success(CaptureStatusValue(capture_->Stop()));
+  } else if (method_call.method_name() == "pauseRecording") {
+    result->Success(CaptureStatusValue(capture_->Pause()));
+  } else if (method_call.method_name() == "resumeRecording") {
+    result->Success(CaptureStatusValue(capture_->Resume()));
   } else if (method_call.method_name() == "getRecordingStatus") {
     result->Success(CaptureStatusValue(capture_->Status()));
   } else {

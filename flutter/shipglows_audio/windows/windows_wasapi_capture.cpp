@@ -108,6 +108,8 @@ bool WindowsWasapiCapture::Start(
   }
   stop_requested_.store(false);
   capture_finished_.store(false);
+  paused_.store(false);
+  storage_command_.store(0);
   capture_thread_ =
       std::thread(&WindowsWasapiCapture::CaptureWorker, this, session_directory);
 
@@ -134,7 +136,8 @@ bool WindowsWasapiCapture::Start(
 
 WasapiCaptureStatus WindowsWasapiCapture::Stop() {
   stop_requested_.store(true);
-  if (session_.state() == shipglows::audio::SessionState::recording) {
+  if (session_.state() == shipglows::audio::SessionState::recording ||
+      session_.state() == shipglows::audio::SessionState::paused) {
     static_cast<void>(session_.request_stop());
   }
   if (const auto event = wake_event_.load(); event != nullptr) {
@@ -146,6 +149,34 @@ WasapiCaptureStatus WindowsWasapiCapture::Stop() {
   if (storage_thread_.joinable()) {
     storage_thread_.join();
   }
+  return Status();
+}
+
+WasapiCaptureStatus WindowsWasapiCapture::Pause() {
+  if (!session_.pause()) {
+    return Status();
+  }
+  paused_.store(true, std::memory_order_release);
+  if (!SubmitStorageCommand(1)) {
+    SetError("pause_checkpoint_failed");
+    session_.fail();
+  }
+  return Status();
+}
+
+WasapiCaptureStatus WindowsWasapiCapture::Resume() {
+  if (session_.state() != shipglows::audio::SessionState::paused) {
+    return Status();
+  }
+  if (!SubmitStorageCommand(2)) {
+    SetError("resume_checkpoint_failed");
+    session_.fail();
+    return Status();
+  }
+  ++lifecycle_generation_;
+  timestamp_tracker_.reset(format_.sample_rate, lifecycle_generation_);
+  paused_.store(false, std::memory_order_release);
+  static_cast<void>(session_.resume());
   return Status();
 }
 
@@ -321,7 +352,13 @@ void WindowsWasapiCapture::CaptureWorker(
                               : std::span<const std::byte>(
                                     reinterpret_cast<const std::byte*>(data),
                                     packet_bytes);
-      const auto stored_bytes = ring_->push(packet);
+      const auto stored_bytes = paused_.load(std::memory_order_acquire)
+                                    ? packet_bytes
+                                    : ring_->push(packet);
+      if (paused_.load(std::memory_order_relaxed)) {
+        capture_client->ReleaseBuffer(packet_frames);
+        continue;
+      }
       session_.count_captured_frames(stored_bytes /
                                      native_format.bytes_per_frame());
       if (stored_bytes < packet_bytes) {
@@ -348,6 +385,19 @@ void WindowsWasapiCapture::StorageWorker(
            (ring_ != nullptr && ring_->available_to_read() > 0)) {
       const auto available = ring_ == nullptr ? 0 : ring_->pop(chunk);
       if (available == 0) {
+        const auto command = storage_command_.exchange(0);
+        if (command == 1) {
+          store.checkpoint(shipglows::audio::SessionEvent::pause, "user_pause");
+        } else if (command == 2) {
+          store.checkpoint(shipglows::audio::SessionEvent::resume, "user_resume");
+        }
+        if (command != 0) {
+          {
+            std::lock_guard lock(state_mutex_);
+            ++storage_command_completed_;
+          }
+          storage_command_condition_.notify_all();
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
         continue;
       }
@@ -370,6 +420,17 @@ void WindowsWasapiCapture::StorageWorker(
       SetEvent(static_cast<HANDLE>(event));
     }
   }
+}
+
+bool WindowsWasapiCapture::SubmitStorageCommand(std::uint8_t command) {
+  std::unique_lock lock(state_mutex_);
+  const auto expected_completion = storage_command_completed_ + 1;
+  storage_command_.store(command, std::memory_order_release);
+  return storage_command_condition_.wait_for(
+      lock, std::chrono::seconds(5), [this, expected_completion] {
+        return storage_command_completed_ >= expected_completion ||
+               session_.state() == shipglows::audio::SessionState::failed;
+      }) && storage_command_completed_ >= expected_completion;
 }
 
 void WindowsWasapiCapture::SetInitializationResult(bool success,

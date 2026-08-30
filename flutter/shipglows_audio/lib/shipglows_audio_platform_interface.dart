@@ -38,6 +38,14 @@ abstract class ShipglowsAudioPlatform extends PlatformInterface {
     throw UnimplementedError('stopRecording() has not been implemented.');
   }
 
+  Future<ShipglowsAudioCaptureStatus> pauseRecording() {
+    throw UnimplementedError('pauseRecording() has not been implemented.');
+  }
+
+  Future<ShipglowsAudioCaptureStatus> resumeRecording() {
+    throw UnimplementedError('resumeRecording() has not been implemented.');
+  }
+
   Future<ShipglowsAudioCaptureStatus> getRecordingStatus() {
     throw UnimplementedError('getRecordingStatus() has not been implemented.');
   }

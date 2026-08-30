@@ -44,6 +44,10 @@ Java_com_commandglows_shipglows_1audio_ShipglowsAudioPlugin_nativeCommand(
     }
   } else if (command == 2 && capture != nullptr) {
     capture->Stop();
+  } else if (command == 3 && capture != nullptr) {
+    return ToJavaString(environment, capture->Pause());
+  } else if (command == 4 && capture != nullptr) {
+    return ToJavaString(environment, capture->Resume());
   }
   return ToJavaString(environment,
                       capture == nullptr

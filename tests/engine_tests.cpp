@@ -129,6 +129,9 @@ void test_session_state_machine() {
   assert(!session.start());
   assert(session.prepare({48'000, 1, SampleFormat::int16}));
   assert(session.start());
+  assert(session.pause());
+  assert(session.state() == SessionState::paused);
+  assert(session.resume());
   session.count_captured_frames(480);
   session.count_dropped_frames(2);
   session.count_discontinuity();

@@ -101,6 +101,12 @@ class ShipglowsAudio {
   Future<ShipglowsAudioCaptureStatus> stopRecording() =>
       ShipglowsAudioPlatform.instance.stopRecording();
 
+  Future<ShipglowsAudioCaptureStatus> pauseRecording() =>
+      ShipglowsAudioPlatform.instance.pauseRecording();
+
+  Future<ShipglowsAudioCaptureStatus> resumeRecording() =>
+      ShipglowsAudioPlatform.instance.resumeRecording();
+
   Future<ShipglowsAudioCaptureStatus> getRecordingStatus() =>
       ShipglowsAudioPlatform.instance.getRecordingStatus();
 }

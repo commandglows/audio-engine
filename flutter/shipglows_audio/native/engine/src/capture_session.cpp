@@ -19,8 +19,22 @@ bool CaptureSession::start() noexcept {
   return state_.compare_exchange_strong(expected, SessionState::recording);
 }
 
+bool CaptureSession::pause() noexcept {
+  auto expected = SessionState::recording;
+  return state_.compare_exchange_strong(expected, SessionState::paused);
+}
+
+bool CaptureSession::resume() noexcept {
+  auto expected = SessionState::paused;
+  return state_.compare_exchange_strong(expected, SessionState::recording);
+}
+
 bool CaptureSession::request_stop() noexcept {
   auto expected = SessionState::recording;
+  if (state_.compare_exchange_strong(expected, SessionState::stopping)) {
+    return true;
+  }
+  expected = SessionState::paused;
   return state_.compare_exchange_strong(expected, SessionState::stopping);
 }
 

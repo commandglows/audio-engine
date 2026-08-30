@@ -81,6 +81,8 @@ class ShipglowsAudioPlugin :
                 }
             }
             "stopRecording" -> runNativeCommand(2, result)
+            "pauseRecording" -> runNativeCommand(3, result)
+            "resumeRecording" -> runNativeCommand(4, result)
             "getRecordingStatus" -> runNativeCommand(0, result)
             else -> result.notImplemented()
         }

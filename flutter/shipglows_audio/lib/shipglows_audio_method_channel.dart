@@ -36,6 +36,14 @@ class MethodChannelShipglowsAudio extends ShipglowsAudioPlatform {
       _captureCall('stopRecording');
 
   @override
+  Future<ShipglowsAudioCaptureStatus> pauseRecording() =>
+      _captureCall('pauseRecording');
+
+  @override
+  Future<ShipglowsAudioCaptureStatus> resumeRecording() =>
+      _captureCall('resumeRecording');
+
+  @override
   Future<ShipglowsAudioCaptureStatus> getRecordingStatus() =>
       _captureCall('getRecordingStatus');
 

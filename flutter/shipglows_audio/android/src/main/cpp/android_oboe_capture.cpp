@@ -79,6 +79,8 @@ bool AndroidOboeCapture::Start(
   }
 
   capture_finished_.store(false);
+  paused_.store(false);
+  storage_command_.store(0);
   storage_thread_ =
       std::thread(&AndroidOboeCapture::StorageWorker, this, session_directory);
   const auto start_result = stream_->requestStart();
@@ -101,7 +103,8 @@ void AndroidOboeCapture::Stop() {
   {
     std::lock_guard lock(mutex_);
     stream = stream_;
-    if (session_.state() == shipglows::audio::SessionState::recording) {
+    if (session_.state() == shipglows::audio::SessionState::recording ||
+        session_.state() == shipglows::audio::SessionState::paused) {
       static_cast<void>(session_.request_stop());
     }
   }
@@ -124,6 +127,33 @@ void AndroidOboeCapture::Stop() {
   stream_.reset();
 }
 
+std::string AndroidOboeCapture::Pause() {
+  if (!session_.pause()) {
+    return StatusLine();
+  }
+  paused_.store(true, std::memory_order_release);
+  if (!SubmitStorageCommand(1)) {
+    SetError("pause_checkpoint_failed");
+    session_.fail();
+  }
+  return StatusLine();
+}
+
+std::string AndroidOboeCapture::Resume() {
+  if (session_.state() != shipglows::audio::SessionState::paused) {
+    return StatusLine();
+  }
+  if (!SubmitStorageCommand(2)) {
+    SetError("resume_checkpoint_failed");
+    session_.fail();
+    return StatusLine();
+  }
+  lifecycle_generation_.fetch_add(1, std::memory_order_relaxed);
+  paused_.store(false, std::memory_order_release);
+  static_cast<void>(session_.resume());
+  return StatusLine();
+}
+
 std::string AndroidOboeCapture::StatusLine() const {
   std::lock_guard lock(mutex_);
   const auto metrics = session_.metrics();
@@ -144,6 +174,9 @@ oboe::DataCallbackResult AndroidOboeCapture::onAudioReady(
     oboe::AudioStream* /*stream*/, void* audio_data, int32_t num_frames) {
   if (audio_data == nullptr || num_frames <= 0 || ring_ == nullptr) {
     return oboe::DataCallbackResult::Stop;
+  }
+  if (paused_.load(std::memory_order_acquire)) {
+    return oboe::DataCallbackResult::Continue;
   }
   const auto byte_count = static_cast<std::size_t>(num_frames) *
                           format_.bytes_per_frame();
@@ -180,6 +213,19 @@ void AndroidOboeCapture::StorageWorker(
            (ring_ != nullptr && ring_->available_to_read() > 0)) {
       const auto available = ring_ == nullptr ? 0 : ring_->pop(chunk);
       if (available == 0) {
+        const auto command = storage_command_.exchange(0);
+        if (command == 1) {
+          store.checkpoint(shipglows::audio::SessionEvent::pause, "user_pause");
+        } else if (command == 2) {
+          store.checkpoint(shipglows::audio::SessionEvent::resume, "user_resume");
+        }
+        if (command != 0) {
+          {
+            std::lock_guard lock(mutex_);
+            ++storage_command_completed_;
+          }
+          storage_command_condition_.notify_all();
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
         continue;
       }
@@ -199,6 +245,17 @@ void AndroidOboeCapture::StorageWorker(
     session_.fail();
     capture_finished_.store(true, std::memory_order_release);
   }
+}
+
+bool AndroidOboeCapture::SubmitStorageCommand(std::uint8_t command) {
+  std::unique_lock lock(mutex_);
+  const auto expected_completion = storage_command_completed_ + 1;
+  storage_command_.store(command, std::memory_order_release);
+  return storage_command_condition_.wait_for(
+      lock, std::chrono::seconds(5), [this, expected_completion] {
+        return storage_command_completed_ >= expected_completion ||
+               session_.state() == shipglows::audio::SessionState::failed;
+      }) && storage_command_completed_ >= expected_completion;
 }
 
 void AndroidOboeCapture::SetError(std::string error_code) {

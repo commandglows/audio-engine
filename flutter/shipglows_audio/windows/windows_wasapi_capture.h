@@ -35,6 +35,8 @@ class WindowsWasapiCapture final {
 
   [[nodiscard]] bool Start(const std::filesystem::path& session_directory);
   [[nodiscard]] WasapiCaptureStatus Stop();
+  [[nodiscard]] WasapiCaptureStatus Pause();
+  [[nodiscard]] WasapiCaptureStatus Resume();
   [[nodiscard]] WasapiCaptureStatus Status() const;
 
  private:
@@ -45,6 +47,7 @@ class WindowsWasapiCapture final {
 
   mutable std::mutex state_mutex_;
   std::condition_variable initialization_condition_;
+  std::condition_variable storage_command_condition_;
   bool initialization_finished_ = false;
   bool initialization_succeeded_ = false;
   std::string error_code_;
@@ -56,9 +59,14 @@ class WindowsWasapiCapture final {
   std::thread storage_thread_;
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> capture_finished_{false};
+  std::atomic<bool> paused_{false};
+  std::atomic<std::uint8_t> storage_command_{0};
+  std::uint64_t storage_command_completed_ = 0;
   std::atomic<void*> wake_event_{nullptr};
   shipglows::audio::TimestampTracker timestamp_tracker_;
   std::uint64_t lifecycle_generation_ = 1;
+
+  [[nodiscard]] bool SubmitStorageCommand(std::uint8_t command);
 };
 
 }  // namespace shipglows_audio

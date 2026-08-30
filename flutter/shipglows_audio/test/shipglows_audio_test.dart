@@ -27,6 +27,14 @@ class MockShipglowsAudioPlatform
       _status('stopped');
 
   @override
+  Future<ShipglowsAudioCaptureStatus> pauseRecording() async =>
+      _status('paused');
+
+  @override
+  Future<ShipglowsAudioCaptureStatus> resumeRecording() async =>
+      _status('recording');
+
+  @override
   Future<ShipglowsAudioCaptureStatus> getRecordingStatus() async =>
       _status('recording');
 
@@ -73,8 +81,12 @@ void main() {
   test('capture lifecycle delegates to the platform engine', () async {
     final plugin = ShipglowsAudio();
     final started = await plugin.startRecording(sessionDirectory: 'session');
+    final paused = await plugin.pauseRecording();
+    final resumed = await plugin.resumeRecording();
     final stopped = await plugin.stopRecording();
     expect(started.state, 'recording');
+    expect(paused.state, 'paused');
+    expect(resumed.state, 'recording');
     expect(stopped.state, 'stopped');
   });
 }

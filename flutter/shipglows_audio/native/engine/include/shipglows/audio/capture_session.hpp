@@ -26,6 +26,8 @@ class CaptureSession final {
  public:
   [[nodiscard]] bool prepare(AudioFormat format) noexcept;
   [[nodiscard]] bool start() noexcept;
+  [[nodiscard]] bool pause() noexcept;
+  [[nodiscard]] bool resume() noexcept;
   [[nodiscard]] bool request_stop() noexcept;
   [[nodiscard]] bool finish() noexcept;
   void fail() noexcept;

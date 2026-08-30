@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <condition_variable>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -28,6 +29,8 @@ class AndroidOboeCapture final : public oboe::AudioStreamDataCallback,
 
   [[nodiscard]] bool Start(const std::filesystem::path& session_directory);
   void Stop();
+  [[nodiscard]] std::string Pause();
+  [[nodiscard]] std::string Resume();
   [[nodiscard]] std::string StatusLine() const;
 
   oboe::DataCallbackResult onAudioReady(oboe::AudioStream* stream,
@@ -48,8 +51,13 @@ class AndroidOboeCapture final : public oboe::AudioStreamDataCallback,
   std::unique_ptr<shipglows::audio::SpscAudioRingBuffer<std::byte>> ring_;
   std::thread storage_thread_;
   std::atomic<bool> capture_finished_{false};
+  std::atomic<bool> paused_{false};
+  std::atomic<std::uint8_t> storage_command_{0};
+  std::condition_variable storage_command_condition_;
+  std::uint64_t storage_command_completed_ = 0;
   shipglows::audio::TimestampTracker timestamp_tracker_;
   std::atomic<std::uint64_t> lifecycle_generation_{1};
+  [[nodiscard]] bool SubmitStorageCommand(std::uint8_t command);
 };
 
 }  // namespace shipglows_audio
