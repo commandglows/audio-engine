@@ -23,8 +23,10 @@ void main() {
     expect(info.version, '0.1.0');
   });
 
-  testWidgets('WASAPI records recoverable WAV v2 segments', (tester) async {
-    if (!Platform.isWindows) return;
+  testWidgets('native backend records recoverable WAV v2 segments', (
+    tester,
+  ) async {
+    if (!Platform.isWindows && !Platform.isAndroid) return;
     final directory = await Directory.systemTemp.createTemp(
       'shipglows-audio-integration-',
     );
@@ -40,11 +42,20 @@ void main() {
     );
     expect(started.state, 'recording');
     expect(started.sampleRate, greaterThan(0));
-    await Future<void>.delayed(const Duration(seconds: 1));
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    for (var iteration = 0; iteration < 5; iteration++) {
+      final paused = await plugin.pauseRecording();
+      expect(paused.state, 'paused');
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      final resumed = await plugin.resumeRecording();
+      expect(resumed.state, 'recording');
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
 
     final stopped = await plugin.stopRecording();
     expect(stopped.state, 'stopped');
     expect(stopped.framesCaptured, greaterThan(0));
+    expect(stopped.hardwareTimestamps, greaterThan(0));
     expect(stopped.errorCode, isEmpty);
 
     final journal = File(

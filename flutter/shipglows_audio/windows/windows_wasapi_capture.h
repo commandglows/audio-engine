@@ -42,6 +42,7 @@ class WindowsWasapiCapture final {
  private:
   void CaptureWorker(std::filesystem::path session_directory);
   void StorageWorker(std::filesystem::path session_directory);
+  void RouteMonitorWorker();
   void SetInitializationResult(bool success, std::string error_code = {});
   void SetError(std::string error_code);
 
@@ -57,6 +58,7 @@ class WindowsWasapiCapture final {
   std::unique_ptr<shipglows::audio::SpscAudioRingBuffer<std::byte>> ring_;
   std::thread capture_thread_;
   std::thread storage_thread_;
+  std::thread route_monitor_thread_;
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> capture_finished_{false};
   std::atomic<bool> paused_{false};
@@ -64,7 +66,8 @@ class WindowsWasapiCapture final {
   std::uint64_t storage_command_completed_ = 0;
   std::atomic<void*> wake_event_{nullptr};
   shipglows::audio::TimestampTracker timestamp_tracker_;
-  std::uint64_t lifecycle_generation_ = 1;
+  std::atomic<std::uint64_t> lifecycle_generation_{1};
+  std::atomic<bool> route_change_requested_{false};
 
   [[nodiscard]] bool SubmitStorageCommand(std::uint8_t command);
 };

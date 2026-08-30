@@ -18,6 +18,8 @@ struct CaptureMetrics final {
   std::uint64_t timestamp_gap_frames = 0;
   std::uint64_t writer_stalls = 0;
   std::uint64_t route_changes = 0;
+  std::uint64_t hardware_timestamps = 0;
+  std::uint64_t timestamp_query_failures = 0;
   float peak_level = 0.0F;
   float rms_level = 0.0F;
 };
@@ -41,6 +43,8 @@ class CaptureSession final {
   void count_timestamp_gap_frames(std::uint64_t frames) noexcept;
   void count_writer_stall() noexcept;
   void count_route_change() noexcept;
+  void count_hardware_timestamp() noexcept;
+  void count_timestamp_query_failure() noexcept;
   void set_levels(float peak, float rms) noexcept;
 
   [[nodiscard]] SessionState state() const noexcept;
@@ -60,6 +64,8 @@ class CaptureSession final {
   std::atomic<std::uint64_t> timestamp_gap_frames_{0};
   std::atomic<std::uint64_t> writer_stalls_{0};
   std::atomic<std::uint64_t> route_changes_{0};
+  std::atomic<std::uint64_t> hardware_timestamps_{0};
+  std::atomic<std::uint64_t> timestamp_query_failures_{0};
   std::atomic<float> peak_level_{0.0F};
   std::atomic<float> rms_level_{0.0F};
 };

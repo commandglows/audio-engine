@@ -78,6 +78,8 @@ bool AndroidOboeCapture::Start(
     SetError("session_state_failed");
     return false;
   }
+  timestamp_tracker_.reset(format_.sample_rate,
+                           lifecycle_generation_.load());
 
   capture_finished_.store(false);
   stop_requested_.store(false);
@@ -172,7 +174,8 @@ std::string AndroidOboeCapture::StatusLine() const {
         << metrics.native_xruns << '|' << metrics.ring_overflow_frames << '|'
         << metrics.timestamp_gap_frames << '|' << metrics.writer_stalls << '|'
         << metrics.route_changes << '|' << metrics.peak_level << '|'
-        << metrics.rms_level;
+        << metrics.rms_level << '|' << metrics.hardware_timestamps << '|'
+        << metrics.timestamp_query_failures;
   return value.str();
 }
 
@@ -283,8 +286,32 @@ void AndroidOboeCapture::StorageWorker(
     const auto frame_bytes = format_.bytes_per_frame();
     const auto chunk_bytes = (64 * 1024 / frame_bytes) * frame_bytes;
     std::vector<std::byte> chunk(chunk_bytes);
+    auto next_timestamp_query = std::chrono::steady_clock::now();
     while (!capture_finished_.load(std::memory_order_acquire) ||
            (ring_ != nullptr && ring_->available_to_read() > 0)) {
+      if (std::chrono::steady_clock::now() >= next_timestamp_query) {
+        next_timestamp_query = std::chrono::steady_clock::now() +
+                               std::chrono::milliseconds(100);
+        std::shared_ptr<oboe::AudioStream> timestamp_stream;
+        {
+          std::lock_guard lock(mutex_);
+          timestamp_stream = stream_;
+        }
+        if (timestamp_stream != nullptr) {
+          const auto timestamp = timestamp_stream->getTimestamp(CLOCK_MONOTONIC);
+          if (timestamp) {
+            const auto value = timestamp.value();
+            const auto gaps = timestamp_tracker_.observe_position(
+                static_cast<std::uint64_t>(value.timestamp),
+                static_cast<std::uint64_t>(value.position),
+                lifecycle_generation_.load(std::memory_order_relaxed));
+            session_.count_hardware_timestamp();
+            if (gaps > 0) session_.count_timestamp_gap_frames(gaps);
+          } else {
+            session_.count_timestamp_query_failure();
+          }
+        }
+      }
       const auto available = ring_ == nullptr ? 0 : ring_->pop(chunk);
       if (available == 0) {
         const auto command = storage_command_.exchange(0);

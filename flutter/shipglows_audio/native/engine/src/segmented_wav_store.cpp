@@ -83,10 +83,11 @@ void write_header(std::ostream& output, AudioFormat format,
 
 SegmentedWavStore::SegmentedWavStore(
     std::filesystem::path session_directory, AudioFormat format,
-    std::uint64_t frames_per_segment)
+    std::uint64_t frames_per_segment, WavStoreFaultPolicy fault_policy)
     : directory_(std::move(session_directory)),
       format_(format),
-      frames_per_segment_(frames_per_segment) {
+      frames_per_segment_(frames_per_segment),
+      fault_policy_(fault_policy) {
   if (!format_.valid() || frames_per_segment_ == 0) {
     throw std::invalid_argument("invalid segmented WAV store configuration");
   }
@@ -117,9 +118,22 @@ void SegmentedWavStore::append(std::span<const std::byte> bytes) {
   }
   auto remaining = bytes;
   while (!remaining.empty()) {
+    if (fault_policy_.fail_after_frames > 0 &&
+        total_frames_ + current_frames_ >= fault_policy_.fail_after_frames) {
+      if (current_stream_.is_open()) finalize_current_segment();
+      append_journal("event=failure,frame=" + std::to_string(total_frames_) +
+                     ",reason=simulated_write_failure");
+      throw std::runtime_error("simulated WAV write failure");
+    }
     if (!current_stream_.is_open()) open_next_segment();
     const auto available = (frames_per_segment_ - current_frames_) * frame_bytes;
-    const auto write_bytes = std::min<std::uint64_t>(remaining.size(), available);
+    auto write_bytes = std::min<std::uint64_t>(remaining.size(), available);
+    if (fault_policy_.fail_after_frames > 0) {
+      const auto frames_until_failure = fault_policy_.fail_after_frames -
+                                        total_frames_ - current_frames_;
+      write_bytes = std::min<std::uint64_t>(
+          write_bytes, frames_until_failure * frame_bytes);
+    }
     current_stream_.write(reinterpret_cast<const char*>(remaining.data()),
                           static_cast<std::streamsize>(write_bytes));
     if (!current_stream_) throw std::runtime_error("failed to write WAV segment");

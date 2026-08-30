@@ -42,9 +42,13 @@ class ShipglowsAudioCaptureStatus {
     required this.timestampGapFrames,
     required this.writerStalls,
     required this.routeChanges,
+    this.hardwareTimestamps = 0,
+    this.timestampQueryFailures = 0,
     required this.peakLevel,
     required this.rmsLevel,
     required this.errorCode,
+    this.errorRecoverable = false,
+    this.recoveryAction = 'none',
   });
 
   factory ShipglowsAudioCaptureStatus.fromMap(Map<Object?, Object?> map) {
@@ -63,9 +67,13 @@ class ShipglowsAudioCaptureStatus {
       timestampGapFrames: map['timestampGapFrames'] as int? ?? 0,
       writerStalls: map['writerStalls'] as int? ?? 0,
       routeChanges: map['routeChanges'] as int? ?? 0,
+      hardwareTimestamps: map['hardwareTimestamps'] as int? ?? 0,
+      timestampQueryFailures: map['timestampQueryFailures'] as int? ?? 0,
       peakLevel: (map['peakLevel'] as num?)?.toDouble() ?? 0,
       rmsLevel: (map['rmsLevel'] as num?)?.toDouble() ?? 0,
       errorCode: map['errorCode'] as String? ?? '',
+      errorRecoverable: map['errorRecoverable'] as bool? ?? false,
+      recoveryAction: map['recoveryAction'] as String? ?? 'none',
     );
   }
 
@@ -83,9 +91,13 @@ class ShipglowsAudioCaptureStatus {
   final int timestampGapFrames;
   final int writerStalls;
   final int routeChanges;
+  final int hardwareTimestamps;
+  final int timestampQueryFailures;
   final double peakLevel;
   final double rmsLevel;
   final String errorCode;
+  final bool errorRecoverable;
+  final String recoveryAction;
 }
 
 class ShipglowsAudio {

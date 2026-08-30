@@ -64,12 +64,26 @@ flutter::EncodableValue CaptureStatusValue(const WasapiCaptureStatus& status) {
       static_cast<int64_t>(status.metrics.writer_stalls));
   value[flutter::EncodableValue("routeChanges")] = flutter::EncodableValue(
       static_cast<int64_t>(status.metrics.route_changes));
+  value[flutter::EncodableValue("hardwareTimestamps")] =
+      flutter::EncodableValue(
+          static_cast<int64_t>(status.metrics.hardware_timestamps));
+  value[flutter::EncodableValue("timestampQueryFailures")] =
+      flutter::EncodableValue(
+          static_cast<int64_t>(status.metrics.timestamp_query_failures));
   value[flutter::EncodableValue("peakLevel")] =
       flutter::EncodableValue(static_cast<double>(status.metrics.peak_level));
   value[flutter::EncodableValue("rmsLevel")] =
       flutter::EncodableValue(static_cast<double>(status.metrics.rms_level));
   value[flutter::EncodableValue("errorCode")] =
       flutter::EncodableValue(status.error_code);
+  const auto recoverable = status.error_code == "device_invalidated" ||
+                           status.error_code == "route_changed" ||
+                           status.error_code == "wasapi_event_wait_failed";
+  value[flutter::EncodableValue("errorRecoverable")] =
+      flutter::EncodableValue(recoverable);
+  value[flutter::EncodableValue("recoveryAction")] = flutter::EncodableValue(
+      recoverable ? "automatic_reconnect" :
+      (status.error_code.empty() ? "none" : "start_new_session"));
   return flutter::EncodableValue(value);
 }
 

@@ -32,10 +32,15 @@ struct WavSegmentRecord final {
   std::string file_name;
 };
 
+struct WavStoreFaultPolicy final {
+  std::uint64_t fail_after_frames = 0;
+};
+
 class SegmentedWavStore final {
  public:
   SegmentedWavStore(std::filesystem::path session_directory,
-                    AudioFormat format, std::uint64_t frames_per_segment);
+                    AudioFormat format, std::uint64_t frames_per_segment,
+                    WavStoreFaultPolicy fault_policy = {});
   ~SegmentedWavStore();
 
   SegmentedWavStore(const SegmentedWavStore&) = delete;
@@ -62,6 +67,7 @@ class SegmentedWavStore final {
   std::ofstream journal_;
   std::vector<WavSegmentRecord> segments_;
   bool finalized_ = false;
+  WavStoreFaultPolicy fault_policy_{};
 };
 
 }  // namespace shipglows::audio

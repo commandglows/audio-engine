@@ -8,6 +8,7 @@
 #include <wrl/client.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstring>
 #include <span>
@@ -109,6 +110,7 @@ bool WindowsWasapiCapture::Start(
   stop_requested_.store(false);
   capture_finished_.store(false);
   paused_.store(false);
+  route_change_requested_.store(false);
   storage_command_.store(0);
   capture_thread_ =
       std::thread(&WindowsWasapiCapture::CaptureWorker, this, session_directory);
@@ -129,6 +131,9 @@ bool WindowsWasapiCapture::Start(
     if (storage_thread_.joinable()) {
       storage_thread_.join();
     }
+    if (route_monitor_thread_.joinable()) {
+      route_monitor_thread_.join();
+    }
     return false;
   }
   return true;
@@ -148,6 +153,9 @@ WasapiCaptureStatus WindowsWasapiCapture::Stop() {
   }
   if (storage_thread_.joinable()) {
     storage_thread_.join();
+  }
+  if (route_monitor_thread_.joinable()) {
+    route_monitor_thread_.join();
   }
   return Status();
 }
@@ -173,8 +181,7 @@ WasapiCaptureStatus WindowsWasapiCapture::Resume() {
     session_.fail();
     return Status();
   }
-  ++lifecycle_generation_;
-  timestamp_tracker_.reset(format_.sample_rate, lifecycle_generation_);
+  lifecycle_generation_.fetch_add(1, std::memory_order_relaxed);
   paused_.store(false, std::memory_order_release);
   static_cast<void>(session_.resume());
   return Status();
@@ -207,19 +214,27 @@ void WindowsWasapiCapture::CaptureWorker(
   HANDLE mmcss_handle = nullptr;
   DWORD mmcss_task_index = 0;
 
-  auto cleanup = [&] {
+  auto close_stream = [&] {
     if (audio_client) {
       audio_client->Stop();
     }
-    if (mmcss_handle != nullptr) {
-      AvRevertMmThreadCharacteristics(mmcss_handle);
-    }
     if (audio_event != nullptr) {
       CloseHandle(audio_event);
+      audio_event = nullptr;
     }
     wake_event_.store(nullptr);
     if (mix_format != nullptr) {
       CoTaskMemFree(mix_format);
+      mix_format = nullptr;
+    }
+    capture_client.Reset();
+    audio_client.Reset();
+    device.Reset();
+  };
+  auto cleanup = [&] {
+    close_stream();
+    if (mmcss_handle != nullptr) {
+      AvRevertMmThreadCharacteristics(mmcss_handle);
     }
     capture_finished_.store(true);
     CoUninitialize();
@@ -227,47 +242,69 @@ void WindowsWasapiCapture::CaptureWorker(
 
   HRESULT result = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
                                     CLSCTX_ALL, IID_PPV_ARGS(&enumerator));
-  if (SUCCEEDED(result)) {
-    result = enumerator->GetDefaultAudioEndpoint(eCapture, eMultimedia, &device);
-  }
-  if (SUCCEEDED(result)) {
-    result = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-                              reinterpret_cast<void**>(audio_client.GetAddressOf()));
-  }
-  if (SUCCEEDED(result)) {
-    result = audio_client->GetMixFormat(&mix_format);
+  if (FAILED(result)) {
+    SetInitializationResult(false, "wasapi_enumerator_failed");
+    cleanup();
+    return;
   }
   AudioFormat native_format{};
-  if (FAILED(result) || mix_format == nullptr ||
-      !MapWaveFormat(*mix_format, &native_format)) {
-    SetInitializationResult(false, "unsupported_device_format");
-    cleanup();
-    return;
-  }
-
-  result = audio_client->Initialize(
-      AUDCLNT_SHAREMODE_SHARED,
-      AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_NOPERSIST, 0, 0,
-      mix_format, nullptr);
-  if (FAILED(result)) {
-    SetInitializationResult(false, "wasapi_initialize_failed");
-    cleanup();
-    return;
-  }
-
   UINT32 endpoint_buffer_frames = 0;
-  result = audio_client->GetBufferSize(&endpoint_buffer_frames);
-  if (SUCCEEDED(result)) {
+  auto open_default_endpoint = [&](bool first_open) -> bool {
+    close_stream();
+    result = enumerator->GetDefaultAudioEndpoint(eCapture, eMultimedia, &device);
+    if (FAILED(result)) return false;
+    result = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                              reinterpret_cast<void**>(audio_client.GetAddressOf()));
+    if (FAILED(result)) return false;
+    result = audio_client->GetMixFormat(&mix_format);
+    AudioFormat candidate{};
+    if (FAILED(result) || mix_format == nullptr ||
+        !MapWaveFormat(*mix_format, &candidate)) {
+      return false;
+    }
+    if (first_open) {
+      native_format = candidate;
+    } else if (candidate.sample_rate != native_format.sample_rate ||
+               candidate.channel_count != native_format.channel_count ||
+               candidate.sample_format != native_format.sample_format) {
+      CoTaskMemFree(mix_format);
+      mix_format = static_cast<WAVEFORMATEX*>(
+          CoTaskMemAlloc(sizeof(WAVEFORMATEX)));
+      if (mix_format == nullptr) return false;
+      *mix_format = {};
+      mix_format->wFormatTag = native_format.sample_format == SampleFormat::float32
+                                  ? WAVE_FORMAT_IEEE_FLOAT
+                                  : WAVE_FORMAT_PCM;
+      mix_format->nChannels = native_format.channel_count;
+      mix_format->nSamplesPerSec = native_format.sample_rate;
+      mix_format->wBitsPerSample = native_format.bytes_per_sample() * 8;
+      mix_format->nBlockAlign =
+          static_cast<WORD>(native_format.bytes_per_frame());
+      mix_format->nAvgBytesPerSec =
+          native_format.sample_rate * native_format.bytes_per_frame();
+    }
+    result = audio_client->Initialize(
+        AUDCLNT_SHAREMODE_SHARED,
+        AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_NOPERSIST |
+            AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
+            AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+        0, 0, mix_format, nullptr);
+    if (FAILED(result)) return false;
+    result = audio_client->GetBufferSize(&endpoint_buffer_frames);
+    if (FAILED(result)) return false;
     audio_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    result = audio_event == nullptr
-                 ? HRESULT_FROM_WIN32(GetLastError())
-                 : audio_client->SetEventHandle(audio_event);
-  }
-  if (SUCCEEDED(result)) {
+    if (audio_event == nullptr ||
+        FAILED(audio_client->SetEventHandle(audio_event))) {
+      return false;
+    }
     result = audio_client->GetService(IID_PPV_ARGS(&capture_client));
-  }
-  if (FAILED(result)) {
-    SetInitializationResult(false, "wasapi_capture_service_failed");
+    if (FAILED(result)) return false;
+    wake_event_.store(audio_event);
+    return SUCCEEDED(audio_client->Start());
+  };
+
+  if (!open_default_endpoint(true)) {
+    SetInitializationResult(false, "wasapi_initialize_failed");
     cleanup();
     return;
   }
@@ -285,34 +322,66 @@ void WindowsWasapiCapture::CaptureWorker(
     cleanup();
     return;
   }
-  timestamp_tracker_.reset(native_format.sample_rate, lifecycle_generation_);
+  timestamp_tracker_.reset(native_format.sample_rate,
+                           lifecycle_generation_.load());
 
   storage_thread_ =
       std::thread(&WindowsWasapiCapture::StorageWorker, this, session_directory);
-  wake_event_.store(audio_event);
-  result = audio_client->Start();
-  if (FAILED(result)) {
-    session_.fail();
-    SetInitializationResult(false, "wasapi_start_failed");
-    cleanup();
-    return;
-  }
+  route_monitor_thread_ =
+      std::thread(&WindowsWasapiCapture::RouteMonitorWorker, this);
   SetInitializationResult(true);
 
   mmcss_handle = AvSetMmThreadCharacteristics(L"Audio", &mmcss_task_index);
-  std::vector<std::byte> silence(
-      static_cast<std::size_t>(endpoint_buffer_frames) *
-      native_format.bytes_per_frame());
+  std::vector<std::byte> silence;
+  auto resize_silence = [&] {
+    silence.assign(static_cast<std::size_t>(endpoint_buffer_frames) *
+                       native_format.bytes_per_frame(),
+                   std::byte{});
+  };
+  resize_silence();
+  bool reconnect_required = false;
+  bool route_changed = false;
 
   while (!stop_requested_.load(std::memory_order_relaxed)) {
+    if (reconnect_required) {
+      static_cast<void>(SubmitStorageCommand(route_changed ? 5 : 3));
+      close_stream();
+      constexpr std::array delays{100, 200, 400, 800, 1600};
+      bool reconnected = false;
+      for (const auto delay_ms : delays) {
+        if (stop_requested_.load(std::memory_order_acquire)) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+        if (open_default_endpoint(false)) {
+          reconnected = true;
+          break;
+        }
+      }
+      if (!reconnected) {
+        SetError("device_reconnect_exhausted");
+        session_.fail();
+        break;
+      }
+      const auto generation =
+          lifecycle_generation_.fetch_add(1, std::memory_order_relaxed) + 1;
+      timestamp_tracker_.reset(native_format.sample_rate, generation);
+      session_.count_device_restart();
+      if (route_changed) session_.count_route_change();
+      SetError({});
+      static_cast<void>(SubmitStorageCommand(4));
+      resize_silence();
+      reconnect_required = false;
+      route_changed = false;
+      continue;
+    }
+
     const auto wait_result = WaitForSingleObject(audio_event, 200);
     if (wait_result == WAIT_TIMEOUT) {
       continue;
     }
     if (wait_result != WAIT_OBJECT_0) {
       SetError("wasapi_event_wait_failed");
-      session_.fail();
-      break;
+      reconnect_required = true;
+      continue;
     }
 
     UINT32 packet_frames = 0;
@@ -328,8 +397,7 @@ void WindowsWasapiCapture::CaptureWorker(
         SetError(result == AUDCLNT_E_DEVICE_INVALIDATED
                      ? "device_invalidated"
                      : "wasapi_get_buffer_failed");
-        session_.fail();
-        stop_requested_.store(true);
+        reconnect_required = true;
         break;
       }
 
@@ -340,7 +408,12 @@ void WindowsWasapiCapture::CaptureWorker(
       // endpoint did not provide a usable timestamp for this packet.
       const auto gap_frames = timestamp_tracker_.observe(
           capture_time > 0 ? capture_time * 100ULL : 0, packet_frames,
-          lifecycle_generation_);
+          lifecycle_generation_.load(std::memory_order_relaxed));
+      if (capture_time > 0) {
+        session_.count_hardware_timestamp();
+      } else {
+        session_.count_timestamp_query_failure();
+      }
       if (gap_frames > 0) {
         session_.count_timestamp_gap_frames(gap_frames);
       }
@@ -367,9 +440,45 @@ void WindowsWasapiCapture::CaptureWorker(
       }
       capture_client->ReleaseBuffer(packet_frames);
     }
+
+    if (!reconnect_required &&
+        route_change_requested_.exchange(false, std::memory_order_acq_rel)) {
+      route_changed = true;
+      reconnect_required = true;
+      SetError("route_changed");
+    }
   }
 
   cleanup();
+}
+
+void WindowsWasapiCapture::RouteMonitorWorker() {
+  if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) return;
+  ComPtr<IMMDeviceEnumerator> enumerator;
+  std::wstring known_id;
+  if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
+                                 CLSCTX_ALL, IID_PPV_ARGS(&enumerator)))) {
+    while (!stop_requested_.load(std::memory_order_acquire) &&
+           !capture_finished_.load(std::memory_order_acquire)) {
+      ComPtr<IMMDevice> current;
+      LPWSTR id = nullptr;
+      if (SUCCEEDED(enumerator->GetDefaultAudioEndpoint(
+              eCapture, eMultimedia, &current)) &&
+          SUCCEEDED(current->GetId(&id)) && id != nullptr) {
+        const std::wstring current_id(id);
+        CoTaskMemFree(id);
+        if (!known_id.empty() && current_id != known_id) {
+          route_change_requested_.store(true, std::memory_order_release);
+          if (const auto event = wake_event_.load(); event != nullptr) {
+            SetEvent(static_cast<HANDLE>(event));
+          }
+        }
+        known_id = current_id;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+  }
+  CoUninitialize();
 }
 
 void WindowsWasapiCapture::StorageWorker(
@@ -390,6 +499,15 @@ void WindowsWasapiCapture::StorageWorker(
           store.checkpoint(shipglows::audio::SessionEvent::pause, "user_pause");
         } else if (command == 2) {
           store.checkpoint(shipglows::audio::SessionEvent::resume, "user_resume");
+        } else if (command == 3) {
+          store.checkpoint(shipglows::audio::SessionEvent::interruption,
+                           "device_invalidated");
+        } else if (command == 4) {
+          store.checkpoint(shipglows::audio::SessionEvent::device_restart,
+                           "default_device");
+        } else if (command == 5) {
+          store.checkpoint(shipglows::audio::SessionEvent::route_change,
+                           "default_device_changed");
         }
         if (command != 0) {
           {

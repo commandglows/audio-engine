@@ -67,12 +67,18 @@ class TimestampTracker final {
   [[nodiscard]] std::uint64_t observe(std::uint64_t host_time_ns,
                                       std::uint32_t frame_count,
                                       std::uint64_t generation) noexcept;
+  [[nodiscard]] std::uint64_t observe_position(
+      std::uint64_t host_time_ns, std::uint64_t frame_position,
+      std::uint64_t generation) noexcept;
 
  private:
   std::uint32_t sample_rate_ = 0;
   std::uint64_t generation_ = 0;
   std::uint64_t expected_next_time_ns_ = 0;
+  std::uint64_t last_position_ = 0;
+  std::uint64_t last_position_time_ns_ = 0;
   bool initialized_ = false;
+  bool position_initialized_ = false;
 };
 
 }  // namespace shipglows::audio

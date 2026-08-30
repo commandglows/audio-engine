@@ -129,7 +129,40 @@ void TimestampTracker::reset(std::uint32_t sample_rate,
   sample_rate_ = sample_rate;
   generation_ = generation;
   expected_next_time_ns_ = 0;
+  last_position_ = 0;
+  last_position_time_ns_ = 0;
   initialized_ = false;
+  position_initialized_ = false;
+}
+
+std::uint64_t TimestampTracker::observe_position(
+    std::uint64_t host_time_ns, std::uint64_t frame_position,
+    std::uint64_t generation) noexcept {
+  if (sample_rate_ == 0 || host_time_ns == 0) return 0;
+  if (!position_initialized_ || generation != generation_) {
+    generation_ = generation;
+    last_position_ = frame_position;
+    last_position_time_ns_ = host_time_ns;
+    position_initialized_ = true;
+    initialized_ = false;
+    return 0;
+  }
+  if (frame_position < last_position_ || host_time_ns <= last_position_time_ns_) {
+    last_position_ = frame_position;
+    last_position_time_ns_ = host_time_ns;
+    return 0;
+  }
+  const auto elapsed_ns = host_time_ns - last_position_time_ns_;
+  const auto expected_frames =
+      (elapsed_ns * sample_rate_ + 500'000'000ULL) / 1'000'000'000ULL;
+  const auto actual_frames = frame_position - last_position_;
+  const auto tolerance = std::max<std::uint64_t>(1, sample_rate_ / 1000);
+  const auto gap = actual_frames > expected_frames + tolerance
+                       ? actual_frames - expected_frames
+                       : 0;
+  last_position_ = frame_position;
+  last_position_time_ns_ = host_time_ns;
+  return gap;
 }
 
 std::uint64_t TimestampTracker::observe(std::uint64_t host_time_ns,
