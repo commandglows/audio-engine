@@ -99,6 +99,13 @@ void AndroidOboeCapture::Stop() {
     }
   }
   if (stream != nullptr) {
+    if (stream->isXRunCountSupported()) {
+      const auto xruns = stream->getXRunCount();
+      if (xruns && xruns.value() > 0) {
+        session_.count_native_xruns(
+            static_cast<std::uint64_t>(xruns.value()));
+      }
+    }
     stream->requestStop();
     stream->close();
   }
@@ -118,7 +125,10 @@ std::string AndroidOboeCapture::StatusLine() const {
         << format_.sample_rate << '|' << format_.channel_count << "|int16|"
         << metrics.frames_captured << '|' << metrics.frames_dropped << '|'
         << metrics.discontinuities << '|' << metrics.clipped_samples << '|'
-        << metrics.device_restarts << '|' << error_code_;
+        << metrics.device_restarts << '|' << error_code_ << '|'
+        << metrics.native_xruns << '|' << metrics.ring_overflow_frames << '|'
+        << metrics.timestamp_gap_frames << '|' << metrics.writer_stalls << '|'
+        << metrics.route_changes;
   return value.str();
 }
 

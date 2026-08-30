@@ -37,6 +37,11 @@ class ShipglowsAudioCaptureStatus {
     required this.discontinuities,
     required this.clippedSamples,
     required this.deviceRestarts,
+    required this.nativeXruns,
+    required this.ringOverflowFrames,
+    required this.timestampGapFrames,
+    required this.writerStalls,
+    required this.routeChanges,
     required this.errorCode,
   });
 
@@ -51,6 +56,11 @@ class ShipglowsAudioCaptureStatus {
       discontinuities: map['discontinuities'] as int? ?? 0,
       clippedSamples: map['clippedSamples'] as int? ?? 0,
       deviceRestarts: map['deviceRestarts'] as int? ?? 0,
+      nativeXruns: map['nativeXruns'] as int? ?? 0,
+      ringOverflowFrames: map['ringOverflowFrames'] as int? ?? 0,
+      timestampGapFrames: map['timestampGapFrames'] as int? ?? 0,
+      writerStalls: map['writerStalls'] as int? ?? 0,
+      routeChanges: map['routeChanges'] as int? ?? 0,
       errorCode: map['errorCode'] as String? ?? '',
     );
   }
@@ -64,6 +74,11 @@ class ShipglowsAudioCaptureStatus {
   final int discontinuities;
   final int clippedSamples;
   final int deviceRestarts;
+  final int nativeXruns;
+  final int ringOverflowFrames;
+  final int timestampGapFrames;
+  final int writerStalls;
+  final int routeChanges;
   final String errorCode;
 }
 

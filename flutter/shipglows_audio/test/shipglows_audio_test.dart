@@ -41,6 +41,11 @@ class MockShipglowsAudioPlatform
         discontinuities: 0,
         clippedSamples: 0,
         deviceRestarts: 0,
+        nativeXruns: 0,
+        ringOverflowFrames: 0,
+        timestampGapFrames: 0,
+        writerStalls: 0,
+        routeChanges: 0,
         errorCode: '',
       );
 }

@@ -102,7 +102,7 @@ class ShipglowsAudioPlugin :
     }
 
     private fun parseStatus(line: String): Map<String, Any> {
-        val fields = line.split('|', limit = 10)
+        val fields = line.split('|', limit = 15)
         fun number(index: Int): Long = fields.getOrNull(index)?.toLongOrNull() ?: 0L
         return mapOf(
             "state" to (fields.getOrNull(0) ?: "unknown"),
@@ -115,6 +115,11 @@ class ShipglowsAudioPlugin :
             "clippedSamples" to number(7),
             "deviceRestarts" to number(8),
             "errorCode" to (fields.getOrNull(9) ?: ""),
+            "nativeXruns" to number(10),
+            "ringOverflowFrames" to number(11),
+            "timestampGapFrames" to number(12),
+            "writerStalls" to number(13),
+            "routeChanges" to number(14),
         )
     }
 

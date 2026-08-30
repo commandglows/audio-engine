@@ -24,6 +24,11 @@ void main() {
               'discontinuities': 0,
               'clippedSamples': 0,
               'deviceRestarts': 0,
+              'nativeXruns': 2,
+              'ringOverflowFrames': 3,
+              'timestampGapFrames': 4,
+              'writerStalls': 5,
+              'routeChanges': 6,
               'errorCode': '',
             };
           }
@@ -54,6 +59,11 @@ void main() {
     final stopped = await platform.stopRecording();
     expect(started.state, 'recording');
     expect(started.sampleRate, 48000);
+    expect(started.nativeXruns, 2);
+    expect(started.ringOverflowFrames, 3);
+    expect(started.timestampGapFrames, 4);
+    expect(started.writerStalls, 5);
+    expect(started.routeChanges, 6);
     expect(stopped.state, 'stopped');
   });
 }

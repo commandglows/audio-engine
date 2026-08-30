@@ -135,6 +135,11 @@ class _MyAppState extends State<MyApp> {
                 Text('Discontinuities: ${capture.discontinuities}'),
                 Text('Clipped samples: ${capture.clippedSamples}'),
                 Text('Device restarts: ${capture.deviceRestarts}'),
+                Text('Native xruns: ${capture.nativeXruns}'),
+                Text('Ring overflow frames: ${capture.ringOverflowFrames}'),
+                Text('Timestamp gap frames: ${capture.timestampGapFrames}'),
+                Text('Writer stalls: ${capture.writerStalls}'),
+                Text('Route changes: ${capture.routeChanges}'),
                 Text(
                   'Error: ${capture.errorCode.isEmpty ? 'none' : capture.errorCode}',
                 ),
