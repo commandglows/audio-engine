@@ -9,6 +9,7 @@
 #include "shipglows/audio/capture_session.hpp"
 #include "shipglows/audio/segmented_pcm_store.hpp"
 #include "shipglows/audio/spsc_audio_ring_buffer.hpp"
+#include "shipglows/audio/pcm_analysis.hpp"
 
 namespace {
 
@@ -26,11 +27,13 @@ void test_session_state_machine() {
   assert(session.start());
   session.count_captured_frames(480);
   session.count_dropped_frames(2);
+  session.count_discontinuity();
   assert(session.request_stop());
   assert(session.finish());
   assert(session.state() == SessionState::stopped);
   assert(session.metrics().frames_captured == 480);
   assert(session.metrics().frames_dropped == 2);
+  assert(session.metrics().discontinuities == 1);
 }
 
 void test_ring_buffer_wraps_without_overwrite() {
@@ -72,12 +75,21 @@ void test_segment_rotation_and_recovery() {
   std::filesystem::remove_all(root);
 }
 
+void test_clipping_analysis() {
+  const std::array<std::int16_t, 5> samples{0, 12'000, 32'760, -32'768, 1};
+  const auto clipped = shipglows::audio::count_clipped_samples(
+      std::as_bytes(std::span(samples)),
+      AudioFormat{48'000, 1, SampleFormat::int16});
+  assert(clipped == 2);
+}
+
 }  // namespace
 
 int main() {
   test_session_state_machine();
   test_ring_buffer_wraps_without_overwrite();
   test_segment_rotation_and_recovery();
+  test_clipping_analysis();
   std::cout << "shipglows_audio_engine_tests: passed\n";
   return 0;
 }

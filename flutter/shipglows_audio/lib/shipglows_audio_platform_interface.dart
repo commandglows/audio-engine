@@ -27,4 +27,18 @@ abstract class ShipglowsAudioPlatform extends PlatformInterface {
   Future<ShipglowsAudioEngineInfo> getEngineInfo() {
     throw UnimplementedError('getEngineInfo() has not been implemented.');
   }
+
+  Future<ShipglowsAudioCaptureStatus> startRecording({
+    required String sessionDirectory,
+  }) {
+    throw UnimplementedError('startRecording() has not been implemented.');
+  }
+
+  Future<ShipglowsAudioCaptureStatus> stopRecording() {
+    throw UnimplementedError('stopRecording() has not been implemented.');
+  }
+
+  Future<ShipglowsAudioCaptureStatus> getRecordingStatus() {
+    throw UnimplementedError('getRecordingStatus() has not been implemented.');
+  }
 }

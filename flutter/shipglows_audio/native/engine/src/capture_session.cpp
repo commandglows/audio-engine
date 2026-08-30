@@ -39,6 +39,10 @@ void CaptureSession::count_dropped_frames(std::uint64_t frames) noexcept {
   frames_dropped_.fetch_add(frames, std::memory_order_relaxed);
 }
 
+void CaptureSession::count_discontinuity() noexcept {
+  discontinuities_.fetch_add(1, std::memory_order_relaxed);
+}
+
 void CaptureSession::count_clipped_samples(std::uint64_t samples) noexcept {
   clipped_samples_.fetch_add(samples, std::memory_order_relaxed);
 }
@@ -55,6 +59,7 @@ CaptureMetrics CaptureSession::metrics() const noexcept {
   return {
       .frames_captured = frames_captured_.load(std::memory_order_relaxed),
       .frames_dropped = frames_dropped_.load(std::memory_order_relaxed),
+      .discontinuities = discontinuities_.load(std::memory_order_relaxed),
       .clipped_samples = clipped_samples_.load(std::memory_order_relaxed),
       .device_restarts = device_restarts_.load(std::memory_order_relaxed),
   };

@@ -1,5 +1,6 @@
 add_library(shipglows_audio_engine STATIC
   src/capture_session.cpp
+  src/pcm_analysis.cpp
   src/segmented_pcm_store.cpp
 )
 

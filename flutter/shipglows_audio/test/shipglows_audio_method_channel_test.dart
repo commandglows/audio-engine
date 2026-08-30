@@ -11,6 +11,22 @@ void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+          if (methodCall.method != 'getEngineInfo') {
+            return <Object?, Object?>{
+              'state': methodCall.method == 'stopRecording'
+                  ? 'stopped'
+                  : 'recording',
+              'sampleRate': 48000,
+              'channelCount': 1,
+              'sampleFormat': 'int16',
+              'framesCaptured': 480,
+              'framesDropped': 0,
+              'discontinuities': 0,
+              'clippedSamples': 0,
+              'deviceRestarts': 0,
+              'errorCode': '',
+            };
+          }
           return <Object?, Object?>{
             'name': 'ShipGlows Audio Engine',
             'version': 'test',
@@ -31,5 +47,13 @@ void main() {
     expect(info.version, 'test');
     expect(info.backend, 'mock');
     expect(info.nativeCoreLoaded, isTrue);
+  });
+
+  test('capture commands decode native status', () async {
+    final started = await platform.startRecording(sessionDirectory: 'session');
+    final stopped = await platform.stopRecording();
+    expect(started.state, 'recording');
+    expect(started.sampleRate, 48000);
+    expect(stopped.state, 'stopped');
   });
 }

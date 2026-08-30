@@ -27,6 +27,8 @@ endif()
 list(APPEND PLUGIN_SOURCES
   "shipglows_audio_plugin.cpp"
   "shipglows_audio_plugin.h"
+  "windows_wasapi_capture.cpp"
+  "windows_wasapi_capture.h"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
@@ -48,6 +50,9 @@ apply_standard_settings(${PLUGIN_NAME})
 set_target_properties(${PLUGIN_NAME} PROPERTIES
   CXX_VISIBILITY_PRESET hidden)
 target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
+if(MSVC)
+  target_compile_options(${PLUGIN_NAME} PRIVATE /wd4324)
+endif()
 
 # Source include directories and library dependencies. Add any plugin-specific
 # dependencies here.
@@ -57,6 +62,8 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE
   flutter
   flutter_wrapper_plugin
   shipglows::audio_engine
+  avrt
+  ole32
 )
 
 # List of absolute paths to libraries that should be bundled with the plugin.
@@ -96,12 +103,17 @@ add_executable(${TEST_RUNNER}
   ${PLUGIN_SOURCES}
 )
 apply_standard_settings(${TEST_RUNNER})
+if(MSVC)
+  target_compile_options(${TEST_RUNNER} PRIVATE /wd4324)
+endif()
 target_include_directories(${TEST_RUNNER} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(${TEST_RUNNER} PRIVATE flutter_wrapper_plugin)
 target_link_libraries(${TEST_RUNNER} PRIVATE
   gtest_main
   gmock
   shipglows::audio_engine
+  avrt
+  ole32
 )
 # flutter_wrapper_plugin has link dependencies on the Flutter DLL.
 add_custom_command(TARGET ${TEST_RUNNER} POST_BUILD

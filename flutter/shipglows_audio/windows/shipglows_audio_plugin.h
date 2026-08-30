@@ -8,6 +8,8 @@
 
 namespace shipglows_audio {
 
+class WindowsWasapiCapture;
+
 class ShipglowsAudioPlugin : public flutter::Plugin {
  public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
@@ -24,6 +26,9 @@ class ShipglowsAudioPlugin : public flutter::Plugin {
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+
+ private:
+  std::unique_ptr<WindowsWasapiCapture> capture_;
 };
 
 }  // namespace shipglows_audio

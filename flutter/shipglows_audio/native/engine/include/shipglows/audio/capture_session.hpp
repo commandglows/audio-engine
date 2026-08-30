@@ -10,6 +10,7 @@ namespace shipglows::audio {
 struct CaptureMetrics final {
   std::uint64_t frames_captured = 0;
   std::uint64_t frames_dropped = 0;
+  std::uint64_t discontinuities = 0;
   std::uint64_t clipped_samples = 0;
   std::uint64_t device_restarts = 0;
 };
@@ -24,6 +25,7 @@ class CaptureSession final {
 
   void count_captured_frames(std::uint64_t frames) noexcept;
   void count_dropped_frames(std::uint64_t frames) noexcept;
+  void count_discontinuity() noexcept;
   void count_clipped_samples(std::uint64_t samples) noexcept;
   void count_device_restart() noexcept;
 
@@ -36,6 +38,7 @@ class CaptureSession final {
   AudioFormat format_{};
   std::atomic<std::uint64_t> frames_captured_{0};
   std::atomic<std::uint64_t> frames_dropped_{0};
+  std::atomic<std::uint64_t> discontinuities_{0};
   std::atomic<std::uint64_t> clipped_samples_{0};
   std::atomic<std::uint64_t> device_restarts_{0};
 };

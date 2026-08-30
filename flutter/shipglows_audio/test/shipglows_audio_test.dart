@@ -16,6 +16,33 @@ class MockShipglowsAudioPlatform
         backend: 'fake',
         nativeCoreLoaded: true,
       );
+
+  @override
+  Future<ShipglowsAudioCaptureStatus> startRecording({
+    required String sessionDirectory,
+  }) async => _status('recording');
+
+  @override
+  Future<ShipglowsAudioCaptureStatus> stopRecording() async =>
+      _status('stopped');
+
+  @override
+  Future<ShipglowsAudioCaptureStatus> getRecordingStatus() async =>
+      _status('recording');
+
+  ShipglowsAudioCaptureStatus _status(String state) =>
+      ShipglowsAudioCaptureStatus(
+        state: state,
+        sampleRate: 48000,
+        channelCount: 1,
+        sampleFormat: 'int16',
+        framesCaptured: 480,
+        framesDropped: 0,
+        discontinuities: 0,
+        clippedSamples: 0,
+        deviceRestarts: 0,
+        errorCode: '',
+      );
 }
 
 void main() {
@@ -34,5 +61,13 @@ void main() {
     final info = await shipglowsAudioPlugin.getEngineInfo();
     expect(info.version, 'test');
     expect(info.nativeCoreLoaded, isTrue);
+  });
+
+  test('capture lifecycle delegates to the platform engine', () async {
+    final plugin = ShipglowsAudio();
+    final started = await plugin.startRecording(sessionDirectory: 'session');
+    final stopped = await plugin.stopRecording();
+    expect(started.state, 'recording');
+    expect(stopped.state, 'stopped');
   });
 }

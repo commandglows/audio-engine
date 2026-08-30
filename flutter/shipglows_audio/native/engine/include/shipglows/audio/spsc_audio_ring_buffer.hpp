@@ -35,7 +35,7 @@ class SpscAudioRingBuffer final {
     const auto read = read_index_.load(std::memory_order_acquire);
     const auto free = read > write ? read - write - 1
                                    : storage_.size() - write + read - 1;
-    const auto count = std::min(input.size(), free);
+    const auto count = (std::min)(input.size(), free);
     for (std::size_t index = 0; index < count; ++index) {
       storage_[(write + index) % storage_.size()] = input[index];
     }
@@ -52,7 +52,7 @@ class SpscAudioRingBuffer final {
     const auto write = write_index_.load(std::memory_order_acquire);
     const auto available = write >= read ? write - read
                                          : storage_.size() - read + write;
-    const auto count = std::min(output.size(), available);
+    const auto count = (std::min)(output.size(), available);
     for (std::size_t index = 0; index < count; ++index) {
       output[index] = storage_[(read + index) % storage_.size()];
     }

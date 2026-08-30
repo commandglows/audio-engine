@@ -23,4 +23,36 @@ class MethodChannelShipglowsAudio extends ShipglowsAudioPlatform {
     }
     return ShipglowsAudioEngineInfo.fromMap(result);
   }
+
+  @override
+  Future<ShipglowsAudioCaptureStatus> startRecording({
+    required String sessionDirectory,
+  }) => _captureCall('startRecording', <String, Object?>{
+    'sessionDirectory': sessionDirectory,
+  });
+
+  @override
+  Future<ShipglowsAudioCaptureStatus> stopRecording() =>
+      _captureCall('stopRecording');
+
+  @override
+  Future<ShipglowsAudioCaptureStatus> getRecordingStatus() =>
+      _captureCall('getRecordingStatus');
+
+  Future<ShipglowsAudioCaptureStatus> _captureCall(
+    String method, [
+    Map<String, Object?>? arguments,
+  ]) async {
+    final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
+      method,
+      arguments,
+    );
+    if (result == null) {
+      throw PlatformException(
+        code: 'capture_status_missing',
+        message: 'The native audio engine returned no capture status.',
+      );
+    }
+    return ShipglowsAudioCaptureStatus.fromMap(result);
+  }
 }
