@@ -11,6 +11,7 @@
 #include <thread>
 
 #include "shipglows/audio/audio_types.hpp"
+#include "shipglows/audio/audio_lifecycle.hpp"
 #include "shipglows/audio/capture_session.hpp"
 #include "shipglows/audio/spsc_audio_ring_buffer.hpp"
 
@@ -47,6 +48,8 @@ class AndroidOboeCapture final : public oboe::AudioStreamDataCallback,
   std::unique_ptr<shipglows::audio::SpscAudioRingBuffer<std::byte>> ring_;
   std::thread storage_thread_;
   std::atomic<bool> capture_finished_{false};
+  shipglows::audio::TimestampTracker timestamp_tracker_;
+  std::atomic<std::uint64_t> lifecycle_generation_{1};
 };
 
 }  // namespace shipglows_audio

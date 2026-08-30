@@ -64,6 +64,10 @@ flutter::EncodableValue CaptureStatusValue(const WasapiCaptureStatus& status) {
       static_cast<int64_t>(status.metrics.writer_stalls));
   value[flutter::EncodableValue("routeChanges")] = flutter::EncodableValue(
       static_cast<int64_t>(status.metrics.route_changes));
+  value[flutter::EncodableValue("peakLevel")] =
+      flutter::EncodableValue(static_cast<double>(status.metrics.peak_level));
+  value[flutter::EncodableValue("rmsLevel")] =
+      flutter::EncodableValue(static_cast<double>(status.metrics.rms_level));
   value[flutter::EncodableValue("errorCode")] =
       flutter::EncodableValue(status.error_code);
   return flutter::EncodableValue(value);

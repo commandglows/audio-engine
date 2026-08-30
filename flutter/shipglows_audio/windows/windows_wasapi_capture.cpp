@@ -15,6 +15,7 @@
 
 #include "shipglows/audio/segmented_wav_store.hpp"
 #include "shipglows/audio/pcm_analysis.hpp"
+#include "shipglows/audio/recording_preflight.hpp"
 
 namespace shipglows_audio {
 namespace {
@@ -90,6 +91,12 @@ bool WindowsWasapiCapture::Start(
     const std::filesystem::path& session_directory) {
   if (capture_thread_.joinable() || session_.state() !=
                                         shipglows::audio::SessionState::idle) {
+    return false;
+  }
+
+  const auto preflight = shipglows::audio::recording_preflight(session_directory);
+  if (!preflight.ready) {
+    SetError(preflight.error_code);
     return false;
   }
 
@@ -247,6 +254,7 @@ void WindowsWasapiCapture::CaptureWorker(
     cleanup();
     return;
   }
+  timestamp_tracker_.reset(native_format.sample_rate, lifecycle_generation_);
 
   storage_thread_ =
       std::thread(&WindowsWasapiCapture::StorageWorker, this, session_directory);
@@ -297,6 +305,14 @@ void WindowsWasapiCapture::CaptureWorker(
       if ((flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0) {
         session_.count_discontinuity();
       }
+      // WASAPI reports QPC position in 100 ns units. A zero position means the
+      // endpoint did not provide a usable timestamp for this packet.
+      const auto gap_frames = timestamp_tracker_.observe(
+          capture_time > 0 ? capture_time * 100ULL : 0, packet_frames,
+          lifecycle_generation_);
+      if (gap_frames > 0) {
+        session_.count_timestamp_gap_frames(gap_frames);
+      }
       const auto packet_bytes = static_cast<std::size_t>(packet_frames) *
                                 native_format.bytes_per_frame();
       const auto packet = (flags & AUDCLNT_BUFFERFLAGS_SILENT) != 0
@@ -338,6 +354,8 @@ void WindowsWasapiCapture::StorageWorker(
       const auto block = std::span<const std::byte>(chunk.data(), available);
       session_.count_clipped_samples(
           shipglows::audio::count_clipped_samples(block, format_));
+      const auto levels = shipglows::audio::analyze_levels(block, format_);
+      session_.set_levels(levels.peak, levels.rms);
       store.append(block);
     }
     store.finalize();

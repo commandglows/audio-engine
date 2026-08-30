@@ -4,16 +4,19 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
 #include "shipglows/audio/audio_device_manager.hpp"
+#include "shipglows/audio/audio_lifecycle.hpp"
 #include "shipglows/audio/capture_session.hpp"
 #include "shipglows/audio/segmented_pcm_store.hpp"
 #include "shipglows/audio/segmented_wav_store.hpp"
 #include "shipglows/audio/sha256.hpp"
 #include "shipglows/audio/spsc_audio_ring_buffer.hpp"
 #include "shipglows/audio/pcm_analysis.hpp"
+#include "shipglows/audio/recording_preflight.hpp"
 
 namespace {
 
@@ -22,17 +25,22 @@ using shipglows::audio::AudioDeviceManager;
 using shipglows::audio::AudioDeviceProvider;
 using shipglows::audio::AudioDeviceSetup;
 using shipglows::audio::AudioInputDevice;
+using shipglows::audio::AudioLifecycle;
 using shipglows::audio::CaptureSession;
 using shipglows::audio::DeviceOpenResult;
 using shipglows::audio::DeviceRoute;
 using shipglows::audio::FallbackReason;
+using shipglows::audio::InterruptionReason;
+using shipglows::audio::LifecycleState;
 using shipglows::audio::PermissionState;
 using shipglows::audio::SampleFormat;
 using shipglows::audio::SegmentedPcmStore;
 using shipglows::audio::SegmentedWavStore;
+using shipglows::audio::SessionEvent;
 using shipglows::audio::SessionState;
 using shipglows::audio::Sha256;
 using shipglows::audio::SpscAudioRingBuffer;
+using shipglows::audio::TimestampTracker;
 
 class FakeDeviceProvider final : public AudioDeviceProvider {
  public:
@@ -141,6 +149,54 @@ void test_session_state_machine() {
   assert(session.metrics().route_changes == 1);
 }
 
+void test_lifecycle_distinguishes_pause_interruption_and_reconnect() {
+  AudioLifecycle lifecycle({.max_attempts = 3,
+                            .initial_delay = std::chrono::milliseconds(10),
+                            .maximum_delay = std::chrono::milliseconds(25)});
+  assert(lifecycle.start());
+  assert(lifecycle.snapshot().generation == 1);
+  assert(lifecycle.pause());
+  assert(lifecycle.snapshot().state == LifecycleState::user_paused);
+  assert(!lifecycle.begin_reconnect());
+  assert(lifecycle.resume());
+  assert(lifecycle.snapshot().generation == 2);
+
+  assert(lifecycle.interrupt(InterruptionReason::device_disconnected));
+  assert(lifecycle.begin_reconnect());
+  assert(lifecycle.snapshot().reconnect_attempt == 1);
+  assert(lifecycle.reconnect_delay() == std::chrono::milliseconds(10));
+  assert(lifecycle.reconnect_failed());
+  assert(lifecycle.begin_reconnect());
+  assert(lifecycle.reconnect_delay() == std::chrono::milliseconds(20));
+  assert(lifecycle.reconnect_succeeded());
+  assert(lifecycle.snapshot().state == LifecycleState::running);
+  assert(lifecycle.snapshot().generation == 3);
+}
+
+void test_lifecycle_bounds_reconnect_attempts() {
+  AudioLifecycle lifecycle({.max_attempts = 2,
+                            .initial_delay = std::chrono::milliseconds(10),
+                            .maximum_delay = std::chrono::milliseconds(15)});
+  assert(lifecycle.start());
+  assert(lifecycle.interrupt(InterruptionReason::route_changed));
+  assert(lifecycle.begin_reconnect());
+  assert(lifecycle.reconnect_failed());
+  assert(lifecycle.begin_reconnect());
+  assert(lifecycle.reconnect_delay() == std::chrono::milliseconds(15));
+  assert(!lifecycle.reconnect_failed());
+  assert(lifecycle.snapshot().state == LifecycleState::failed);
+  assert(!lifecycle.should_reconnect());
+}
+
+void test_timestamp_tracker_counts_only_same_generation_gaps() {
+  TimestampTracker tracker(48'000);
+  constexpr std::uint64_t start = 1'000'000'000ULL;
+  assert(tracker.observe(start, 480, 1) == 0);
+  assert(tracker.observe(start + 10'000'000ULL, 480, 1) == 0);
+  assert(tracker.observe(start + 25'000'000ULL, 480, 1) == 240);
+  assert(tracker.observe(start + 2'000'000'000ULL, 480, 2) == 0);
+}
+
 void test_ring_buffer_wraps_without_overwrite() {
   SpscAudioRingBuffer<std::int16_t> ring(4);
   const std::array<std::int16_t, 3> first{1, 2, 3};
@@ -186,6 +242,11 @@ void test_clipping_analysis() {
       std::as_bytes(std::span(samples)),
       AudioFormat{48'000, 1, SampleFormat::int16});
   assert(clipped == 2);
+  const auto levels = shipglows::audio::analyze_levels(
+      std::as_bytes(std::span(samples)),
+      AudioFormat{48'000, 1, SampleFormat::int16});
+  assert(levels.peak == 1.0F);
+  assert(levels.rms > 0.65F && levels.rms < 0.66F);
 }
 
 void test_sha256_known_vectors() {
@@ -200,6 +261,23 @@ void test_sha256_known_vectors() {
   assert(Sha256::hex(abc.finalize()) ==
          "ba7816bf8f01cfea414140de5dae2223"
          "b00361a396177a9cb410ff61f20015ad");
+}
+
+void test_recording_preflight_checks_path_and_storage() {
+  assert(!shipglows::audio::recording_preflight("relative/session").ready);
+  const auto root = std::filesystem::temp_directory_path() /
+                    "shipglows-audio-engine-preflight-tests";
+  std::filesystem::remove_all(root);
+  const auto ready = shipglows::audio::recording_preflight(
+      root, {.minimum_free_bytes = 1});
+  assert(ready.ready);
+  assert(ready.available_bytes > 0);
+  assert(!std::filesystem::exists(root / ".shipglows-write-probe"));
+  const auto unavailable = shipglows::audio::recording_preflight(
+      root, {.minimum_free_bytes = std::numeric_limits<std::uint64_t>::max()});
+  assert(!unavailable.ready);
+  assert(unavailable.error_code == "insufficient_storage");
+  std::filesystem::remove_all(root);
 }
 
 void test_segmented_wav_store_is_self_describing_and_journaled() {
@@ -242,17 +320,53 @@ void test_segmented_wav_store_is_self_describing_and_journaled() {
   std::filesystem::remove_all(root);
 }
 
+void test_wav_checkpoints_close_segments_and_record_causal_gaps() {
+  const auto root = std::filesystem::temp_directory_path() /
+                    "shipglows-audio-engine-checkpoint-tests";
+  std::filesystem::remove_all(root);
+  const AudioFormat format{48'000, 1, SampleFormat::int16};
+  {
+    SegmentedWavStore store(root, format, 48'000);
+    const std::array<std::int16_t, 4> before{1, 2, 3, 4};
+    const std::array<std::int16_t, 2> after{5, 6};
+    store.append(std::as_bytes(std::span(before)));
+    store.checkpoint(SessionEvent::interruption, "device_disconnected");
+    store.checkpoint(SessionEvent::device_restart, "default_device");
+    store.append(std::as_bytes(std::span(after)));
+    store.finalize();
+    assert(store.segments().size() == 2);
+    assert(store.segments()[0].frames == 4);
+    assert(store.segments()[1].start_frame == 4);
+  }
+  {
+    std::ifstream journal(root / "journal.sga");
+    const std::string content((std::istreambuf_iterator<char>(journal)),
+                              std::istreambuf_iterator<char>());
+    assert(content.find(
+               "event=interruption,frame=4,reason=device_disconnected") !=
+           std::string::npos);
+    assert(content.find("event=device_restart,frame=4,reason=default_device") !=
+           std::string::npos);
+  }
+  std::filesystem::remove_all(root);
+}
+
 }  // namespace
 
 int main() {
   test_device_manager_opens_preferred_device();
   test_device_manager_falls_back_without_hiding_failure();
   test_session_state_machine();
+  test_lifecycle_distinguishes_pause_interruption_and_reconnect();
+  test_lifecycle_bounds_reconnect_attempts();
+  test_timestamp_tracker_counts_only_same_generation_gaps();
   test_ring_buffer_wraps_without_overwrite();
   test_segment_rotation_and_recovery();
   test_clipping_analysis();
   test_sha256_known_vectors();
+  test_recording_preflight_checks_path_and_storage();
   test_segmented_wav_store_is_self_describing_and_journaled();
+  test_wav_checkpoints_close_segments_and_record_causal_gaps();
   std::cout << "shipglows_audio_engine_tests: passed\n";
   return 0;
 }

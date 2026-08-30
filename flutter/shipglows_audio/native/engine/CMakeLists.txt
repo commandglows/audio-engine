@@ -1,7 +1,9 @@
 add_library(shipglows_audio_engine STATIC
+  src/audio_lifecycle.cpp
   src/audio_device_manager.cpp
   src/capture_session.cpp
   src/pcm_analysis.cpp
+  src/recording_preflight.cpp
   src/segmented_pcm_store.cpp
   src/segmented_wav_store.cpp
   src/sha256.cpp

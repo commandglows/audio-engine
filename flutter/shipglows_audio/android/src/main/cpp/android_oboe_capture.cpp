@@ -7,6 +7,7 @@
 
 #include "shipglows/audio/pcm_analysis.hpp"
 #include "shipglows/audio/segmented_wav_store.hpp"
+#include "shipglows/audio/recording_preflight.hpp"
 
 namespace shipglows_audio {
 
@@ -22,6 +23,12 @@ bool AndroidOboeCapture::Start(
         session_.state() != shipglows::audio::SessionState::idle) {
       return false;
     }
+  }
+
+  const auto preflight = shipglows::audio::recording_preflight(session_directory);
+  if (!preflight.ready) {
+    SetError(preflight.error_code);
+    return false;
   }
 
   oboe::AudioStreamBuilder builder;
@@ -128,7 +135,8 @@ std::string AndroidOboeCapture::StatusLine() const {
         << metrics.device_restarts << '|' << error_code_ << '|'
         << metrics.native_xruns << '|' << metrics.ring_overflow_frames << '|'
         << metrics.timestamp_gap_frames << '|' << metrics.writer_stalls << '|'
-        << metrics.route_changes;
+        << metrics.route_changes << '|' << metrics.peak_level << '|'
+        << metrics.rms_level;
   return value.str();
 }
 
@@ -178,6 +186,8 @@ void AndroidOboeCapture::StorageWorker(
       const auto block = std::span<const std::byte>(chunk.data(), available);
       session_.count_clipped_samples(
           shipglows::audio::count_clipped_samples(block, format_));
+      const auto levels = shipglows::audio::analyze_levels(block, format_);
+      session_.set_levels(levels.peak, levels.rms);
       store.append(block);
     }
     store.finalize();

@@ -68,6 +68,11 @@ void CaptureSession::count_route_change() noexcept {
   route_changes_.fetch_add(1, std::memory_order_relaxed);
 }
 
+void CaptureSession::set_levels(float peak, float rms) noexcept {
+  peak_level_.store(peak, std::memory_order_relaxed);
+  rms_level_.store(rms, std::memory_order_relaxed);
+}
+
 SessionState CaptureSession::state() const noexcept { return state_.load(); }
 
 AudioFormat CaptureSession::format() const noexcept { return format_; }
@@ -86,6 +91,8 @@ CaptureMetrics CaptureSession::metrics() const noexcept {
           timestamp_gap_frames_.load(std::memory_order_relaxed),
       .writer_stalls = writer_stalls_.load(std::memory_order_relaxed),
       .route_changes = route_changes_.load(std::memory_order_relaxed),
+      .peak_level = peak_level_.load(std::memory_order_relaxed),
+      .rms_level = rms_level_.load(std::memory_order_relaxed),
   };
 }
 

@@ -42,6 +42,8 @@ class ShipglowsAudioCaptureStatus {
     required this.timestampGapFrames,
     required this.writerStalls,
     required this.routeChanges,
+    required this.peakLevel,
+    required this.rmsLevel,
     required this.errorCode,
   });
 
@@ -61,6 +63,8 @@ class ShipglowsAudioCaptureStatus {
       timestampGapFrames: map['timestampGapFrames'] as int? ?? 0,
       writerStalls: map['writerStalls'] as int? ?? 0,
       routeChanges: map['routeChanges'] as int? ?? 0,
+      peakLevel: (map['peakLevel'] as num?)?.toDouble() ?? 0,
+      rmsLevel: (map['rmsLevel'] as num?)?.toDouble() ?? 0,
       errorCode: map['errorCode'] as String? ?? '',
     );
   }
@@ -79,6 +83,8 @@ class ShipglowsAudioCaptureStatus {
   final int timestampGapFrames;
   final int writerStalls;
   final int routeChanges;
+  final double peakLevel;
+  final double rmsLevel;
   final String errorCode;
 }
 

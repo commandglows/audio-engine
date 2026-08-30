@@ -11,6 +11,7 @@
 #include <thread>
 
 #include "shipglows/audio/audio_types.hpp"
+#include "shipglows/audio/audio_lifecycle.hpp"
 #include "shipglows/audio/capture_session.hpp"
 #include "shipglows/audio/spsc_audio_ring_buffer.hpp"
 
@@ -56,6 +57,8 @@ class WindowsWasapiCapture final {
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> capture_finished_{false};
   std::atomic<void*> wake_event_{nullptr};
+  shipglows::audio::TimestampTracker timestamp_tracker_;
+  std::uint64_t lifecycle_generation_ = 1;
 };
 
 }  // namespace shipglows_audio

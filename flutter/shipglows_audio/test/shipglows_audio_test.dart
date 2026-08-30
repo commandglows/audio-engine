@@ -46,6 +46,8 @@ class MockShipglowsAudioPlatform
         timestampGapFrames: 0,
         writerStalls: 0,
         routeChanges: 0,
+        peakLevel: 0.5,
+        rmsLevel: 0.25,
         errorCode: '',
       );
 }

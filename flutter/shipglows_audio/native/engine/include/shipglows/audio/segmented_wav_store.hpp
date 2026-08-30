@@ -6,11 +6,22 @@
 #include <fstream>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "shipglows/audio/audio_types.hpp"
 
 namespace shipglows::audio {
+
+enum class SessionEvent : std::uint8_t {
+  pause,
+  resume,
+  interruption,
+  route_change,
+  device_restart,
+  warning,
+  failure,
+};
 
 struct WavSegmentRecord final {
   std::uint32_t index = 0;
@@ -31,6 +42,7 @@ class SegmentedWavStore final {
   SegmentedWavStore& operator=(const SegmentedWavStore&) = delete;
 
   void append(std::span<const std::byte> bytes);
+  void checkpoint(SessionEvent event, std::string_view reason = {});
   void finalize();
 
   [[nodiscard]] const std::vector<WavSegmentRecord>& segments() const noexcept;

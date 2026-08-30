@@ -14,6 +14,33 @@ namespace {
 
 constexpr std::uint32_t wav_header_bytes = 44;
 
+std::string_view event_name(SessionEvent event) {
+  switch (event) {
+    case SessionEvent::pause:
+      return "pause";
+    case SessionEvent::resume:
+      return "resume";
+    case SessionEvent::interruption:
+      return "interruption";
+    case SessionEvent::route_change:
+      return "route_change";
+    case SessionEvent::device_restart:
+      return "device_restart";
+    case SessionEvent::warning:
+      return "warning";
+    case SessionEvent::failure:
+      return "failure";
+  }
+  return "unknown";
+}
+
+bool valid_reason(std::string_view reason) {
+  return std::all_of(reason.begin(), reason.end(), [](unsigned char value) {
+    return (value >= 'a' && value <= 'z') || (value >= '0' && value <= '9') ||
+           value == '_';
+  });
+}
+
 std::string segment_name(std::uint32_t index) {
   std::ostringstream name;
   name << "segment-" << std::setw(6) << std::setfill('0') << index << ".wav";
@@ -100,6 +127,24 @@ void SegmentedWavStore::append(std::span<const std::byte> bytes) {
     remaining = remaining.subspan(static_cast<std::size_t>(write_bytes));
     if (current_frames_ == frames_per_segment_) finalize_current_segment();
   }
+}
+
+void SegmentedWavStore::checkpoint(SessionEvent event, std::string_view reason) {
+  if (finalized_) {
+    throw std::logic_error("cannot checkpoint finalized session");
+  }
+  if (!valid_reason(reason)) {
+    throw std::invalid_argument("session event reason is not a stable code");
+  }
+  if (current_stream_.is_open()) {
+    finalize_current_segment();
+  }
+  auto record = "event=" + std::string(event_name(event)) +
+                ",frame=" + std::to_string(total_frames_);
+  if (!reason.empty()) {
+    record += ",reason=" + std::string(reason);
+  }
+  append_journal(record);
 }
 
 void SegmentedWavStore::finalize() {
