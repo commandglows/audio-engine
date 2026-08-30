@@ -23,7 +23,7 @@ void main() {
     expect(info.version, '0.1.0');
   });
 
-  testWidgets('WASAPI records recoverable PCM segments', (tester) async {
+  testWidgets('WASAPI records recoverable WAV v2 segments', (tester) async {
     if (!Platform.isWindows) return;
     final directory = await Directory.systemTemp.createTemp(
       'shipglows-audio-integration-',
@@ -47,16 +47,24 @@ void main() {
     expect(stopped.framesCaptured, greaterThan(0));
     expect(stopped.errorCode, isEmpty);
 
-    final manifest = File(
-      '${directory.path}${Platform.pathSeparator}manifest.sga',
+    final journal = File(
+      '${directory.path}${Platform.pathSeparator}journal.sga',
     );
-    expect(await manifest.exists(), isTrue);
-    expect(await manifest.readAsString(), contains('complete=true'));
+    expect(await journal.exists(), isTrue);
+    expect(
+      await journal.readAsString(),
+      contains('event=session_complete'),
+    );
     final segments = await directory
         .list()
-        .where((entry) => entry.path.endsWith('.pcm'))
+        .where((entry) => entry.path.endsWith('.wav'))
         .toList();
     expect(segments, isNotEmpty);
-    expect(await File(segments.first.path).length(), greaterThan(0));
+    final first = File(segments.first.path);
+    expect(await first.length(), greaterThan(44));
+    expect(
+      String.fromCharCodes((await first.openRead(0, 4).first)),
+      equals('RIFF'),
+    );
   });
 }

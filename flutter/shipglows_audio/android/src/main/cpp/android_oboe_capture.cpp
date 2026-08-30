@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "shipglows/audio/pcm_analysis.hpp"
-#include "shipglows/audio/segmented_pcm_store.hpp"
+#include "shipglows/audio/segmented_wav_store.hpp"
 
 namespace shipglows_audio {
 
@@ -152,7 +152,7 @@ void AndroidOboeCapture::onErrorAfterClose(
 void AndroidOboeCapture::StorageWorker(
     std::filesystem::path session_directory) {
   try {
-    shipglows::audio::SegmentedPcmStore store(
+    shipglows::audio::SegmentedWavStore store(
         std::move(session_directory), format_,
         static_cast<std::uint64_t>(format_.sample_rate) * 5);
     const auto frame_bytes = format_.bytes_per_frame();

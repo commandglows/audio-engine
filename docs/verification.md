@@ -18,6 +18,12 @@ zero clipped samples, and no engine error. This proves basic physical capture
 and multi-segment finalization; it does not satisfy the interruption or soak
 release gates.
 
+The same device subsequently validated session format v2 through the real Oboe
+backend: 573,024 frames across three independently playable RIFF/WAVE segments,
+an append-only journal with continuous frame ranges and three SHA-256 digests,
+and a final `session_complete` record. The UI reported zero dropped frames,
+zero discontinuities, zero clipped samples, and no engine error.
+
 ## Repeatable checks
 
 ```powershell
