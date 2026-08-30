@@ -1,0 +1,10 @@
+/.dart_tool/
+/.idea/
+/.vs/
+/build/
+**/.dart_tool/
+**/build/
+**/ephemeral/
+**/*.user
+**/*.suo
+*.log
