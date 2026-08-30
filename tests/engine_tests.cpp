@@ -10,6 +10,8 @@
 #include "shipglows/audio/audio_device_manager.hpp"
 #include "shipglows/audio/capture_session.hpp"
 #include "shipglows/audio/segmented_pcm_store.hpp"
+#include "shipglows/audio/segmented_wav_store.hpp"
+#include "shipglows/audio/sha256.hpp"
 #include "shipglows/audio/spsc_audio_ring_buffer.hpp"
 #include "shipglows/audio/pcm_analysis.hpp"
 
@@ -27,7 +29,9 @@ using shipglows::audio::FallbackReason;
 using shipglows::audio::PermissionState;
 using shipglows::audio::SampleFormat;
 using shipglows::audio::SegmentedPcmStore;
+using shipglows::audio::SegmentedWavStore;
 using shipglows::audio::SessionState;
+using shipglows::audio::Sha256;
 using shipglows::audio::SpscAudioRingBuffer;
 
 class FakeDeviceProvider final : public AudioDeviceProvider {
@@ -184,6 +188,60 @@ void test_clipping_analysis() {
   assert(clipped == 2);
 }
 
+void test_sha256_known_vectors() {
+  Sha256 empty;
+  assert(Sha256::hex(empty.finalize()) ==
+         "e3b0c44298fc1c149afbf4c8996fb924"
+         "27ae41e4649b934ca495991b7852b855");
+
+  Sha256 abc;
+  const std::array<char, 3> text{'a', 'b', 'c'};
+  abc.update(std::as_bytes(std::span(text)));
+  assert(Sha256::hex(abc.finalize()) ==
+         "ba7816bf8f01cfea414140de5dae2223"
+         "b00361a396177a9cb410ff61f20015ad");
+}
+
+void test_segmented_wav_store_is_self_describing_and_journaled() {
+  const auto root = std::filesystem::temp_directory_path() /
+                    "shipglows-audio-engine-wav-tests";
+  std::filesystem::remove_all(root);
+  const AudioFormat format{48'000, 2, SampleFormat::int16};
+  {
+    SegmentedWavStore store(root, format, 4);
+    const std::array<std::int16_t, 20> samples{
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+        10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
+    store.append(std::as_bytes(std::span(samples)));
+    store.finalize();
+    assert(store.segments().size() == 3);
+    assert(store.segments()[0].start_frame == 0);
+    assert(store.segments()[1].start_frame == 4);
+    assert(store.segments()[2].frames == 2);
+    assert(store.total_frames() == 10);
+    assert(store.segments()[0].sha256.size() == 64);
+  }
+  {
+    std::ifstream wav(root / "segment-000000.wav", std::ios::binary);
+    std::array<char, 12> identity{};
+    wav.read(identity.data(), identity.size());
+    assert(std::string(identity.data(), 4) == "RIFF");
+    assert(std::string(identity.data() + 8, 4) == "WAVE");
+    assert(std::filesystem::file_size(root / "segment-000000.wav") == 60);
+  }
+  {
+    std::ifstream journal(root / "journal.sga");
+    const std::string content((std::istreambuf_iterator<char>(journal)),
+                              std::istreambuf_iterator<char>());
+    assert(content.find("schema=shipglows-audio-session/2") !=
+           std::string::npos);
+    assert(content.find("event=session_complete,total_frames=10") !=
+           std::string::npos);
+    assert(content.find("segment=0,0,4,60,") != std::string::npos);
+  }
+  std::filesystem::remove_all(root);
+}
+
 }  // namespace
 
 int main() {
@@ -193,6 +251,8 @@ int main() {
   test_ring_buffer_wraps_without_overwrite();
   test_segment_rotation_and_recovery();
   test_clipping_analysis();
+  test_sha256_known_vectors();
+  test_segmented_wav_store_is_self_describing_and_journaled();
   std::cout << "shipglows_audio_engine_tests: passed\n";
   return 0;
 }
