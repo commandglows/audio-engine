@@ -26,6 +26,28 @@ class ShipglowsAudioEngineInfo {
   final bool nativeCoreLoaded;
 }
 
+class ShipglowsAudioInputDevice {
+  const ShipglowsAudioInputDevice({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.isExternal,
+  });
+
+  factory ShipglowsAudioInputDevice.fromMap(Map<Object?, Object?> map) =>
+      ShipglowsAudioInputDevice(
+        id: map['id'] as int? ?? 0,
+        name: map['name'] as String? ?? 'Unknown input',
+        type: map['type'] as String? ?? 'unknown',
+        isExternal: map['isExternal'] as bool? ?? false,
+      );
+
+  final int id;
+  final String name;
+  final String type;
+  final bool isExternal;
+}
+
 class ShipglowsAudioCaptureStatus {
   const ShipglowsAudioCaptureStatus({
     required this.state,
@@ -106,9 +128,17 @@ class ShipglowsAudio {
 
   Future<ShipglowsAudioCaptureStatus> startRecording({
     required String sessionDirectory,
+    int? inputDeviceId,
   }) => ShipglowsAudioPlatform.instance.startRecording(
     sessionDirectory: sessionDirectory,
+    inputDeviceId: inputDeviceId,
   );
+
+  Future<List<ShipglowsAudioInputDevice>> getInputDevices() =>
+      ShipglowsAudioPlatform.instance.getInputDevices();
+
+  Future<ShipglowsAudioCaptureStatus> selectInputDevice(int inputDeviceId) =>
+      ShipglowsAudioPlatform.instance.selectInputDevice(inputDeviceId);
 
   Future<ShipglowsAudioCaptureStatus> stopRecording() =>
       ShipglowsAudioPlatform.instance.stopRecording();

@@ -34,12 +34,13 @@ jstring ToJavaString(JNIEnv* environment, const std::string& value) {
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_commandglows_shipglows_1audio_ShipglowsAudioPlugin_nativeCommand(
     JNIEnv* environment, jobject /*plugin*/, jint command,
-    jstring session_directory) {
+    jstring session_directory, jint input_device_id) {
   std::lock_guard lock(capture_mutex);
   if (command == 1) {
     capture = std::make_unique<shipglows_audio::AndroidOboeCapture>();
     const auto directory = FromJavaString(environment, session_directory);
-    if (directory.empty() || !capture->Start(std::filesystem::path(directory))) {
+    if (directory.empty() ||
+        !capture->Start(std::filesystem::path(directory), input_device_id)) {
       return ToJavaString(environment, capture->StatusLine());
     }
   } else if (command == 2 && capture != nullptr) {
@@ -48,6 +49,9 @@ Java_com_commandglows_shipglows_1audio_ShipglowsAudioPlugin_nativeCommand(
     return ToJavaString(environment, capture->Pause());
   } else if (command == 4 && capture != nullptr) {
     return ToJavaString(environment, capture->Resume());
+  } else if (command == 5 && capture != nullptr) {
+    return ToJavaString(environment,
+                        capture->SelectInputDevice(input_device_id));
   }
   return ToJavaString(environment,
                       capture == nullptr

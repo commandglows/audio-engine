@@ -11,6 +11,16 @@ void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+          if (methodCall.method == 'getInputDevices') {
+            return <Object?>[
+              <Object?, Object?>{
+                'id': 42,
+                'name': 'Bose QC35',
+                'type': 'bluetooth_sco',
+                'isExternal': true,
+              },
+            ];
+          }
           if (methodCall.method != 'getEngineInfo') {
             return <Object?, Object?>{
               'state': methodCall.method == 'stopRecording'
@@ -55,7 +65,12 @@ void main() {
   });
 
   test('capture commands decode native status', () async {
-    final started = await platform.startRecording(sessionDirectory: 'session');
+    final started = await platform.startRecording(
+      sessionDirectory: 'session',
+      inputDeviceId: 42,
+    );
+    final devices = await platform.getInputDevices();
+    final switched = await platform.selectInputDevice(42);
     final stopped = await platform.stopRecording();
     expect(started.state, 'recording');
     expect(started.sampleRate, 48000);
@@ -64,6 +79,9 @@ void main() {
     expect(started.timestampGapFrames, 4);
     expect(started.writerStalls, 5);
     expect(started.routeChanges, 6);
+    expect(devices.single.name, 'Bose QC35');
+    expect(devices.single.isExternal, isTrue);
+    expect(switched.state, 'recording');
     expect(stopped.state, 'stopped');
   });
 }

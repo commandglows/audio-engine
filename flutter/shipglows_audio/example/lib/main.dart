@@ -20,6 +20,8 @@ class _MyAppState extends State<MyApp> {
   String? _sessionDirectory;
   String? _failure;
   Timer? _statusTimer;
+  List<ShipglowsAudioInputDevice> _inputDevices = const [];
+  int? _selectedInputDeviceId;
 
   bool get _isRecording =>
       _capture?.state == 'recording' || _capture?.state == 'paused';
@@ -30,6 +32,24 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _loadEngine();
+    _loadInputDevices();
+  }
+
+  Future<void> _loadInputDevices() async {
+    try {
+      final devices = await _engine.getInputDevices();
+      if (!mounted) return;
+      setState(() {
+        _inputDevices = devices;
+        _selectedInputDeviceId ??= devices
+            .where((device) => device.isExternal)
+            .firstOrNull
+            ?.id;
+      });
+    } on Object {
+      // Device enumeration is currently Android-only. Other platforms retain
+      // their native default input without turning this into an engine error.
+    }
   }
 
   @override
@@ -63,6 +83,7 @@ class _MyAppState extends State<MyApp> {
       await directory.create(recursive: true);
       final status = await _engine.startRecording(
         sessionDirectory: directory.path,
+        inputDeviceId: _selectedInputDeviceId,
       );
       if (!mounted) return;
       setState(() {
@@ -78,6 +99,17 @@ class _MyAppState extends State<MyApp> {
     } on Object catch (error) {
       if (!mounted) return;
       setState(() => _failure = 'Start failed: $error');
+    }
+  }
+
+  Future<void> _selectInputDevice(int? deviceId) async {
+    setState(() => _selectedInputDeviceId = deviceId);
+    if (!_isRecording || deviceId == null) return;
+    try {
+      final status = await _engine.selectInputDevice(deviceId);
+      if (mounted) setState(() => _capture = status);
+    } on Object catch (error) {
+      if (mounted) setState(() => _failure = 'Route change failed: $error');
     }
   }
 
@@ -129,6 +161,29 @@ class _MyAppState extends State<MyApp> {
             children: [
               Text(_engineStatus, textAlign: TextAlign.center),
               const SizedBox(height: 24),
+              if (_inputDevices.isNotEmpty) ...[
+                DropdownButtonFormField<int?>(
+                  initialValue: _selectedInputDeviceId,
+                  decoration: const InputDecoration(labelText: 'Input device'),
+                  items: <DropdownMenuItem<int?>>[
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('System default'),
+                    ),
+                    ..._inputDevices.map(
+                      (device) => DropdownMenuItem<int?>(
+                        value: device.id,
+                        child: Text(
+                          '${device.name} · ${device.type}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: _selectInputDevice,
+                ),
+                const SizedBox(height: 16),
+              ],
               FilledButton.icon(
                 onPressed: _isRecording ? _stop : _start,
                 icon: Icon(_isRecording ? Icons.stop : Icons.mic),

@@ -30,8 +30,17 @@ abstract class ShipglowsAudioPlatform extends PlatformInterface {
 
   Future<ShipglowsAudioCaptureStatus> startRecording({
     required String sessionDirectory,
+    int? inputDeviceId,
   }) {
     throw UnimplementedError('startRecording() has not been implemented.');
+  }
+
+  Future<List<ShipglowsAudioInputDevice>> getInputDevices() {
+    throw UnimplementedError('getInputDevices() has not been implemented.');
+  }
+
+  Future<ShipglowsAudioCaptureStatus> selectInputDevice(int inputDeviceId) {
+    throw UnimplementedError('selectInputDevice() has not been implemented.');
   }
 
   Future<ShipglowsAudioCaptureStatus> stopRecording() {

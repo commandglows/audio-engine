@@ -18,6 +18,12 @@ AndroidOboeCapture::~AndroidOboeCapture() { Stop(); }
 
 bool AndroidOboeCapture::Start(
     const std::filesystem::path& session_directory) {
+  return Start(session_directory, oboe::Unspecified);
+}
+
+bool AndroidOboeCapture::Start(
+    const std::filesystem::path& session_directory,
+    std::int32_t input_device_id) {
   {
     std::lock_guard lock(mutex_);
     if (stream_ != nullptr ||
@@ -41,6 +47,10 @@ bool AndroidOboeCapture::Start(
       ->setInputPreset(oboe::InputPreset::Unprocessed)
       ->setDataCallback(this)
       ->setErrorCallback(this);
+  if (input_device_id >= 0) {
+    builder.setDeviceId(input_device_id);
+  }
+  input_device_id_.store(input_device_id, std::memory_order_relaxed);
 
   auto open_result = builder.openStream(stream_);
   if (open_result != oboe::Result::OK || stream_ == nullptr) {
@@ -53,6 +63,12 @@ bool AndroidOboeCapture::Start(
   }
   if (open_result != oboe::Result::OK || stream_ == nullptr) {
     SetError("oboe_open_failed");
+    return false;
+  }
+  if (input_device_id >= 0 && stream_->getDeviceId() != input_device_id) {
+    stream_->close();
+    stream_.reset();
+    SetError("input_device_unavailable");
     return false;
   }
 
@@ -162,6 +178,42 @@ std::string AndroidOboeCapture::Resume() {
   return StatusLine();
 }
 
+std::string AndroidOboeCapture::SelectInputDevice(
+    std::int32_t input_device_id) {
+  if (input_device_id < 0 ||
+      (session_.state() != shipglows::audio::SessionState::recording &&
+       session_.state() != shipglows::audio::SessionState::paused)) {
+    return StatusLine();
+  }
+  if (!SubmitStorageCommand(5)) {
+    SetError("route_checkpoint_failed");
+    session_.fail();
+    return StatusLine();
+  }
+  input_device_id_.store(input_device_id, std::memory_order_relaxed);
+  std::shared_ptr<oboe::AudioStream> previous;
+  {
+    std::lock_guard lock(mutex_);
+    previous = std::move(stream_);
+  }
+  if (previous != nullptr) {
+    previous->requestStop();
+    previous->close();
+  }
+  session_.count_discontinuity();
+  SetError("device_disconnected");
+  if (OpenReplacementStream()) {
+    lifecycle_generation_.fetch_add(1, std::memory_order_relaxed);
+    session_.count_device_restart();
+    session_.count_route_change();
+    SetError({});
+    static_cast<void>(SubmitStorageCommand(4));
+  } else if (!recovery_thread_.joinable()) {
+    recovery_thread_ = std::thread(&AndroidOboeCapture::RecoveryWorker, this);
+  }
+  return StatusLine();
+}
+
 std::string AndroidOboeCapture::StatusLine() const {
   std::lock_guard lock(mutex_);
   const auto metrics = session_.metrics();
@@ -255,6 +307,11 @@ bool AndroidOboeCapture::OpenReplacementStream() {
       ->setInputPreset(oboe::InputPreset::Unprocessed)
       ->setDataCallback(this)
       ->setErrorCallback(this);
+  const auto input_device_id =
+      input_device_id_.load(std::memory_order_relaxed);
+  if (input_device_id >= 0) {
+    builder.setDeviceId(input_device_id);
+  }
   std::shared_ptr<oboe::AudioStream> replacement;
   auto result = builder.openStream(replacement);
   if (result != oboe::Result::OK || replacement == nullptr) {
@@ -262,6 +319,8 @@ bool AndroidOboeCapture::OpenReplacementStream() {
     result = builder.openStream(replacement);
   }
   if (result != oboe::Result::OK || replacement == nullptr ||
+      (input_device_id >= 0 &&
+       replacement->getDeviceId() != input_device_id) ||
       replacement->getFormat() != oboe::AudioFormat::I16 ||
       replacement->getSampleRate() != static_cast<int32_t>(format_.sample_rate) ||
       replacement->getChannelCount() != static_cast<int32_t>(format_.channel_count)) {
@@ -324,7 +383,10 @@ void AndroidOboeCapture::StorageWorker(
                            "device_disconnected");
         } else if (command == 4) {
           store.checkpoint(shipglows::audio::SessionEvent::device_restart,
-                           "default_device");
+                           "selected_input_device");
+        } else if (command == 5) {
+          store.checkpoint(shipglows::audio::SessionEvent::route_change,
+                           "selected_input_device");
         }
         if (command != 0) {
           {

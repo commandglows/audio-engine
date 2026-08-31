@@ -28,9 +28,12 @@ class AndroidOboeCapture final : public oboe::AudioStreamDataCallback,
   AndroidOboeCapture& operator=(const AndroidOboeCapture&) = delete;
 
   [[nodiscard]] bool Start(const std::filesystem::path& session_directory);
+  [[nodiscard]] bool Start(const std::filesystem::path& session_directory,
+                           std::int32_t input_device_id);
   void Stop();
   [[nodiscard]] std::string Pause();
   [[nodiscard]] std::string Resume();
+  [[nodiscard]] std::string SelectInputDevice(std::int32_t input_device_id);
   [[nodiscard]] std::string StatusLine() const;
 
   oboe::DataCallbackResult onAudioReady(oboe::AudioStream* stream,
@@ -61,6 +64,7 @@ class AndroidOboeCapture final : public oboe::AudioStreamDataCallback,
   std::uint64_t storage_command_completed_ = 0;
   shipglows::audio::TimestampTracker timestamp_tracker_;
   std::atomic<std::uint64_t> lifecycle_generation_{1};
+  std::atomic<std::int32_t> input_device_id_{oboe::Unspecified};
   [[nodiscard]] bool SubmitStorageCommand(std::uint8_t command);
 };
 

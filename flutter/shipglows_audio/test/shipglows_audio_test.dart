@@ -20,7 +20,23 @@ class MockShipglowsAudioPlatform
   @override
   Future<ShipglowsAudioCaptureStatus> startRecording({
     required String sessionDirectory,
+    int? inputDeviceId,
   }) async => _status('recording');
+
+  @override
+  Future<List<ShipglowsAudioInputDevice>> getInputDevices() async => const [
+    ShipglowsAudioInputDevice(
+      id: 7,
+      name: 'External microphone',
+      type: 'bluetooth_sco',
+      isExternal: true,
+    ),
+  ];
+
+  @override
+  Future<ShipglowsAudioCaptureStatus> selectInputDevice(
+    int inputDeviceId,
+  ) async => _status('recording');
 
   @override
   Future<ShipglowsAudioCaptureStatus> stopRecording() async =>
@@ -76,6 +92,14 @@ void main() {
     final info = await shipglowsAudioPlugin.getEngineInfo();
     expect(info.version, 'test');
     expect(info.nativeCoreLoaded, isTrue);
+  });
+
+  test('input device selection delegates to the platform engine', () async {
+    final plugin = ShipglowsAudio();
+    final devices = await plugin.getInputDevices();
+    final switched = await plugin.selectInputDevice(devices.single.id);
+    expect(devices.single.isExternal, isTrue);
+    expect(switched.state, 'recording');
   });
 
   test('capture lifecycle delegates to the platform engine', () async {
