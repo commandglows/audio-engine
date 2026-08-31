@@ -62,6 +62,27 @@ process RSS every 30 seconds, retains the session directory, and prints a final
 machine-readable result. After completion, verify every journal digest and WAV
 header before deleting the retained session.
 
+### Windows two-hour result — 2026-08-31
+
+The real WASAPI input completed 120 minutes and 2 seconds at 48 kHz with
+345,658,995 captured frames, 708,902 hardware timestamp observations, zero
+dropped frames, zero timestamp-gap frames, and zero native xruns. The session
+finalized 1,446 continuous WAV segments (2,765,335,584 bytes); every recorded
+size, RIFF/WAVE identity, and SHA-256 digest matched the append-only journal.
+
+Process RSS rose from 216 MB at the first sample to a maximum of 280 MB in
+stepwise plateaus. It did not accelerate near the end, but the 64 MB increase
+must be compared in future soaks before calling memory behavior invariant. A
+separate two-minute profile of the identical Windows capture path measured
+10.13% of one CPU core on average and 13.08% at p95/max; CPU was not sampled
+continuously during the two-hour run, so that distinction remains explicit.
+
+The available machine could not safely automate a physical microphone unplug,
+Windows default-input switch, or system suspend. No physical Android device was
+connected; API 36 emulator capture passed, while the existing Samsung baseline
+remains the only physical Android evidence. These physical interruption gates
+remain open and prevent a release-ready verdict.
+
 Android runtime permission must be granted by the host product before
 `startRecording`. Permission handling deliberately remains outside the native
 engine so each product controls its own UX.
