@@ -15,6 +15,7 @@
 #include "shipglows/audio/audio_lifecycle.hpp"
 #include "shipglows/audio/capture_session.hpp"
 #include "shipglows/audio/spsc_audio_ring_buffer.hpp"
+#include "android_recovery_policy.h"
 
 namespace shipglows_audio {
 
@@ -34,6 +35,7 @@ class AndroidOboeCapture final : public oboe::AudioStreamDataCallback,
   [[nodiscard]] std::string Pause();
   [[nodiscard]] std::string Resume();
   [[nodiscard]] std::string SelectInputDevice(std::int32_t input_device_id);
+  void SetRecoveryDevice(std::int32_t input_device_id, bool route_ready);
   [[nodiscard]] std::string StatusLine() const;
 
   oboe::DataCallbackResult onAudioReady(oboe::AudioStream* stream,
@@ -65,6 +67,7 @@ class AndroidOboeCapture final : public oboe::AudioStreamDataCallback,
   shipglows::audio::TimestampTracker timestamp_tracker_;
   std::atomic<std::uint64_t> lifecycle_generation_{1};
   std::atomic<std::int32_t> input_device_id_{oboe::Unspecified};
+  AndroidRecoveryCoordinator recovery_coordinator_;
   [[nodiscard]] bool SubmitStorageCommand(std::uint8_t command);
 };
 

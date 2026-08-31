@@ -1,7 +1,7 @@
 #include "android_oboe_capture.h"
 
+#include <algorithm>
 #include <chrono>
-#include <array>
 #include <span>
 #include <sstream>
 #include <vector>
@@ -51,6 +51,8 @@ bool AndroidOboeCapture::Start(
     builder.setDeviceId(input_device_id);
   }
   input_device_id_.store(input_device_id, std::memory_order_relaxed);
+  recovery_coordinator_.Reset();
+  recovery_coordinator_.SetRoute(input_device_id, input_device_id >= 0);
 
   auto open_result = builder.openStream(stream_);
   if (open_result != oboe::Result::OK || stream_ == nullptr) {
@@ -120,6 +122,8 @@ bool AndroidOboeCapture::Start(
 
 void AndroidOboeCapture::Stop() {
   stop_requested_.store(true, std::memory_order_release);
+  recovery_coordinator_.RequestStop();
+  storage_command_condition_.notify_all();
   std::shared_ptr<oboe::AudioStream> stream;
   {
     std::lock_guard lock(mutex_);
@@ -191,6 +195,7 @@ std::string AndroidOboeCapture::SelectInputDevice(
     return StatusLine();
   }
   input_device_id_.store(input_device_id, std::memory_order_relaxed);
+  recovery_coordinator_.SetRoute(input_device_id, true);
   std::shared_ptr<oboe::AudioStream> previous;
   {
     std::lock_guard lock(mutex_);
@@ -212,6 +217,18 @@ std::string AndroidOboeCapture::SelectInputDevice(
     recovery_thread_ = std::thread(&AndroidOboeCapture::RecoveryWorker, this);
   }
   return StatusLine();
+}
+
+void AndroidOboeCapture::SetRecoveryDevice(std::int32_t input_device_id,
+                                           bool route_ready) {
+  if (stop_requested_.load(std::memory_order_acquire)) {
+    return;
+  }
+  if (route_ready && input_device_id >= 0) {
+    input_device_id_.store(input_device_id, std::memory_order_release);
+  }
+  recovery_coordinator_.SetRoute(input_device_id,
+                                 route_ready && input_device_id >= 0);
 }
 
 std::string AndroidOboeCapture::StatusLine() const {
@@ -265,6 +282,7 @@ void AndroidOboeCapture::onErrorAfterClose(
   }
   SetError("device_disconnected");
   session_.count_discontinuity();
+  recovery_coordinator_.SetRoute(-1, false);
   {
     std::lock_guard lock(mutex_);
     stream_.reset();
@@ -276,14 +294,27 @@ void AndroidOboeCapture::onErrorAfterClose(
 }
 
 void AndroidOboeCapture::RecoveryWorker() {
-  static_cast<void>(SubmitStorageCommand(3));
-  constexpr std::array delays{100, 200, 400, 800, 1600};
-  for (const auto delay_ms : delays) {
+  if (stop_requested_.load(std::memory_order_acquire) ||
+      !SubmitStorageCommand(3)) {
+    return;
+  }
+  const auto deadline = AndroidRecoveryCoordinator::Clock::now() +
+                        AndroidRecoveryCoordinator::kRecoveryDeadline;
+  auto recovery = recovery_coordinator_.Current();
+  while (true) {
     if (stop_requested_.load(std::memory_order_acquire)) {
       return;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
-    if (OpenReplacementStream()) {
+    const auto decision = AndroidRecoveryCoordinator::Decide(
+        recovery, AndroidRecoveryCoordinator::Clock::now(), deadline);
+    if (decision == AndroidRecoveryCoordinator::Decision::stop) {
+      return;
+    }
+    if (decision == AndroidRecoveryCoordinator::Decision::exhausted) {
+      break;
+    }
+    if (decision == AndroidRecoveryCoordinator::Decision::attempt &&
+        OpenReplacementStream()) {
       lifecycle_generation_.fetch_add(1, std::memory_order_relaxed);
       session_.count_device_restart();
       session_.count_route_change();
@@ -291,6 +322,11 @@ void AndroidOboeCapture::RecoveryWorker() {
       static_cast<void>(SubmitStorageCommand(4));
       return;
     }
+    const auto wake_at = std::min(
+        AndroidRecoveryCoordinator::Clock::now() +
+            AndroidRecoveryCoordinator::kRetryInterval,
+        deadline);
+    recovery = recovery_coordinator_.WaitUntil(wake_at, recovery.generation);
   }
   SetError("device_reconnect_exhausted");
   session_.fail();
@@ -423,6 +459,7 @@ bool AndroidOboeCapture::SubmitStorageCommand(std::uint8_t command) {
   return storage_command_condition_.wait_for(
       lock, std::chrono::seconds(5), [this, expected_completion] {
         return storage_command_completed_ >= expected_completion ||
+               stop_requested_.load(std::memory_order_acquire) ||
                session_.state() == shipglows::audio::SessionState::failed;
       }) && storage_command_completed_ >= expected_completion;
 }

@@ -52,6 +52,8 @@ Java_com_commandglows_shipglows_1audio_ShipglowsAudioPlugin_nativeCommand(
   } else if (command == 5 && capture != nullptr) {
     return ToJavaString(environment,
                         capture->SelectInputDevice(input_device_id));
+  } else if (command == 6 && capture != nullptr) {
+    capture->SetRecoveryDevice(input_device_id, input_device_id >= 0);
   }
   return ToJavaString(environment,
                       capture == nullptr

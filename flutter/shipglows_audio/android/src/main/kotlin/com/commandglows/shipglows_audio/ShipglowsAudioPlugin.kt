@@ -1,6 +1,7 @@
 package com.commandglows.shipglows_audio
 
 import android.content.Context
+import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
@@ -36,11 +37,31 @@ class ShipglowsAudioPlugin :
     // when the Flutter Engine is detached from the Activity
     private lateinit var channel: MethodChannel
     private lateinit var audioManager: AudioManager
+    @Volatile private var selectedInput: SelectedInput? = null
+
+    private data class SelectedInput(
+        val originalId: Int,
+        val type: Int,
+        val address: String,
+        val productName: String,
+    )
+
+    private val audioDeviceCallback =
+        object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
+                refreshRecoveryRoute()
+            }
+
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+                refreshRecoveryRoute()
+            }
+        }
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         audioManager =
             flutterPluginBinding.applicationContext.getSystemService(Context.AUDIO_SERVICE)
                 as AudioManager
+        audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "shipglows_audio")
         channel.setMethodCallHandler(this)
     }
@@ -79,7 +100,8 @@ class ShipglowsAudioPlugin :
                     return
                 }
                 val inputDeviceId = call.argument<Int>("inputDeviceId") ?: -1
-                if (inputDeviceId >= 0 && inputDevices().none { it.id == inputDeviceId }) {
+                val input = inputDevices().firstOrNull { it.id == inputDeviceId }
+                if (inputDeviceId >= 0 && input == null) {
                     result.error(
                         "input_device_unavailable",
                         "The selected audio input is not connected.",
@@ -95,8 +117,10 @@ class ShipglowsAudioPlugin :
                     )
                     return
                 }
+                selectedInput = input?.let(::selectedInput)
                 val status = parseStatus(nativeCommand(1, directory, inputDeviceId))
                 if (status["state"] == "failed") {
+                    selectedInput = null
                     clearCommunicationRoute()
                     result.error(
                         status["errorCode"] as? String ?: "capture_start_failed",
@@ -111,7 +135,8 @@ class ShipglowsAudioPlugin :
                 result.success(inputDevices().map(::deviceMap))
             "selectInputDevice" -> {
                 val inputDeviceId = call.argument<Int>("inputDeviceId")
-                if (inputDeviceId == null || inputDevices().none { it.id == inputDeviceId }) {
+                val input = inputDevices().firstOrNull { it.id == inputDeviceId }
+                if (inputDeviceId == null || input == null) {
                     result.error(
                         "input_device_unavailable",
                         "The selected audio input is not connected.",
@@ -125,11 +150,13 @@ class ShipglowsAudioPlugin :
                             null,
                         )
                     } else {
+                        selectedInput = selectedInput(input)
                         result.success(parseStatus(nativeCommand(5, null, inputDeviceId)))
                     }
                 }
             }
             "stopRecording" -> {
+                selectedInput = null
                 runNativeCommand(2, result)
                 clearCommunicationRoute()
             }
@@ -179,6 +206,39 @@ class ShipglowsAudioPlugin :
             audioManager.isBluetoothScoOn = true
             true
         }
+    }
+
+    private fun selectedInput(input: AudioDeviceInfo): SelectedInput =
+        SelectedInput(
+            originalId = input.id,
+            type = input.type,
+            address = input.address.orEmpty(),
+            productName = input.productName.toString(),
+        )
+
+    private fun matchesSelectedInput(
+        device: AudioDeviceInfo,
+        selected: SelectedInput,
+    ): Boolean =
+        device.type == selected.type &&
+            if (selected.address.isNotBlank()) {
+                device.address == selected.address
+            } else {
+                device.id == selected.originalId &&
+                    device.productName.toString() == selected.productName
+            }
+
+    private fun refreshRecoveryRoute() {
+        val selected = selectedInput ?: return
+        if (!nativeLoaded) {
+            return
+        }
+        val currentInput = inputDevices().firstOrNull { matchesSelectedInput(it, selected) }
+        if (currentInput == null || !selectCommunicationRoute(currentInput.id)) {
+            nativeCommand(6, null, -1)
+            return
+        }
+        nativeCommand(6, null, currentInput.id)
     }
 
     private fun clearCommunicationRoute() {
@@ -249,6 +309,8 @@ class ShipglowsAudioPlugin :
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        selectedInput = null
+        audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         clearCommunicationRoute()
         channel.setMethodCallHandler(null)
     }

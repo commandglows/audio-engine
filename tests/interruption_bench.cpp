@@ -2,6 +2,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <limits>
 #include <span>
@@ -12,6 +13,7 @@
 #include "shipglows/audio/audio_lifecycle.hpp"
 #include "shipglows/audio/recording_preflight.hpp"
 #include "shipglows/audio/segmented_wav_store.hpp"
+#include "android_recovery_policy.h"
 
 namespace {
 
@@ -23,6 +25,7 @@ using shipglows::audio::SegmentedWavStore;
 using shipglows::audio::SessionEvent;
 using shipglows::audio::TimestampTracker;
 using shipglows::audio::WavStoreFaultPolicy;
+using shipglows_audio::AndroidRecoveryCoordinator;
 
 constexpr AudioFormat kFormat{48'000, 1, SampleFormat::int16};
 
@@ -99,6 +102,92 @@ void test_bounded_reconnect_and_interrupted_reconnect() {
   assert(!interrupted.should_reconnect());
 }
 
+void test_android_recovery_deadline_and_device_handoff() {
+  using namespace std::chrono_literals;
+  using Clock = AndroidRecoveryCoordinator::Clock;
+
+  const auto start = Clock::time_point{};
+  static_assert(AndroidRecoveryCoordinator::kRecoveryDeadline == 60s);
+  const auto deadline = start + AndroidRecoveryCoordinator::kRecoveryDeadline;
+  const AndroidRecoveryCoordinator::Snapshot unavailable_after_3100_ms{
+      false, false, -1, 1};
+  assert(AndroidRecoveryCoordinator::Decide(unavailable_after_3100_ms,
+                                             start + 3100ms, deadline) ==
+         AndroidRecoveryCoordinator::Decision::wait);
+  const AndroidRecoveryCoordinator::Snapshot returned_after_3200_ms{
+      false, true, 42, 2};
+  assert(AndroidRecoveryCoordinator::Decide(returned_after_3200_ms,
+                                             start + 3200ms, deadline) ==
+         AndroidRecoveryCoordinator::Decision::attempt);
+  assert(!AndroidRecoveryCoordinator::DeadlineReached(start + 3100ms,
+                                                       deadline));
+  assert(!AndroidRecoveryCoordinator::DeadlineReached(deadline - 1ms,
+                                                       deadline));
+  assert(AndroidRecoveryCoordinator::DeadlineReached(deadline, deadline));
+  assert(AndroidRecoveryCoordinator::Decide(returned_after_3200_ms, deadline,
+                                             deadline) ==
+         AndroidRecoveryCoordinator::Decision::exhausted);
+  assert(AndroidRecoveryCoordinator::DeadlineReached(deadline + 1ms,
+                                                      deadline));
+  const AndroidRecoveryCoordinator::Snapshot stopped_at_deadline{
+      true, true, 42, 3};
+  assert(AndroidRecoveryCoordinator::Decide(stopped_at_deadline, deadline,
+                                             deadline) ==
+         AndroidRecoveryCoordinator::Decision::stop);
+
+  AndroidRecoveryCoordinator coordinator;
+  coordinator.Reset();
+  const auto unavailable = coordinator.Current();
+  assert(!unavailable.route_ready && unavailable.device_id == -1);
+
+  coordinator.SetRoute(17, true);
+  const auto first = coordinator.Current();
+  assert(first.route_ready && first.device_id == 17);
+  coordinator.SetRoute(17, true);
+  assert(coordinator.Current().generation == first.generation);
+
+  coordinator.SetRoute(-1, false);
+  coordinator.SetRoute(42, true);
+  const auto reacquired = coordinator.Current();
+  assert(reacquired.route_ready && reacquired.device_id == 42);
+  assert(reacquired.generation == first.generation + 2);
+}
+
+void test_android_recovery_wait_is_cancellable() {
+  using namespace std::chrono_literals;
+  AndroidRecoveryCoordinator coordinator;
+  coordinator.Reset();
+
+  const auto wait_for_stop = [&coordinator] {
+    const auto initial = coordinator.Current();
+    return coordinator.WaitUntil(AndroidRecoveryCoordinator::Clock::now() + 5s,
+                                 initial.generation);
+  };
+
+  coordinator.RequestStop();
+  auto immediate = std::async(std::launch::async, wait_for_stop);
+  assert(immediate.wait_for(100ms) == std::future_status::ready);
+  assert(immediate.get().stop_requested);
+
+  coordinator.Reset();
+  auto during_wait = std::async(std::launch::async, wait_for_stop);
+  std::this_thread::sleep_for(10ms);
+  coordinator.RequestStop();
+  assert(during_wait.wait_for(100ms) == std::future_status::ready);
+  assert(during_wait.get().stop_requested);
+
+  coordinator.Reset();
+  const auto before_route = coordinator.Current();
+  auto route_wait = std::async(std::launch::async, [&coordinator, before_route] {
+    return coordinator.WaitUntil(AndroidRecoveryCoordinator::Clock::now() + 5s,
+                                 before_route.generation);
+  });
+  coordinator.SetRoute(99, true);
+  assert(route_wait.wait_for(100ms) == std::future_status::ready);
+  const auto routed = route_wait.get();
+  assert(!routed.stop_requested && routed.route_ready && routed.device_id == 99);
+}
+
 void test_storage_failures_preserve_committed_segments(
     const std::filesystem::path& root) {
   const auto write_root = root / "write_failure";
@@ -142,6 +231,8 @@ int main() {
   std::filesystem::remove_all(root);
   test_interruption_matrix(root);
   test_bounded_reconnect_and_interrupted_reconnect();
+  test_android_recovery_deadline_and_device_handoff();
+  test_android_recovery_wait_is_cancellable();
   test_storage_failures_preserve_committed_segments(root);
   test_hardware_timestamp_continuity();
   std::filesystem::remove_all(root);
