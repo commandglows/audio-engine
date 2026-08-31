@@ -25,6 +25,40 @@ struct WasapiCaptureStatus final {
   std::string error_code;
 };
 
+enum class WasapiRouteChange : std::uint8_t {
+  none,
+  selected_device_lost,
+  default_device_changed,
+};
+
+enum class WasapiPowerEvent : std::uint8_t {
+  none,
+  suspend,
+  resume,
+};
+
+[[nodiscard]] WasapiPowerEvent ClassifyWasapiPowerBroadcast(
+    std::uintptr_t event) noexcept;
+
+[[nodiscard]] constexpr bool ShouldQueueWasapiResume(
+    bool system_suspended, bool suspend_requested,
+    bool resume_in_progress) noexcept {
+  return (system_suspended || suspend_requested) && !resume_in_progress;
+}
+
+[[nodiscard]] constexpr WasapiRouteChange ClassifyWasapiRouteChange(
+    bool default_device_changed, bool selected_device_active) noexcept {
+  if (!default_device_changed) return WasapiRouteChange::none;
+  return selected_device_active ? WasapiRouteChange::default_device_changed
+                                : WasapiRouteChange::selected_device_lost;
+}
+
+[[nodiscard]] constexpr bool NeedsFreshWasapiCapture(
+    shipglows::audio::SessionState state) noexcept {
+  return state == shipglows::audio::SessionState::stopped ||
+         state == shipglows::audio::SessionState::failed;
+}
+
 class WindowsWasapiCapture final {
  public:
   WindowsWasapiCapture();
@@ -38,6 +72,8 @@ class WindowsWasapiCapture final {
   [[nodiscard]] WasapiCaptureStatus Pause();
   [[nodiscard]] WasapiCaptureStatus Resume();
   [[nodiscard]] WasapiCaptureStatus Status() const;
+  void NotifySystemSuspend();
+  void NotifySystemResume();
 
  private:
   void CaptureWorker(std::filesystem::path session_directory);
@@ -67,7 +103,15 @@ class WindowsWasapiCapture final {
   std::atomic<void*> wake_event_{nullptr};
   shipglows::audio::TimestampTracker timestamp_tracker_;
   std::atomic<std::uint64_t> lifecycle_generation_{1};
-  std::atomic<bool> route_change_requested_{false};
+  std::mutex endpoint_mutex_;
+  std::wstring selected_endpoint_id_;
+  std::atomic<WasapiRouteChange> route_change_requested_{
+      WasapiRouteChange::none};
+  std::atomic<bool> suspend_requested_{false};
+  std::atomic<bool> resume_requested_{false};
+  std::atomic<bool> system_suspended_{false};
+  std::atomic<bool> resume_to_user_pause_{false};
+  std::atomic<bool> resume_in_progress_{false};
 
   [[nodiscard]] bool SubmitStorageCommand(std::uint8_t command);
 };

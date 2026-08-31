@@ -130,7 +130,7 @@ void ShipglowsAudioPlugin::RegisterWithRegistrar(
           registrar->messenger(), "shipglows_audio",
           &flutter::StandardMethodCodec::GetInstance());
 
-  auto plugin = std::make_unique<ShipglowsAudioPlugin>();
+  auto plugin = std::make_unique<ShipglowsAudioPlugin>(registrar);
 
   channel->SetMethodCallHandler(
       [plugin_pointer = plugin.get()](const auto &call, auto result) {
@@ -140,10 +140,39 @@ void ShipglowsAudioPlugin::RegisterWithRegistrar(
   registrar->AddPlugin(std::move(plugin));
 }
 
-ShipglowsAudioPlugin::ShipglowsAudioPlugin()
-    : capture_(std::make_unique<WindowsWasapiCapture>()) {}
+ShipglowsAudioPlugin::ShipglowsAudioPlugin(
+    flutter::PluginRegistrarWindows* registrar)
+    : registrar_(registrar),
+      capture_(std::make_unique<WindowsWasapiCapture>()) {
+  if (registrar_ != nullptr) {
+    window_proc_delegate_id_ = registrar_->RegisterTopLevelWindowProcDelegate(
+        [this](HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+          return HandleWindowProc(hwnd, message, wparam, lparam);
+        });
+  }
+}
 
-ShipglowsAudioPlugin::~ShipglowsAudioPlugin() {}
+ShipglowsAudioPlugin::~ShipglowsAudioPlugin() {
+  if (registrar_ != nullptr && window_proc_delegate_id_ >= 0) {
+    registrar_->UnregisterTopLevelWindowProcDelegate(window_proc_delegate_id_);
+  }
+}
+
+std::optional<LRESULT> ShipglowsAudioPlugin::HandleWindowProc(
+    HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+  if (message != WM_POWERBROADCAST) return std::nullopt;
+  switch (ClassifyWasapiPowerBroadcast(wparam)) {
+    case WasapiPowerEvent::suspend:
+      capture_->NotifySystemSuspend();
+      break;
+    case WasapiPowerEvent::resume:
+      capture_->NotifySystemResume();
+      break;
+    case WasapiPowerEvent::none:
+      break;
+  }
+  return std::nullopt;
+}
 
 void ShipglowsAudioPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
@@ -167,6 +196,9 @@ void ShipglowsAudioPlugin::HandleMethodCall(
       result->Error("invalid_session_directory",
                     "A valid UTF-8 session directory is required.");
       return;
+    }
+    if (NeedsFreshWasapiCapture(capture_->Status().state)) {
+      capture_ = std::make_unique<WindowsWasapiCapture>();
     }
     if (!capture_->Start(path)) {
       const auto status = capture_->Status();

@@ -84,6 +84,19 @@ bool MapWaveFormat(const WAVEFORMATEX& wave, AudioFormat* output) {
 
 }  // namespace
 
+WasapiPowerEvent ClassifyWasapiPowerBroadcast(
+    std::uintptr_t event) noexcept {
+  switch (event) {
+    case PBT_APMSUSPEND:
+      return WasapiPowerEvent::suspend;
+    case PBT_APMRESUMEAUTOMATIC:
+    case PBT_APMRESUMESUSPEND:
+      return WasapiPowerEvent::resume;
+    default:
+      return WasapiPowerEvent::none;
+  }
+}
+
 WindowsWasapiCapture::WindowsWasapiCapture() = default;
 
 WindowsWasapiCapture::~WindowsWasapiCapture() { static_cast<void>(Stop()); }
@@ -110,8 +123,17 @@ bool WindowsWasapiCapture::Start(
   stop_requested_.store(false);
   capture_finished_.store(false);
   paused_.store(false);
-  route_change_requested_.store(false);
+  route_change_requested_.store(WasapiRouteChange::none);
+  {
+    std::lock_guard endpoint_lock(endpoint_mutex_);
+    selected_endpoint_id_.clear();
+  }
   storage_command_.store(0);
+  suspend_requested_.store(false);
+  resume_requested_.store(false);
+  system_suspended_.store(false);
+  resume_to_user_pause_.store(false);
+  resume_in_progress_.store(false);
   capture_thread_ =
       std::thread(&WindowsWasapiCapture::CaptureWorker, this, session_directory);
 
@@ -197,6 +219,45 @@ WasapiCaptureStatus WindowsWasapiCapture::Status() const {
   };
 }
 
+void WindowsWasapiCapture::NotifySystemSuspend() {
+  const auto state = session_.state();
+  if (state != shipglows::audio::SessionState::recording &&
+      state != shipglows::audio::SessionState::paused) {
+    return;
+  }
+  resume_to_user_pause_.store(
+      state == shipglows::audio::SessionState::paused,
+      std::memory_order_release);
+  resume_in_progress_.store(false, std::memory_order_release);
+  paused_.store(true, std::memory_order_release);
+  suspend_requested_.store(true, std::memory_order_release);
+  if (const auto event = wake_event_.load(); event != nullptr) {
+    SetEvent(static_cast<HANDLE>(event));
+  }
+}
+
+void WindowsWasapiCapture::NotifySystemResume() {
+  const auto system_suspended =
+      system_suspended_.load(std::memory_order_acquire);
+  const auto suspend_requested =
+      suspend_requested_.load(std::memory_order_acquire);
+  const auto resume_in_progress =
+      resume_in_progress_.load(std::memory_order_acquire);
+  if (!ShouldQueueWasapiResume(system_suspended, suspend_requested,
+                               resume_in_progress)) {
+    return;
+  }
+  bool expected = false;
+  if (!resume_in_progress_.compare_exchange_strong(
+          expected, true, std::memory_order_acq_rel)) {
+    return;
+  }
+  resume_requested_.store(true, std::memory_order_release);
+  if (const auto event = wake_event_.load(); event != nullptr) {
+    SetEvent(static_cast<HANDLE>(event));
+  }
+}
+
 void WindowsWasapiCapture::CaptureWorker(
     std::filesystem::path session_directory) {
   const auto com_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -249,10 +310,33 @@ void WindowsWasapiCapture::CaptureWorker(
   }
   AudioFormat native_format{};
   UINT32 endpoint_buffer_frames = 0;
-  auto open_default_endpoint = [&](bool first_open) -> bool {
+  auto open_selected_endpoint = [&](bool first_open) -> bool {
     close_stream();
-    result = enumerator->GetDefaultAudioEndpoint(eCapture, eMultimedia, &device);
+    if (first_open) {
+      result =
+          enumerator->GetDefaultAudioEndpoint(eCapture, eMultimedia, &device);
+    } else {
+      std::wstring selected_id;
+      {
+        std::lock_guard endpoint_lock(endpoint_mutex_);
+        selected_id = selected_endpoint_id_;
+      }
+      result = selected_id.empty()
+                   ? E_NOTFOUND
+                   : enumerator->GetDevice(selected_id.c_str(), &device);
+    }
     if (FAILED(result)) return false;
+    if (first_open) {
+      LPWSTR selected_id = nullptr;
+      if (FAILED(device->GetId(&selected_id)) || selected_id == nullptr) {
+        return false;
+      }
+      {
+        std::lock_guard endpoint_lock(endpoint_mutex_);
+        selected_endpoint_id_ = selected_id;
+      }
+      CoTaskMemFree(selected_id);
+    }
     result = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                               reinterpret_cast<void**>(audio_client.GetAddressOf()));
     if (FAILED(result)) return false;
@@ -303,7 +387,7 @@ void WindowsWasapiCapture::CaptureWorker(
     return SUCCEEDED(audio_client->Start());
   };
 
-  if (!open_default_endpoint(true)) {
+  if (!open_selected_endpoint(true)) {
     SetInitializationResult(false, "wasapi_initialize_failed");
     cleanup();
     return;
@@ -341,22 +425,45 @@ void WindowsWasapiCapture::CaptureWorker(
   resize_silence();
   bool reconnect_required = false;
   bool route_changed = false;
+  bool system_resume = false;
 
   while (!stop_requested_.load(std::memory_order_relaxed)) {
+    if (suspend_requested_.exchange(false, std::memory_order_acq_rel)) {
+      session_.count_discontinuity();
+      if (!SubmitStorageCommand(6)) {
+        SetError("suspend_checkpoint_failed");
+        session_.fail();
+        break;
+      }
+      system_suspended_.store(true, std::memory_order_release);
+    }
+    if (resume_requested_.exchange(false, std::memory_order_acq_rel)) {
+      reconnect_required = true;
+      route_changed = false;
+      system_resume = true;
+      SetError("system_resumed");
+    }
+    if (system_suspended_.load(std::memory_order_acquire) && !system_resume) {
+      WaitForSingleObject(audio_event, 200);
+      continue;
+    }
     if (reconnect_required) {
-      static_cast<void>(SubmitStorageCommand(route_changed ? 5 : 3));
+      if (!system_resume) {
+        static_cast<void>(SubmitStorageCommand(route_changed ? 5 : 3));
+      }
       close_stream();
       constexpr std::array delays{100, 200, 400, 800, 1600};
       bool reconnected = false;
       for (const auto delay_ms : delays) {
         if (stop_requested_.load(std::memory_order_acquire)) break;
         std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
-        if (open_default_endpoint(false)) {
+        if (open_selected_endpoint(false)) {
           reconnected = true;
           break;
         }
       }
       if (!reconnected) {
+        resume_in_progress_.store(false, std::memory_order_release);
         SetError("device_reconnect_exhausted");
         session_.fail();
         break;
@@ -366,11 +473,20 @@ void WindowsWasapiCapture::CaptureWorker(
       timestamp_tracker_.reset(native_format.sample_rate, generation);
       session_.count_device_restart();
       if (route_changed) session_.count_route_change();
+      route_change_requested_.store(WasapiRouteChange::none,
+                                    std::memory_order_release);
       SetError({});
-      static_cast<void>(SubmitStorageCommand(4));
+      static_cast<void>(SubmitStorageCommand(system_resume ? 7 : 4));
       resize_silence();
+      if (system_resume) {
+        paused_.store(resume_to_user_pause_.load(std::memory_order_acquire),
+                      std::memory_order_release);
+        system_suspended_.store(false, std::memory_order_release);
+        resume_in_progress_.store(false, std::memory_order_release);
+      }
       reconnect_required = false;
       route_changed = false;
+      system_resume = false;
       continue;
     }
 
@@ -441,11 +557,14 @@ void WindowsWasapiCapture::CaptureWorker(
       capture_client->ReleaseBuffer(packet_frames);
     }
 
-    if (!reconnect_required &&
-        route_change_requested_.exchange(false, std::memory_order_acq_rel)) {
-      route_changed = true;
+    if (!reconnect_required) {
+      const auto route_change = route_change_requested_.exchange(
+          WasapiRouteChange::none, std::memory_order_acq_rel);
+      if (route_change == WasapiRouteChange::none) continue;
+      route_changed =
+          route_change == WasapiRouteChange::default_device_changed;
       reconnect_required = true;
-      SetError("route_changed");
+      SetError(route_changed ? "route_changed" : "device_invalidated");
     }
   }
 
@@ -455,7 +574,6 @@ void WindowsWasapiCapture::CaptureWorker(
 void WindowsWasapiCapture::RouteMonitorWorker() {
   if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) return;
   ComPtr<IMMDeviceEnumerator> enumerator;
-  std::wstring known_id;
   if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
                                  CLSCTX_ALL, IID_PPV_ARGS(&enumerator)))) {
     while (!stop_requested_.load(std::memory_order_acquire) &&
@@ -467,13 +585,30 @@ void WindowsWasapiCapture::RouteMonitorWorker() {
           SUCCEEDED(current->GetId(&id)) && id != nullptr) {
         const std::wstring current_id(id);
         CoTaskMemFree(id);
-        if (!known_id.empty() && current_id != known_id) {
-          route_change_requested_.store(true, std::memory_order_release);
+        std::wstring selected_id;
+        {
+          std::lock_guard endpoint_lock(endpoint_mutex_);
+          selected_id = selected_endpoint_id_;
+        }
+        if (!selected_id.empty() && current_id != selected_id) {
+          ComPtr<IMMDevice> selected;
+          DWORD selected_state = 0;
+          const bool selected_active =
+              SUCCEEDED(enumerator->GetDevice(selected_id.c_str(), &selected)) &&
+              SUCCEEDED(selected->GetState(&selected_state)) &&
+              (selected_state & DEVICE_STATE_ACTIVE) != 0;
+          const auto route_change =
+              ClassifyWasapiRouteChange(true, selected_active);
+          if (route_change == WasapiRouteChange::default_device_changed) {
+            std::lock_guard endpoint_lock(endpoint_mutex_);
+            selected_endpoint_id_ = current_id;
+          }
+          route_change_requested_.store(route_change,
+                                        std::memory_order_release);
           if (const auto event = wake_event_.load(); event != nullptr) {
             SetEvent(static_cast<HANDLE>(event));
           }
         }
-        known_id = current_id;
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
@@ -508,6 +643,12 @@ void WindowsWasapiCapture::StorageWorker(
         } else if (command == 5) {
           store.checkpoint(shipglows::audio::SessionEvent::route_change,
                            "default_device_changed");
+        } else if (command == 6) {
+          store.checkpoint(shipglows::audio::SessionEvent::interruption,
+                           "system_suspended");
+        } else if (command == 7) {
+          store.checkpoint(shipglows::audio::SessionEvent::device_restart,
+                           "system_resume");
         }
         if (command != 0) {
           {

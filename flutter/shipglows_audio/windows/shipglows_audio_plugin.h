@@ -5,6 +5,7 @@
 #include <flutter/plugin_registrar_windows.h>
 
 #include <memory>
+#include <optional>
 
 namespace shipglows_audio {
 
@@ -14,7 +15,8 @@ class ShipglowsAudioPlugin : public flutter::Plugin {
  public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
 
-  ShipglowsAudioPlugin();
+  explicit ShipglowsAudioPlugin(
+      flutter::PluginRegistrarWindows* registrar = nullptr);
 
   virtual ~ShipglowsAudioPlugin();
 
@@ -28,6 +30,11 @@ class ShipglowsAudioPlugin : public flutter::Plugin {
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
  private:
+  std::optional<LRESULT> HandleWindowProc(HWND hwnd, UINT message,
+                                          WPARAM wparam, LPARAM lparam);
+
+  flutter::PluginRegistrarWindows* registrar_ = nullptr;
+  int window_proc_delegate_id_ = -1;
   std::unique_ptr<WindowsWasapiCapture> capture_;
 };
 
