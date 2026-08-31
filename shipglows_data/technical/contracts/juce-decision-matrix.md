@@ -1,4 +1,29 @@
-# JUCE-to-ShipGlows decision matrix
+---
+artifact: technical_decision_record
+metadata_schema_version: "1.0"
+artifact_version: "1.0.0"
+project: ShipGlows Audio Engine
+created: "2026-08-30"
+updated: "2026-08-31"
+status: reviewed
+source_skill: sg-docs
+scope: juce-decision-matrix
+owner: ShipGlows Audio Engine maintainers
+confidence: high
+risk_level: medium
+security_impact: none
+docs_impact: yes
+linked_systems:
+  - ../context.md
+depends_on: []
+supersedes: []
+evidence:
+  - "Preserved during the 2026-08-31 documentation migration."
+next_review: "2026-11-30"
+next_step: "Review only when JUCE adoption is reconsidered."
+---
+
+# JUCE-to-ShipGlows Decision Matrix
 
 This document records architectural inspiration, not source-code derivation.
 ShipGlows Audio Engine is independently implemented against operating-system

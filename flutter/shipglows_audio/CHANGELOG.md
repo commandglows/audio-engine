@@ -1,3 +1,11 @@
+## Unreleased
+
+* Add bounded WASAPI default-device recovery and causal route checkpoints.
+* Add Oboe hardware timestamps outside the audio callback and expose timestamp
+  coverage to Flutter.
+* Add structured recoverability diagnostics and an automated interruption
+  bench; physical interruption gates remain open.
+
 ## 0.1.0
 
 * Add the portable C++ session, SPSC buffer, segmented PCM store, and recovery.

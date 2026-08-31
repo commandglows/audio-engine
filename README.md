@@ -12,7 +12,10 @@ interfaces. Flutter is a client of the engine, never part of the audio callback.
   Flutter APIs.
 - `flutter/shipglows_audio/`: private Flutter plugin and example application.
 - `tests/`: dependency-free native tests.
-- `docs/`: session integrity and platform architecture contracts.
+- `shipglows_data/technical/contracts/`: human-readable session and platform
+  contracts.
+- `shipglows_data/technical/`: canonical internal code-navigation and
+  maintenance map.
 
 ## Native checks
 
@@ -38,6 +41,10 @@ coverage, and a structured recovery hint. Windows uses event-driven WASAPI with
 bounded default-device recovery; Android uses Oboe and packages native libraries
 for the three Flutter Android ABIs.
 
-See `docs/verification.md` for the exact proof level of each backend. A native
-build is a compile/package proof, not a substitute for the device matrix needed
-before a production release.
+See `shipglows_data/technical/contracts/verification.md` for the exact proof
+level of each backend. A native build is a compile/package proof, not a
+substitute for the device matrix needed before a production release.
+
+For internal maintenance, start with
+`shipglows_data/technical/code-docs-map.md`; it routes each code area to its
+contract and focused validation.

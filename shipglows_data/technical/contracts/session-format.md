@@ -1,4 +1,29 @@
-# Session format v1
+---
+artifact: technical_contract
+metadata_schema_version: "1.0"
+artifact_version: "1.1.0"
+project: ShipGlows Audio Engine
+created: "2026-08-30"
+updated: "2026-08-31"
+status: reviewed
+source_skill: sg-docs
+scope: recording-session-format
+owner: ShipGlows Audio Engine maintainers
+confidence: high
+risk_level: high
+security_impact: none
+docs_impact: yes
+linked_systems:
+  - ../session-integrity.md
+depends_on: []
+supersedes: []
+evidence:
+  - "Version 2 WAV journals and recovery were verified by the two-hour Windows soak."
+next_review: "2026-11-30"
+next_step: "Update after a session schema or recovery change."
+---
+
+# Session Format
 
 Each recording session is a private directory containing:
 

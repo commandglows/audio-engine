@@ -1,12 +1,38 @@
-# Verification matrix
+---
+artifact: verification_record
+metadata_schema_version: "1.0"
+artifact_version: "1.1.0"
+project: ShipGlows Audio Engine
+created: "2026-08-30"
+updated: "2026-08-31"
+status: reviewed
+source_skill: sg-docs
+scope: release-candidate-verification
+owner: ShipGlows Audio Engine maintainers
+confidence: high
+risk_level: high
+security_impact: none
+docs_impact: yes
+linked_systems:
+  - ../code-docs-map.md
+  - ../../../../tests/
+depends_on: []
+supersedes: []
+evidence:
+  - "Final validation matrix and two-hour Windows soak recorded on 2026-08-31."
+next_review: "2026-09-30"
+next_step: "Record the physical interruption matrix before release approval."
+---
+
+# Verification Matrix
 
 This document distinguishes compile/package evidence from actual capture
 evidence. Both are required before a backend is promoted to production.
 
 | Backend | Compile/package proof | Native capture proof | Remaining release gate |
 | --- | --- | --- | --- |
-| Portable C++ core | CMake + MSVC Debug | Unit tests plus the interruption bench cover lifecycle, bounded backoff, timestamps, persistence, recovery, low-space preflight, and injected write failure | Two-hour physical soak |
-| Windows WASAPI | Flutter Windows Debug build | Default input capture, five pause/resume cycles, hardware timestamps, complete journal, and playable segment verified | Physical unplug, default-route switch, suspend, and two-hour soak |
+| Portable C++ core | CMake + MSVC Debug | Unit tests plus the interruption bench cover lifecycle, bounded backoff, timestamps, persistence, recovery, low-space preflight, and injected write failure | Physical interruption matrix |
+| Windows WASAPI | Flutter Windows Debug build | Default input capture, five pause/resume cycles, hardware timestamps, complete journal, playable segments, and a two-hour soak verified | Physical unplug, default-route switch, and suspend |
 | Android Oboe | Debug APK contains JNI libraries for arm64-v8a, armeabi-v7a, and x86_64 | Samsung Android 15 baseline plus API 36 emulator capture, pause/resume, hardware timestamps, journal, and WAV verification | Broader OEM matrix and physical interruption/route/unplug testing |
 
 ### Samsung SM-G996U1 baseline — 2026-08-30
