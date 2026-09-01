@@ -6,6 +6,8 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace shipglows_audio {
 
@@ -36,6 +38,7 @@ class ShipglowsAudioPlugin : public flutter::Plugin {
   flutter::PluginRegistrarWindows* registrar_ = nullptr;
   int window_proc_delegate_id_ = -1;
   std::unique_ptr<WindowsWasapiCapture> capture_;
+  std::vector<std::wstring> input_endpoint_ids_;
 };
 
 }  // namespace shipglows_audio

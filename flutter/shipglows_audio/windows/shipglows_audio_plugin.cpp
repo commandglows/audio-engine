@@ -3,6 +3,12 @@
 // This must be included before many other Windows headers.
 #include <windows.h>
 
+#include <propkeydef.h>
+#include <functiondiscoverykeys_devpkey.h>
+#include <mmdeviceapi.h>
+#include <propvarutil.h>
+#include <wrl/client.h>
+
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
@@ -10,12 +16,16 @@
 #include <memory>
 #include <filesystem>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "shipglows/audio/engine_info.hpp"
 #include "windows_wasapi_capture.h"
 
 namespace shipglows_audio {
 namespace {
+
+using Microsoft::WRL::ComPtr;
 
 std::string SampleFormatName(shipglows::audio::SampleFormat format) {
   switch (format) {
@@ -101,6 +111,63 @@ const std::string* StringArgument(
   return found == arguments->end()
              ? nullptr
              : std::get_if<std::string>(&found->second);
+}
+
+const int* IntArgument(
+    const flutter::MethodCall<flutter::EncodableValue>& call,
+    const char* key) {
+  if (call.arguments() == nullptr) return nullptr;
+  const auto* arguments = std::get_if<flutter::EncodableMap>(call.arguments());
+  if (arguments == nullptr) return nullptr;
+  const auto found = arguments->find(flutter::EncodableValue(key));
+  return found == arguments->end() ? nullptr
+                                   : std::get_if<int>(&found->second);
+}
+
+std::string Utf8String(const std::wstring& value) {
+  if (value.empty()) return {};
+  const auto count = WideCharToMultiByte(CP_UTF8, 0, value.data(),
+                                         static_cast<int>(value.size()),
+                                         nullptr, 0, nullptr, nullptr);
+  if (count <= 0) return {};
+  std::string utf8(static_cast<std::size_t>(count), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, value.data(),
+                      static_cast<int>(value.size()), utf8.data(), count,
+                      nullptr, nullptr);
+  return utf8;
+}
+
+std::vector<std::pair<std::wstring, std::wstring>> EnumerateInputEndpoints() {
+  const auto com_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  const bool should_uninitialize = SUCCEEDED(com_result);
+  std::vector<std::pair<std::wstring, std::wstring>> endpoints;
+  ComPtr<IMMDeviceEnumerator> enumerator;
+  ComPtr<IMMDeviceCollection> collection;
+  if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
+                                 CLSCTX_ALL, IID_PPV_ARGS(&enumerator))) &&
+      SUCCEEDED(enumerator->EnumAudioEndpoints(
+          eCapture, DEVICE_STATE_ACTIVE, &collection))) {
+    UINT count = 0;
+    collection->GetCount(&count);
+    for (UINT index = 0; index < count; ++index) {
+      ComPtr<IMMDevice> device;
+      LPWSTR endpoint_id = nullptr;
+      ComPtr<IPropertyStore> properties;
+      PROPVARIANT name;
+      PropVariantInit(&name);
+      if (SUCCEEDED(collection->Item(index, &device)) &&
+          SUCCEEDED(device->GetId(&endpoint_id)) && endpoint_id != nullptr &&
+          SUCCEEDED(device->OpenPropertyStore(STGM_READ, &properties)) &&
+          SUCCEEDED(properties->GetValue(PKEY_Device_FriendlyName, &name)) &&
+          name.vt == VT_LPWSTR && name.pwszVal != nullptr) {
+        endpoints.emplace_back(endpoint_id, name.pwszVal);
+      }
+      if (endpoint_id != nullptr) CoTaskMemFree(endpoint_id);
+      PropVariantClear(&name);
+    }
+  }
+  if (should_uninitialize) CoUninitialize();
+  return endpoints;
 }
 
 std::filesystem::path Utf8Path(const std::string& value) {
@@ -200,6 +267,18 @@ void ShipglowsAudioPlugin::HandleMethodCall(
     if (NeedsFreshWasapiCapture(capture_->Status().state)) {
       capture_ = std::make_unique<WindowsWasapiCapture>();
     }
+    const auto* input_device_id = IntArgument(method_call, "inputDeviceId");
+    if (input_device_id != nullptr) {
+      if (*input_device_id <= 0 ||
+          static_cast<std::size_t>(*input_device_id) >
+              input_endpoint_ids_.size()) {
+        result->Error("input_device_not_found",
+                      "The selected input device is no longer available.");
+        return;
+      }
+      capture_->SelectEndpoint(
+          input_endpoint_ids_[static_cast<std::size_t>(*input_device_id - 1)]);
+    }
     if (!capture_->Start(path)) {
       const auto status = capture_->Status();
       result->Error(status.error_code.empty() ? "capture_start_failed"
@@ -207,6 +286,36 @@ void ShipglowsAudioPlugin::HandleMethodCall(
                     "The native WASAPI capture could not start.");
       return;
     }
+    result->Success(CaptureStatusValue(capture_->Status()));
+  } else if (method_call.method_name() == "getInputDevices") {
+    const auto endpoints = EnumerateInputEndpoints();
+    input_endpoint_ids_.clear();
+    flutter::EncodableList devices;
+    int id = 1;
+    for (const auto& [endpoint_id, name] : endpoints) {
+      input_endpoint_ids_.push_back(endpoint_id);
+      flutter::EncodableMap device;
+      device[flutter::EncodableValue("id")] = flutter::EncodableValue(id++);
+      device[flutter::EncodableValue("name")] =
+          flutter::EncodableValue(Utf8String(name));
+      device[flutter::EncodableValue("type")] =
+          flutter::EncodableValue("microphone");
+      device[flutter::EncodableValue("isExternal")] =
+          flutter::EncodableValue(false);
+      devices.emplace_back(device);
+    }
+    result->Success(flutter::EncodableValue(devices));
+  } else if (method_call.method_name() == "selectInputDevice") {
+    const auto* input_device_id = IntArgument(method_call, "inputDeviceId");
+    if (input_device_id == nullptr || *input_device_id <= 0 ||
+        static_cast<std::size_t>(*input_device_id) >
+            input_endpoint_ids_.size()) {
+      result->Error("input_device_not_found",
+                    "The selected input device is no longer available.");
+      return;
+    }
+    capture_->SelectEndpoint(
+        input_endpoint_ids_[static_cast<std::size_t>(*input_device_id - 1)]);
     result->Success(CaptureStatusValue(capture_->Status()));
   } else if (method_call.method_name() == "stopRecording") {
     result->Success(CaptureStatusValue(capture_->Stop()));

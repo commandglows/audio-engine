@@ -101,6 +101,12 @@ WindowsWasapiCapture::WindowsWasapiCapture() = default;
 
 WindowsWasapiCapture::~WindowsWasapiCapture() { static_cast<void>(Stop()); }
 
+void WindowsWasapiCapture::SelectEndpoint(std::wstring endpoint_id) {
+  std::lock_guard endpoint_lock(endpoint_mutex_);
+  selected_endpoint_id_ = std::move(endpoint_id);
+  follows_system_default_ = selected_endpoint_id_.empty();
+}
+
 bool WindowsWasapiCapture::Start(
     const std::filesystem::path& session_directory) {
   if (capture_thread_.joinable() || session_.state() !=
@@ -124,10 +130,6 @@ bool WindowsWasapiCapture::Start(
   capture_finished_.store(false);
   paused_.store(false);
   route_change_requested_.store(WasapiRouteChange::none);
-  {
-    std::lock_guard endpoint_lock(endpoint_mutex_);
-    selected_endpoint_id_.clear();
-  }
   storage_command_.store(0);
   suspend_requested_.store(false);
   resume_requested_.store(false);
@@ -313,8 +315,17 @@ void WindowsWasapiCapture::CaptureWorker(
   auto open_selected_endpoint = [&](bool first_open) -> bool {
     close_stream();
     if (first_open) {
-      result =
-          enumerator->GetDefaultAudioEndpoint(eCapture, eMultimedia, &device);
+      std::wstring selected_id;
+      bool follows_system_default = true;
+      {
+        std::lock_guard endpoint_lock(endpoint_mutex_);
+        selected_id = selected_endpoint_id_;
+        follows_system_default = follows_system_default_;
+      }
+      result = follows_system_default || selected_id.empty()
+                   ? enumerator->GetDefaultAudioEndpoint(eCapture, eMultimedia,
+                                                         &device)
+                   : enumerator->GetDevice(selected_id.c_str(), &device);
     } else {
       std::wstring selected_id;
       {
@@ -590,7 +601,13 @@ void WindowsWasapiCapture::RouteMonitorWorker() {
           std::lock_guard endpoint_lock(endpoint_mutex_);
           selected_id = selected_endpoint_id_;
         }
-        if (!selected_id.empty() && current_id != selected_id) {
+        bool follows_system_default = true;
+        {
+          std::lock_guard endpoint_lock(endpoint_mutex_);
+          follows_system_default = follows_system_default_;
+        }
+        if (follows_system_default && !selected_id.empty() &&
+            current_id != selected_id) {
           ComPtr<IMMDevice> selected;
           DWORD selected_state = 0;
           const bool selected_active =

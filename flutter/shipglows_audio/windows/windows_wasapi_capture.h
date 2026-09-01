@@ -68,6 +68,7 @@ class WindowsWasapiCapture final {
   WindowsWasapiCapture& operator=(const WindowsWasapiCapture&) = delete;
 
   [[nodiscard]] bool Start(const std::filesystem::path& session_directory);
+  void SelectEndpoint(std::wstring endpoint_id);
   [[nodiscard]] WasapiCaptureStatus Stop();
   [[nodiscard]] WasapiCaptureStatus Pause();
   [[nodiscard]] WasapiCaptureStatus Resume();
@@ -105,6 +106,7 @@ class WindowsWasapiCapture final {
   std::atomic<std::uint64_t> lifecycle_generation_{1};
   std::mutex endpoint_mutex_;
   std::wstring selected_endpoint_id_;
+  bool follows_system_default_ = true;
   std::atomic<WasapiRouteChange> route_change_requested_{
       WasapiRouteChange::none};
   std::atomic<bool> suspend_requested_{false};
