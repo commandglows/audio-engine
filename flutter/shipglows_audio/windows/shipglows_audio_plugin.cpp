@@ -14,6 +14,7 @@
 #include <flutter/standard_method_codec.h>
 
 #include <memory>
+#include <map>
 #include <filesystem>
 #include <string>
 #include <utility>
@@ -291,13 +292,23 @@ void ShipglowsAudioPlugin::HandleMethodCall(
     const auto endpoints = EnumerateInputEndpoints();
     input_endpoint_ids_.clear();
     flutter::EncodableList devices;
+    std::map<std::wstring, int> name_counts;
+    std::map<std::wstring, int> name_ordinals;
+    for (const auto& [endpoint_id, name] : endpoints) {
+      static_cast<void>(endpoint_id);
+      ++name_counts[name];
+    }
     int id = 1;
     for (const auto& [endpoint_id, name] : endpoints) {
       input_endpoint_ids_.push_back(endpoint_id);
+      auto display_name = name;
+      if (name_counts[name] > 1) {
+        display_name += L" [" + std::to_wstring(++name_ordinals[name]) + L"]";
+      }
       flutter::EncodableMap device;
       device[flutter::EncodableValue("id")] = flutter::EncodableValue(id++);
       device[flutter::EncodableValue("name")] =
-          flutter::EncodableValue(Utf8String(name));
+          flutter::EncodableValue(Utf8String(display_name));
       device[flutter::EncodableValue("type")] =
           flutter::EncodableValue("microphone");
       device[flutter::EncodableValue("isExternal")] =
