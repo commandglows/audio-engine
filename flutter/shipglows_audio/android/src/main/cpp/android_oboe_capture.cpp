@@ -260,6 +260,10 @@ oboe::DataCallbackResult AndroidOboeCapture::onAudioReady(
                           format_.bytes_per_frame();
   const auto input = std::span<const std::byte>(
       reinterpret_cast<const std::byte*>(audio_data), byte_count);
+  const auto levels = shipglows::audio::analyze_levels(input, format_);
+  session_.set_levels(levels.peak, levels.rms);
+  session_.count_clipped_samples(
+      shipglows::audio::count_clipped_samples(input, format_));
   const auto stored = ring_->push(input);
   session_.count_captured_frames(stored / format_.bytes_per_frame());
   if (stored < byte_count) {

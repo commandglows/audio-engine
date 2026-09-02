@@ -591,35 +591,38 @@ void WindowsWasapiCapture::RouteMonitorWorker() {
            !capture_finished_.load(std::memory_order_acquire)) {
       ComPtr<IMMDevice> current;
       LPWSTR id = nullptr;
+      std::wstring current_id;
       if (SUCCEEDED(enumerator->GetDefaultAudioEndpoint(
-              eCapture, eMultimedia, &current)) &&
+              eCapture, eMultimedia, &current)) && current != nullptr &&
           SUCCEEDED(current->GetId(&id)) && id != nullptr) {
-        const std::wstring current_id(id);
+        current_id = id;
         CoTaskMemFree(id);
-        std::wstring selected_id;
-        {
+      }
+
+      std::wstring selected_id;
+      bool follows_system_default = true;
+      {
+        std::lock_guard endpoint_lock(endpoint_mutex_);
+        selected_id = selected_endpoint_id_;
+        follows_system_default = follows_system_default_;
+      }
+      if (!selected_id.empty()) {
+        ComPtr<IMMDevice> selected;
+        DWORD selected_state = 0;
+        const bool selected_active =
+            SUCCEEDED(enumerator->GetDevice(selected_id.c_str(), &selected)) &&
+            selected != nullptr &&
+            SUCCEEDED(selected->GetState(&selected_state)) &&
+            (selected_state & DEVICE_STATE_ACTIVE) != 0;
+        const bool default_device_changed =
+            !current_id.empty() && current_id != selected_id;
+        const auto route_change = ClassifyWasapiRouteChange(
+            default_device_changed, follows_system_default, selected_active);
+        if (route_change == WasapiRouteChange::default_device_changed) {
           std::lock_guard endpoint_lock(endpoint_mutex_);
-          selected_id = selected_endpoint_id_;
+          selected_endpoint_id_ = current_id;
         }
-        bool follows_system_default = true;
-        {
-          std::lock_guard endpoint_lock(endpoint_mutex_);
-          follows_system_default = follows_system_default_;
-        }
-        if (follows_system_default && !selected_id.empty() &&
-            current_id != selected_id) {
-          ComPtr<IMMDevice> selected;
-          DWORD selected_state = 0;
-          const bool selected_active =
-              SUCCEEDED(enumerator->GetDevice(selected_id.c_str(), &selected)) &&
-              SUCCEEDED(selected->GetState(&selected_state)) &&
-              (selected_state & DEVICE_STATE_ACTIVE) != 0;
-          const auto route_change =
-              ClassifyWasapiRouteChange(true, selected_active);
-          if (route_change == WasapiRouteChange::default_device_changed) {
-            std::lock_guard endpoint_lock(endpoint_mutex_);
-            selected_endpoint_id_ = current_id;
-          }
+        if (route_change != WasapiRouteChange::none) {
           route_change_requested_.store(route_change,
                                         std::memory_order_release);
           if (const auto event = wake_event_.load(); event != nullptr) {

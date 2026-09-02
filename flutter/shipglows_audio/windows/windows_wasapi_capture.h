@@ -47,10 +47,12 @@ enum class WasapiPowerEvent : std::uint8_t {
 }
 
 [[nodiscard]] constexpr WasapiRouteChange ClassifyWasapiRouteChange(
-    bool default_device_changed, bool selected_device_active) noexcept {
-  if (!default_device_changed) return WasapiRouteChange::none;
-  return selected_device_active ? WasapiRouteChange::default_device_changed
-                                : WasapiRouteChange::selected_device_lost;
+    bool default_device_changed, bool follows_system_default,
+    bool selected_device_active) noexcept {
+  if (!selected_device_active) return WasapiRouteChange::selected_device_lost;
+  return default_device_changed && follows_system_default
+             ? WasapiRouteChange::default_device_changed
+             : WasapiRouteChange::none;
 }
 
 [[nodiscard]] constexpr bool NeedsFreshWasapiCapture(

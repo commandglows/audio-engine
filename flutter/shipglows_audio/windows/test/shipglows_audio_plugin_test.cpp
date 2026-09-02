@@ -42,17 +42,28 @@ TEST(ShipglowsAudioPlugin, GetEngineInfo) {
 }
 
 TEST(WindowsWasapiCapture, KeepsLostSelectedEndpoint) {
-  EXPECT_EQ(ClassifyWasapiRouteChange(true, false),
+  EXPECT_EQ(ClassifyWasapiRouteChange(true, true, false),
             WasapiRouteChange::selected_device_lost);
 }
 
 TEST(WindowsWasapiCapture, FollowsIntentionalDefaultChange) {
-  EXPECT_EQ(ClassifyWasapiRouteChange(true, true),
+  EXPECT_EQ(ClassifyWasapiRouteChange(true, true, true),
             WasapiRouteChange::default_device_changed);
 }
 
 TEST(WindowsWasapiCapture, IgnoresUnchangedDefault) {
-  EXPECT_EQ(ClassifyWasapiRouteChange(false, false), WasapiRouteChange::none);
+  EXPECT_EQ(ClassifyWasapiRouteChange(false, true, true),
+            WasapiRouteChange::none);
+}
+
+TEST(WindowsWasapiCapture, DetectsInactiveExplicitEndpointWithoutDefaultChange) {
+  EXPECT_EQ(ClassifyWasapiRouteChange(false, false, false),
+            WasapiRouteChange::selected_device_lost);
+}
+
+TEST(WindowsWasapiCapture, KeepsActiveExplicitEndpointAfterDefaultChange) {
+  EXPECT_EQ(ClassifyWasapiRouteChange(true, false, true),
+            WasapiRouteChange::none);
 }
 
 TEST(WindowsWasapiCapture, RecreatesTerminalCaptureForNewSession) {
