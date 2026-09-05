@@ -32,16 +32,19 @@ class ShipglowsAudioInputDevice {
     required this.name,
     required this.type,
     required this.isExternal,
+    this.endpointId,
   });
 
   factory ShipglowsAudioInputDevice.fromMap(Map<Object?, Object?> map) =>
       ShipglowsAudioInputDevice(
+        endpointId: map['endpointId'] as String?,
         id: map['id'] as int? ?? 0,
         name: map['name'] as String? ?? 'Unknown input',
         type: map['type'] as String? ?? 'unknown',
         isExternal: map['isExternal'] as bool? ?? false,
       );
 
+  final String? endpointId;
   final int id;
   final String name;
   final String type;
@@ -71,6 +74,8 @@ class ShipglowsAudioCaptureStatus {
     required this.errorCode,
     this.errorRecoverable = false,
     this.recoveryAction = 'none',
+    this.outputActiveMilliseconds,
+    this.outputSilentMilliseconds,
   });
 
   factory ShipglowsAudioCaptureStatus.fromMap(Map<Object?, Object?> map) {
@@ -96,6 +101,8 @@ class ShipglowsAudioCaptureStatus {
       errorCode: map['errorCode'] as String? ?? '',
       errorRecoverable: map['errorRecoverable'] as bool? ?? false,
       recoveryAction: map['recoveryAction'] as String? ?? 'none',
+      outputActiveMilliseconds: map['outputActiveMilliseconds'] as int?,
+      outputSilentMilliseconds: map['outputSilentMilliseconds'] as int?,
     );
   }
 
@@ -120,6 +127,10 @@ class ShipglowsAudioCaptureStatus {
   final String errorCode;
   final bool errorRecoverable;
   final String recoveryAction;
+  /// Output monitoring time excluding pauses; null when output is disabled.
+  final int? outputActiveMilliseconds;
+  /// Consecutive output silence, measured before microphone mixing.
+  final int? outputSilentMilliseconds;
 }
 
 class ShipglowsAudio {
@@ -129,10 +140,19 @@ class ShipglowsAudio {
   Future<ShipglowsAudioCaptureStatus> startRecording({
     required String sessionDirectory,
     int? inputDeviceId,
+    bool microphoneEnabled = true,
+    String? inputEndpointId,
+    String? outputEndpointId,
   }) => ShipglowsAudioPlatform.instance.startRecording(
     sessionDirectory: sessionDirectory,
     inputDeviceId: inputDeviceId,
+    microphoneEnabled: microphoneEnabled,
+    inputEndpointId: inputEndpointId,
+    outputEndpointId: outputEndpointId,
   );
+
+  Future<List<ShipglowsAudioInputDevice>> getOutputDevices() =>
+      ShipglowsAudioPlatform.instance.getOutputDevices();
 
   Future<List<ShipglowsAudioInputDevice>> getInputDevices() =>
       ShipglowsAudioPlatform.instance.getInputDevices();

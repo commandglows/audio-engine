@@ -83,3 +83,18 @@ interruption / route / reconnect / timestamp
 
 Update this index when recovery reasons, backoff policy, Flutter recovery
 fields, timestamp strategy, relevant tests, or physical-gate status changes.
+
+## Explicit Windows source selection (2026-09-05)
+
+Explicit microphone/output endpoints use a fixed source set for the whole take, including pause. Source disappearance and suspend fail without default-device recovery; the storage worker retains/finalizes the existing segments. The consumer must join Stop before attempting repair and must ignore delayed failed-status replies after another operation has taken ownership of finalization. Legacy input-only calls retain their prior reconnect policy. See platform-adapters.md and tests/windows_sources_tests.cpp for this distinct contract.
+
+
+### 2026-09-05 system process loopback and silence
+
+The system sentinel captures rendering processes independently of endpoints on
+supported Windows builds. Source selection remains immutable throughout the
+take. Native errors and suspend never switch methods; capture/storage flushing
+and recovery remain shared with explicit endpoints. Output silence is measured
+before microphone mixing and does not fail capture or delete segments. Physical
+no-device playback remains a per-application test: Microsoft promises silence
+when there are no rendering streams, not universal endpoint-free playback.

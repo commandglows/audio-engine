@@ -13,6 +13,8 @@
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
 
+#include <algorithm>
+#include <iterator>
 #include <memory>
 #include <map>
 #include <filesystem>
@@ -87,6 +89,12 @@ flutter::EncodableValue CaptureStatusValue(const WasapiCaptureStatus& status) {
       flutter::EncodableValue(static_cast<double>(status.metrics.rms_level));
   value[flutter::EncodableValue("errorCode")] =
       flutter::EncodableValue(status.error_code);
+  if (status.output_active_milliseconds) {
+    value[flutter::EncodableValue("outputActiveMilliseconds")] =
+        flutter::EncodableValue(static_cast<int64_t>(*status.output_active_milliseconds));
+    value[flutter::EncodableValue("outputSilentMilliseconds")] =
+        flutter::EncodableValue(static_cast<int64_t>(*status.output_silent_milliseconds));
+  }
   const auto recoverable = status.error_code == "device_invalidated" ||
                            status.error_code == "route_changed" ||
                            status.error_code == "wasapi_event_wait_failed";
@@ -138,7 +146,7 @@ std::string Utf8String(const std::wstring& value) {
   return utf8;
 }
 
-std::vector<std::pair<std::wstring, std::wstring>> EnumerateInputEndpoints() {
+std::vector<std::pair<std::wstring, std::wstring>> EnumerateInputEndpoints(EDataFlow flow = eCapture) {
   const auto com_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   const bool should_uninitialize = SUCCEEDED(com_result);
   std::vector<std::pair<std::wstring, std::wstring>> endpoints;
@@ -147,7 +155,7 @@ std::vector<std::pair<std::wstring, std::wstring>> EnumerateInputEndpoints() {
   if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
                                  CLSCTX_ALL, IID_PPV_ARGS(&enumerator))) &&
       SUCCEEDED(enumerator->EnumAudioEndpoints(
-          eCapture, DEVICE_STATE_ACTIVE, &collection))) {
+          flow, DEVICE_STATE_ACTIVE, &collection))) {
     UINT count = 0;
     collection->GetCount(&count);
     for (UINT index = 0; index < count; ++index) {
@@ -166,7 +174,23 @@ std::vector<std::pair<std::wstring, std::wstring>> EnumerateInputEndpoints() {
       if (endpoint_id != nullptr) CoTaskMemFree(endpoint_id);
       PropVariantClear(&name);
     }
+    // First-run UI selection uses the real multimedia default endpoint. This
+    // changes display order only; a started take still pins its exact ID.
+    ComPtr<IMMDevice> default_device;
+    LPWSTR default_id = nullptr;
+    if (SUCCEEDED(enumerator->GetDefaultAudioEndpoint(
+            flow, eMultimedia, &default_device)) &&
+        SUCCEEDED(default_device->GetId(&default_id)) && default_id != nullptr) {
+      const auto selected = std::find_if(endpoints.begin(), endpoints.end(),
+          [default_id](const auto& endpoint) { return endpoint.first == default_id; });
+      if (selected != endpoints.end()) {
+        std::rotate(endpoints.begin(), selected, std::next(selected));
+      }
+    }
+    if (default_id != nullptr) CoTaskMemFree(default_id);
   }
+  collection.Reset();
+  enumerator.Reset();
   if (should_uninitialize) CoUninitialize();
   return endpoints;
 }
@@ -280,6 +304,23 @@ void ShipglowsAudioPlugin::HandleMethodCall(
       capture_->SelectEndpoint(
           input_endpoint_ids_[static_cast<std::size_t>(*input_device_id - 1)]);
     }
+    const auto* input_endpoint = StringArgument(method_call, "inputEndpointId");
+    const auto* output_endpoint = StringArgument(method_call, "outputEndpointId");
+    bool microphone_enabled = true;
+    if (const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments())) {
+      const auto it = args->find(flutter::EncodableValue("microphoneEnabled"));
+      if (it != args->end()) {
+        if (const auto* enabled = std::get_if<bool>(&it->second)) microphone_enabled = *enabled;
+      }
+    }
+    if (input_endpoint || output_endpoint || !microphone_enabled) {
+      if (!capture_->SelectSources(microphone_enabled,
+          input_endpoint ? Utf8Path(*input_endpoint).wstring() : std::wstring{},
+          output_endpoint ? Utf8Path(*output_endpoint).wstring() : std::wstring{})) {
+        result->Error("capture_sources_locked", "Sources are locked for the whole take.");
+        return;
+      }
+    }
     if (!capture_->Start(path)) {
       const auto status = capture_->Status();
       result->Error(status.error_code.empty() ? "capture_start_failed"
@@ -288,10 +329,21 @@ void ShipglowsAudioPlugin::HandleMethodCall(
       return;
     }
     result->Success(CaptureStatusValue(capture_->Status()));
-  } else if (method_call.method_name() == "getInputDevices") {
-    const auto endpoints = EnumerateInputEndpoints();
-    input_endpoint_ids_.clear();
+  } else if (method_call.method_name() == "getInputDevices" ||
+             method_call.method_name() == "getOutputDevices") {
+    const bool output = method_call.method_name() == "getOutputDevices";
+    const auto endpoints = EnumerateInputEndpoints(output ? eRender : eCapture);
+    if (!output) input_endpoint_ids_.clear();
     flutter::EncodableList devices;
+    if (output && SupportsProcessLoopback()) {
+      flutter::EncodableMap system;
+      system[flutter::EncodableValue("id")] = flutter::EncodableValue(0);
+      system[flutter::EncodableValue("name")] = flutter::EncodableValue("System audio");
+      system[flutter::EncodableValue("endpointId")] = flutter::EncodableValue("shipglows:system-audio");
+      system[flutter::EncodableValue("type")] = flutter::EncodableValue("systemAudio");
+      system[flutter::EncodableValue("isExternal")] = flutter::EncodableValue(false);
+      devices.emplace_back(system);
+    }
     std::map<std::wstring, int> name_counts;
     std::map<std::wstring, int> name_ordinals;
     for (const auto& [endpoint_id, name] : endpoints) {
@@ -300,7 +352,7 @@ void ShipglowsAudioPlugin::HandleMethodCall(
     }
     int id = 1;
     for (const auto& [endpoint_id, name] : endpoints) {
-      input_endpoint_ids_.push_back(endpoint_id);
+      if (!output) input_endpoint_ids_.push_back(endpoint_id);
       auto display_name = name;
       if (name_counts[name] > 1) {
         display_name += L" [" + std::to_wstring(++name_ordinals[name]) + L"]";
@@ -310,13 +362,19 @@ void ShipglowsAudioPlugin::HandleMethodCall(
       device[flutter::EncodableValue("name")] =
           flutter::EncodableValue(Utf8String(display_name));
       device[flutter::EncodableValue("type")] =
-          flutter::EncodableValue("microphone");
+          flutter::EncodableValue(output ? "systemAudio" : "microphone");
+      device[flutter::EncodableValue("endpointId")] =
+          flutter::EncodableValue(Utf8String(endpoint_id));
       device[flutter::EncodableValue("isExternal")] =
           flutter::EncodableValue(false);
       devices.emplace_back(device);
     }
     result->Success(flutter::EncodableValue(devices));
   } else if (method_call.method_name() == "selectInputDevice") {
+    if (capture_->Status().state != shipglows::audio::SessionState::idle) {
+      result->Error("capture_sources_locked", "Sources are locked for the whole take.");
+      return;
+    }
     const auto* input_device_id = IntArgument(method_call, "inputDeviceId");
     if (input_device_id == nullptr || *input_device_id <= 0 ||
         static_cast<std::size_t>(*input_device_id) >

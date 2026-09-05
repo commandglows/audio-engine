@@ -28,6 +28,7 @@ list(APPEND PLUGIN_SOURCES
   "shipglows_audio_plugin.cpp"
   "shipglows_audio_plugin.h"
   "windows_wasapi_capture.cpp"
+  "windows_wasapi_sources.cpp"
   "windows_wasapi_capture.h"
 )
 
@@ -64,6 +65,7 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE
   shipglows::audio_engine
   avrt
   ole32
+  mmdevapi
 )
 
 # List of absolute paths to libraries that should be bundled with the plugin.
@@ -114,6 +116,7 @@ target_link_libraries(${TEST_RUNNER} PRIVATE
   shipglows::audio_engine
   avrt
   ole32
+  mmdevapi
 )
 # flutter_wrapper_plugin has link dependencies on the Flutter DLL.
 add_custom_command(TARGET ${TEST_RUNNER} POST_BUILD

@@ -28,15 +28,31 @@ class MethodChannelShipglowsAudio extends ShipglowsAudioPlatform {
   Future<ShipglowsAudioCaptureStatus> startRecording({
     required String sessionDirectory,
     int? inputDeviceId,
+    bool microphoneEnabled = true,
+    String? inputEndpointId,
+    String? outputEndpointId,
   }) => _captureCall('startRecording', <String, Object?>{
-      'sessionDirectory': sessionDirectory,
-      'inputDeviceId': inputDeviceId,
+    'sessionDirectory': sessionDirectory,
+    'inputDeviceId': inputDeviceId,
+    'microphoneEnabled': microphoneEnabled,
+    'inputEndpointId': inputEndpointId,
+    'outputEndpointId': outputEndpointId,
   });
 
   @override
   Future<List<ShipglowsAudioInputDevice>> getInputDevices() async {
     final result = await methodChannel.invokeListMethod<Map<Object?, Object?>>(
       'getInputDevices',
+    );
+    return (result ?? const <Map<Object?, Object?>>[])
+        .map(ShipglowsAudioInputDevice.fromMap)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<ShipglowsAudioInputDevice>> getOutputDevices() async {
+    final result = await methodChannel.invokeListMethod<Map<Object?, Object?>>(
+      'getOutputDevices',
     );
     return (result ?? const <Map<Object?, Object?>>[])
         .map(ShipglowsAudioInputDevice.fromMap)

@@ -21,7 +21,13 @@ class MockShipglowsAudioPlatform
   Future<ShipglowsAudioCaptureStatus> startRecording({
     required String sessionDirectory,
     int? inputDeviceId,
+    bool microphoneEnabled = true,
+    String? inputEndpointId,
+    String? outputEndpointId,
   }) async => _status('recording');
+
+  @override
+  Future<List<ShipglowsAudioInputDevice>> getOutputDevices() async => const [];
 
   @override
   Future<List<ShipglowsAudioInputDevice>> getInputDevices() async => const [
@@ -77,6 +83,19 @@ class MockShipglowsAudioPlatform
 }
 
 void main() {
+  test('output activity is optional and decoded independently of mixed levels', () {
+    final legacy = ShipglowsAudioCaptureStatus.fromMap({});
+    expect(legacy.outputActiveMilliseconds, isNull);
+    expect(legacy.outputSilentMilliseconds, isNull);
+    final mixed = ShipglowsAudioCaptureStatus.fromMap({
+      'peakLevel': 0.9,
+      'outputActiveMilliseconds': 8000,
+      'outputSilentMilliseconds': 7000,
+    });
+    expect(mixed.outputActiveMilliseconds, 8000);
+    expect(mixed.outputSilentMilliseconds, 7000);
+    expect(mixed.peakLevel, 0.9);
+  });
   final ShipglowsAudioPlatform initialPlatform =
       ShipglowsAudioPlatform.instance;
 

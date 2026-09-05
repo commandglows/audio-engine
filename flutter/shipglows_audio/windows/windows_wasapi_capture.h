@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -23,7 +24,15 @@ struct WasapiCaptureStatus final {
   shipglows::audio::AudioFormat format{};
   shipglows::audio::CaptureMetrics metrics{};
   std::string error_code;
+  std::optional<uint64_t> output_active_milliseconds;
+  std::optional<uint64_t> output_silent_milliseconds;
 };
+
+inline constexpr wchar_t kSystemAudioEndpoint[] = L"shipglows:system-audio";
+[[nodiscard]] constexpr bool SupportsProcessLoopbackBuild(unsigned long build) {
+  return build >= 20348;
+}
+[[nodiscard]] bool SupportsProcessLoopback();
 
 enum class WasapiRouteChange : std::uint8_t {
   none,
@@ -69,6 +78,7 @@ class WindowsWasapiCapture final {
 
   [[nodiscard]] bool Start(const std::filesystem::path& session_directory);
   void SelectEndpoint(std::wstring endpoint_id);
+  bool SelectSources(bool microphone_enabled, std::wstring input, std::wstring output);
   [[nodiscard]] WasapiCaptureStatus Stop();
   [[nodiscard]] WasapiCaptureStatus Pause();
   [[nodiscard]] WasapiCaptureStatus Resume();
@@ -77,6 +87,10 @@ class WindowsWasapiCapture final {
   void NotifySystemResume();
 
  private:
+  void SourcesWorker(std::filesystem::path session_directory);
+  bool explicit_sources_ = false;
+  bool microphone_enabled_ = true;
+  std::wstring output_endpoint_id_;
   void CaptureWorker(std::filesystem::path session_directory);
   void StorageWorker(std::filesystem::path session_directory);
   void RouteMonitorWorker();
@@ -89,6 +103,8 @@ class WindowsWasapiCapture final {
   bool initialization_finished_ = false;
   bool initialization_succeeded_ = false;
   std::string error_code_;
+  std::optional<uint64_t> output_active_milliseconds_;
+  std::optional<uint64_t> output_silent_milliseconds_;
   shipglows::audio::AudioFormat format_{};
 
   shipglows::audio::CaptureSession session_;

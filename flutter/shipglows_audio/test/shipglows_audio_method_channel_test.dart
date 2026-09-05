@@ -84,4 +84,43 @@ void main() {
     expect(switched.state, 'recording');
     expect(stopped.state, 'stopped');
   });
+  test(
+    'explicit source ids and disabled microphone cross the channel',
+    () async {
+      MethodCall? received;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(platform.methodChannel, (call) async {
+            received = call;
+            if (call.method == 'getOutputDevices') {
+              return [
+                {
+                  'id': 1,
+                  'endpointId': 'stable-output',
+                  'name': 'Speakers',
+                  'type': 'systemAudio',
+                  'isExternal': false,
+                },
+              ];
+            }
+            return {'state': 'recording'};
+          });
+      await platform.startRecording(
+        sessionDirectory: 'session',
+        microphoneEnabled: false,
+        inputEndpointId: 'stable-input',
+        outputEndpointId: 'stable-output',
+      );
+      expect(received!.arguments, containsPair('microphoneEnabled', false));
+      expect(
+        received!.arguments,
+        containsPair('inputEndpointId', 'stable-input'),
+      );
+      expect(
+        received!.arguments,
+        containsPair('outputEndpointId', 'stable-output'),
+      );
+      final outputs = await platform.getOutputDevices();
+      expect(outputs.single.endpointId, 'stable-output');
+    },
+  );
 }

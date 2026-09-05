@@ -102,6 +102,7 @@ WindowsWasapiCapture::WindowsWasapiCapture() = default;
 WindowsWasapiCapture::~WindowsWasapiCapture() { static_cast<void>(Stop()); }
 
 void WindowsWasapiCapture::SelectEndpoint(std::wstring endpoint_id) {
+  if (session_.state() != shipglows::audio::SessionState::idle) return;
   std::lock_guard endpoint_lock(endpoint_mutex_);
   selected_endpoint_id_ = std::move(endpoint_id);
   follows_system_default_ = selected_endpoint_id_.empty();
@@ -137,7 +138,8 @@ bool WindowsWasapiCapture::Start(
   resume_to_user_pause_.store(false);
   resume_in_progress_.store(false);
   capture_thread_ =
-      std::thread(&WindowsWasapiCapture::CaptureWorker, this, session_directory);
+      std::thread(explicit_sources_ ? &WindowsWasapiCapture::SourcesWorker :
+                     &WindowsWasapiCapture::CaptureWorker, this, session_directory);
 
   std::unique_lock lock(state_mutex_);
   const auto initialized = initialization_condition_.wait_for(
@@ -218,6 +220,8 @@ WasapiCaptureStatus WindowsWasapiCapture::Status() const {
       .format = format_,
       .metrics = session_.metrics(),
       .error_code = error_code_,
+      .output_active_milliseconds = output_active_milliseconds_,
+      .output_silent_milliseconds = output_silent_milliseconds_,
   };
 }
 
