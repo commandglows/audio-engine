@@ -65,4 +65,40 @@ abstract class ShipglowsAudioPlatform extends PlatformInterface {
   Future<ShipglowsAudioCaptureStatus> getRecordingStatus() {
     throw UnimplementedError('getRecordingStatus() has not been implemented.');
   }
+
+  Future<ShipglowsAudioPlaybackStatus> loadPlayback({
+    required int generation,
+    required String localFilePath,
+    double seekSeconds = 0,
+    double playbackSpeed = 1,
+    ShipglowsAudioPlaybackEffects effects = const ShipglowsAudioPlaybackEffects(),
+  }) => throw UnimplementedError('loadPlayback() has not been implemented.');
+
+  Future<ShipglowsAudioPlaybackStatus> seekPlayback({
+    required int generation,
+    required double positionSeconds,
+  }) => throw UnimplementedError('seekPlayback() has not been implemented.');
+
+  Future<ShipglowsAudioPlaybackStatus> playPlayback({required int generation}) =>
+      throw UnimplementedError('playPlayback() has not been implemented.');
+
+  Future<ShipglowsAudioPlaybackStatus> pausePlayback({required int generation}) =>
+      throw UnimplementedError('pausePlayback() has not been implemented.');
+
+  /// Stop requires a fresh monotonically increasing session generation.
+  Future<ShipglowsAudioPlaybackStatus> stopPlayback({required int generation}) =>
+      throw UnimplementedError('stopPlayback() has not been implemented.');
+
+  Future<ShipglowsAudioPlaybackStatus> getPlaybackStatus({required int generation}) =>
+      throw UnimplementedError('getPlaybackStatus() has not been implemented.');
+
+  Future<ShipglowsAudioPlaybackStatus> setPlaybackSpeed({
+    required int generation,
+    required double playbackSpeed,
+  }) => throw UnimplementedError('setPlaybackSpeed() has not been implemented.');
+
+  Future<ShipglowsAudioPlaybackStatus> setPlaybackEffects({
+    required int generation,
+    required ShipglowsAudioPlaybackEffects effects,
+  }) => throw UnimplementedError('setPlaybackEffects() has not been implemented.');
 }

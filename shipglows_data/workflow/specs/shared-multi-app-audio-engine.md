@@ -1,0 +1,398 @@
+﻿---
+artifact: spec
+metadata_schema_version: "1.0"
+artifact_version: "1.10.2"
+project: ShipGlows Audio Engine
+created: "2026-09-30"
+updated: "2026-10-05"
+created_at: "2026-09-30T16:05:00Z"
+updated_at: "2026-10-05T16:47:43Z"
+source_model: GPT-6
+status: ready
+source_skill: 100-sg-spec
+scope: shared-multi-app-audio-runtime
+owner: Diane
+confidence: medium
+risk_level: high
+security_impact: yes
+docs_impact: yes
+user_story: "As the ShipGlows product team, I want BeatGlows, ContentGlows, and their render worker to use one maintained native audio runtime for capture, playback, shared built-in effects, live processing, and offline audio rendering."
+linked_systems:
+  - "README.md"
+  - "flutter/shipglows_audio/"
+  - "flutter/shipglows_audio/native/engine/"
+  - "flutter/shipglows_audio/windows/"
+  - "flutter/shipglows_audio/android/"
+  - "tests/"
+  - "shipglows_data/technical/code-docs-map.md"
+  - "shipglows_data/technical/contracts/architecture.md"
+  - "shipglows_data/technical/contracts/engine-ownership-decision.md"
+  - "../beatglows/shipglows_data/workflow/specs/beatbox-audio-player-flutter.md"
+  - "../beatglows/shipglows_data/technical/audio-platform-feasibility.md"
+  - "../../../../contentglows/app/lib/data/models/video_timeline.dart"
+  - "../../../../contentglows/app/lib/providers/video_timeline_provider.dart"
+  - "../../../../contentglows/worker/remotion/ContentGlowsTimelineVideo.tsx"
+  - "../../../../contentglows/shipglows_data/technical/worker/architecture.md"
+  - "../../../../contentglows/shipglows_data/technical/worker/runtime-and-render-api.md"
+evidence:
+  - "Operator decision, 2026-09-30: keep ShipGlows Audio Engine as a shared foundation because multiple ShipGlows applications will use audio in different ways."
+  - "Repository inspection, 2026-09-30: the private Flutter plugin and native C++ core currently implement Windows WASAPI and Android Oboe recording; playback and product playback control are absent."
+  - "Operator clarification, 2026-09-30: BeatGlows is intended to become a DAW with voice effects; keep audio technology reusable across apps. Start with effects built into ShipGlows Audio Engine and do not load third-party effect plugins. The earlier local-player scope does not settle this architecture."
+  - "GitHub visibility check, 2026-09-30: both engine and BeatGlows repositories are private and have different owners; private Pub Git dependencies support SSH credentials and a repository subpath."
+  - "Three read-only research tracks, 2026-09-30: engine audit, OSS source review, and Flutter/native integration review agree that the current repository is capture infrastructure, not a DAW engine; the playback probe does not establish DAW readiness."
+  - "Primary-source engine research, 2026-09-30: callback safety, WASAPI/Oboe boundaries, C ABI/FFI, OSS architecture examples, licensing, and implementation gates are recorded in technical/audio-engine-research.md."
+  - "The earlier JUCE architecture study deferred a processor graph while BeatGlows was scoped as a player; the operator subsequently selected an in-house C++ engine."
+  - "Operator decision, 2026-10-01: build the shared engine ourselves; do not run a JUCE-versus-custom comparison. Own the C++ engine and DSP, using platform I/O adapters as needed."
+  - "Repository inspection, 2026-10-03: ContentGlows owns timeline and audio-mix state in Flutter, while its Remotion worker currently interprets volume automation, master gain, stored normalization gain, ducking, tone-frequency/pitch, and echo during video rendering; Flutter playback previews use audioplayers/video_player."
+  - "Operator clarification, 2026-10-03: ContentGlows also needs reusable effects and mixing for shorts/video editing; the shared engine must participate in the worker-side offline export path so preview and final audio can share processing."
+  - "Operator decision, 2026-10-03: validate the common DSP core with offline rendering first, then reuse it for realtime playback/monitoring across products."
+  - "Operator approval, 2026-10-03: prepare the first Linux offline-render slice with MP3/M4A/WAV decoding at the worker boundary, a versioned C++ CLI adapter, and two-pass integrated-LUFS normalization with a true-peak ceiling."
+  - "Spec resolution, 2026-10-03: set the offline true-peak ceiling to -1.0 dBTP, define deterministic PCM/codec/normalization fixtures and tolerances, and retain the current ContentGlows deep, bright, space, and dream preset parameter semantics."
+  - "Readiness resolution, 2026-10-03: bounded the Linux slice; specified supported codec subtypes, resource caps, CLI v1 manifest/result/error codes, float32 WAV output, independent fixture references, security proof, and a -1.1 dBTP internal gain cap that enforces the -1.0 dBTP output ceiling."
+  - "Operator decision, 2026-10-04: prioritize local Windows file playback with shared built-in effects in BeatGlows and ContentGlows; keep playback local without requiring the web worker, and defer Linux offline export until afterward."
+  - "Operator decision, 2026-10-04: include local playback speed control and investigate pitch adjustment as an additional capability if Windows quality and performance allow it."
+  - "Operator approval, 2026-10-04: start with MP3/M4A/WAV and EQ, gate, compressor, and limiter; add ContentGlows tone/echo processing afterward."
+  - "Windows platform resolution, 2026-10-04: select built-in Media Foundation for MP3 Layer III, AAC-LC M4A, and PCM WAV decoding; use WASAPI shared-mode output; defer M4A/ALAC. Microsoft primary documentation supports the selected decoder profiles."
+  - "102-sg-start implementation update, 2026-10-05: BeatGlows has a Windows command-adapter source and its sibling path dependency resolves in pubspec.lock; generated Windows plugin registration is present. App UI wiring, native compilation and named-endpoint audio remain unverified."
+depends_on: []
+supersedes: []
+next_review: "2026-10-15"
+next_step: "Continue 102-sg-start: complete the shared limiter/effect command path, BeatGlows and ContentGlows Windows playback integration, validate ContentGlows speed bounds, and add deterministic tests; then request native and named-endpoint proof. Keep duration-preserving pitch, M4A/ALAC and Linux export deferred."
+
+---
+
+# Spec: Shared Multi-App Audio Runtime
+
+Status: the Windows local playback/effects contract below passed its 101-sg-ready review and implementation is in progress. A read-only 103-sg-verify review found that BeatGlows transport speed and its Windows adapter, ContentGlows clip-speed serialization, shared EQ/gate/compressor source, Media Foundation/WASAPI adapters and the versioned Windows Flutter host exist as source. BeatGlows' sibling package resolves in `pubspec.lock` and Windows plugin registration is generated. The slice is not verified: neither app has a wired player/effects flow; the true-peak limiter and effect command path are missing; ContentGlows model deserialization does not enforce the 0.5x-2.0x speed range; native build, deterministic fixtures/tests, and named-device listening were not performed. The Linux offline-export contract remains for a later phase and its old readiness sequence does not authorize starting Linux first.
+
+## Title
+
+Shared audio capabilities for ShipGlows applications
+
+## Status
+
+The operator selected a ShipGlows-owned C++ engine with built-in DSP. The current priority is local Windows file playback and effects in both apps; this avoids making ordinary playback depend on the web worker. ContentGlows Linux offline mixdown and Remotion export follow as a separate phase, using the same DSP. The Windows slice is bounded to local playback and shared processing in both apps, with explicit input profiles, controls, and device acceptance. It passed the `101-sg-ready` review and is ready for implementation; no runtime proof is implied.
+
+## User Story
+
+As the ShipGlows product team, I want BeatGlows, ContentGlows, and their render worker to use one maintained native audio runtime so the same built-in DSP and mixing behavior serves a DAW, video editing, realtime playback, and offline export.
+
+## Problem
+
+The private shared engine currently provides capture and recovery, but not audio playback, mixing, or effects. BeatGlows needs realtime playback and voice processing for a DAW. ContentGlows already stores audio-mix and effect settings in its video timeline and applies them in a Remotion render worker, while preview widgets use Flutter media players. That splits behavior across products and render paths: changing effects in one place cannot guarantee that preview, DAW playback, and exported video use the same processing.
+
+## Solution
+
+Keep ShipGlows Audio Engine as the shared capability boundary. Preserve capture/recovery/storage and extend the ShipGlows-owned C++ core with source decoding, playback, mixing, built-in DSP, realtime device output, and offline audio rendering. First support local Windows file playback with effects through the shared C++ DSP and Windows WASAPI output in BeatGlows and ContentGlows; user playback must not require the ContentGlows web worker. Keep file decoding and storage work outside the realtime callback. Once this path is specified and proven, reuse the same DSP for ContentGlows offline mixdown in the Linux render worker; the deferred worker contract below defines pinned FFmpeg decode/resampling, the versioned C++ CLI, normalization, validated float32 WAV output, and Remotion handoff. Apps retain project/timeline/UI authority and map their controls to sample-time engine commands. Implement and test effects inside ShipGlows Audio Engine.
+
+## Revised First Priority: Windows Local Playback and Effects
+
+The first product outcome is local playback of MP3, M4A, and WAV sources in BeatGlows and ContentGlows on Windows, without upload or a web-worker dependency. BeatGlows uses its existing product-owned queue/transport; ContentGlows auditions locally available timeline audio through its existing timeline state. This shared slice does not replace BeatGlows' broader local-player requirements (library, playlists, gapless, ReplayGain, media keys, and the retained codec matrix), nor does it implement ContentGlows offline export. Those remain separately tracked capabilities.
+
+Windows input profile: MP3 with one MPEG Layer III stream; M4A with one AAC-LC stream; WAV with one mono/stereo PCM stream (signed 16/24/32-bit integer or IEEE float32). Accept 8-192 kHz source rates and convert to interleaved float32 stereo at 48 kHz before the shared processing graph. Reject unsupported profiles with a typed error and no fallback that silently changes decoder/device. For the first Windows adapter, use the built-in Windows Media Foundation decoder; Microsoft documents MP3, M4A/AAC, and WAV support, and its AAC decoder supports AAC-LC. M4A/ALAC is explicitly deferred from this Windows slice pending a decoder decision and compatibility proof. [Microsoft format matrix](https://learn.microsoft.com/en-us/windows/win32/medfound/supported-media-formats-in-media-foundation), [Microsoft AAC decoder](https://learn.microsoft.com/en-us/windows/win32/medfound/aac-decoder).
+
+The Windows audio adapter renders through WASAPI shared mode to the system-selected default output endpoint. File access, Media Foundation decode, resampling, graph construction, and storage stay outside the realtime callback. The app may select a valid output endpoint through the shared API; endpoint changes and device loss return typed state and recover without corrupting app-owned queues, projects, or timelines. No implicit endpoint switch is allowed.
+
+Transport contract: play, pause/resume, stop, seek, and playback speed. Speed is varispeed, clamped to 0.5x-2.0x with a 0.05x UI step; duration and pitch change together. Initialize at 1.0x on each new source unless the owning app has an explicit persisted value. Duration-preserving pitch shift is deferred from this first slice; it may be added after a separate Windows listening and CPU evaluation and does not block implementation of varispeed.
+
+Initial shared effect chain, in order: three-band EQ (low shelf at 120 Hz, mid bell at 1 kHz with Q=0.7, high shelf at 8 kHz), noise gate, compressor, true-peak limiter. EQ, gate, and compressor each have an explicit enabled/bypassed state and start bypassed. The output limiter is always active at a -1.0 dBTP ceiling and cannot be bypassed in this slice. EQ exposes low/mid/high gain from -12 to +12 dB; gate exposes threshold (-80 to 0 dBFS) and release (10-500 ms), with fixed 6 dB hysteresis and -60 dB maximum attenuation; compressor exposes threshold (-60 to 0 dBFS), ratio (1:1-20:1), attack (1-100 ms), release (10-1000 ms), and fixed 6 dB soft knee without automatic makeup gain. Parameters are finite, clamped or rejected before reaching the callback, and changed without callback allocation or locking. ContentGlows persists `playback_speed` per timeline audio clip, defaulting legacy clips to 1.0. Its clip bounds stay fixed: faster source progression can exhaust the source early and yields silence through the remainder; slower progression can leave source audio unconsumed at the clip end. BeatGlows speed is a transport value for the active track/session. Tone/echo and preset migration are later work; preserve current export semantics for `tone_frequency` and combine it with ContentGlows `playback_speed` in the deferred Linux export.
+
+Acceptance for this slice: deterministic PCM fixtures cover bypass, each processor, chain order, clipping/limiter ceiling, resampling/channel conversion, seek, and speed at 0.5x/1x/2x; decoded fixture inputs cover each admitted file profile and representative malformed/unsupported inputs. Native float32 processor output must match independent deterministic PCM references within 1e-6 full-scale absolute error; measured speed ratio and rendered duration at 0.5x/1x/2x must each be within 0.2% of reference; the limiter output must remain at or below -1.0 dBTP under an independent 64x oversampled reference meter. On Windows, both apps must be exercised against the same named physical output endpoint with real audio: load a local source, play/pause/seek/change speed, toggle and adjust each effect, recover from a device interruption, and confirm no file upload or worker request. A 10-minute run per app with zero reported WASAPI underruns and callback p99 below one device period is the realtime gate. This is an implementation acceptance plan, not proof already obtained. Select redistributable fixtures and record their licenses before adding them.
+
+The existing capture API and recovery behavior remain compatible. BeatGlows' queue/project state and ContentGlows' media/timeline state remain product-owned. The Linux worker/export contract below is retained as a later consumer of the same DSP core, not a prerequisite for Windows playback.
+
+ContentGlows' existing `tone_frequency` render parameter remains a playback-rate ratio that changes duration and pitch together. The per-clip `playback_speed` is a separate persisted source-rate control. For the deferred Linux export, multiply both values; preserve their independent serialized values and the fixed clip bounds. The combination is varispeed, not duration-preserving pitch shift. Independent pitch correction remains deferred.
+
+## Deferred Implementation Slice: Linux Offline Export
+
+This later phase delivers ContentGlows offline audio mixdown in the existing Linux worker. Its contract includes worker-side source probing/decoding, the shared C++ float-block mixer and retained audio processing, the versioned C++ CLI, job-scoped temporary PCM/WAV files, result validation, and Remotion audio handoff. It does not define or prove the Windows local playback slice above. Windows playback is now first; Linux export follows after the Windows slice has its own review and evidence.
+
+This later CLI manifest includes the approved ContentGlows `playback_speed` field, a delta from the earlier Linux-only readiness review. Re-run a bounded `101-sg-ready` review of the export contract before starting Linux export implementation. The worker accepts MP3 with one MPEG Layer III audio stream; M4A with one AAC-LC or ALAC audio stream; and WAV with one mono/stereo PCM stream encoded as signed 16/24/32-bit integer or IEEE float32. Input sample rates must be 8,000 through 192,000 Hz and are resampled to 48,000 Hz. Extra selectable audio streams, unsupported codecs/subtypes, malformed/truncated media, or media without an audio stream fail with a stable typed error. Attached cover art is ignored; other video streams are rejected. Decode only the portions referenced by the timeline, then provide interleaved float32 stereo PCM to the CLI. The existing timeline contract supplies a maximum 180-second duration at 30 fps, 12 tracks, and 100 total clips; the audio adapter enforces these limits before starting decode.
+
+The worker and CLI exchange UTF-8 JSON in a job-scoped directory. Protocol version 1 is queried with `--version` and reports `protocol_major=1` plus the engine build identifier. The worker invokes `<engine-cli> render --manifest <job-dir>/manifest.json --result <job-dir>/result.json` without a shell. The strict version-1 manifest contains `schema_version=1`, validated opaque `job_id` and `timeline_version_id` (1-128 characters), `sample_rate=48000`, `channel_layout=stereo`, `output_sample_count` (1 through 8,640,000), `inputs[]` (`input_id` (unique, 1-128 characters), job-relative PCM path, positive sample count, lowercase 64-hex SHA-256), `clips[]` (up to the existing 100-clip limit; unique worker-generated `clip_id`; `input_id`; `clip_type=audio|music`; source start, timeline start, and clip length in samples; base volume in [0,2]; up to 32 ordered volume points with finite values in [0,2] and easing `linear|ease_in|ease_out|ease_in_out`; tone-frequency ratio in [0.5,1.5]; ContentGlows required `playback_speed` in [0.5,2.0]; legacy timeline records without this field are normalized to 1.0 before manifest creation; echo delay in [0,30*1600] samples; echo decay in [0,0.6]), `mix` (`master_volume` in [0,2]; ducking enabled, amount in [0,1], attack in [1,150*1600] samples and release in [1,300*1600] samples; normalization enabled; pre-trim gain in [0.25,4]; target LUFS in [-24,-9]; true-peak ceiling fixed at -1.0 dBTP), and the fixed literal output path `audio-output.wav`. All numeric values must be finite; clip ranges, input references, and output bounds must validate before processing. The worker converts the fixed 30 fps timeline to samples at 1,600 samples per frame. It preserves current worker semantics: volume curves are clamped at endpoints and use the first point's easing for interpolation; music is ducked while audio clips are active with a target multiplier of `1 - ducking_amount`, linear frame-based attack/release, and the minimum multiplier when voices overlap; effective source rate is the product of ContentGlows `playback_speed` and `tone_frequency`; echo replays the source from its beginning once after the delay, with the same effective source rate and timeline-volume/ducking curves and additional `echo_decay` gain, only when delay is positive and shorter than the clip, and is truncated at the original clip end. Unknown fields, duplicate IDs, mismatched sample counts/digests, absolute paths, traversal, symlinks escaping the job directory, and unsupported schema versions fail closed. The worker performs all URL/source resolution and converts timeline frames to sample positions; the CLI never receives signed URLs, credentials, original source paths, or product storage locators.
+
+Every CLI manifest must contain 1-100 `inputs` and 1-100 `clips`; an empty source or clip list returns `invalid_manifest`. An explicitly decoded silent source remains valid and produces the unmeasurable normalization result. Create the job directory with owner-only permissions, stage only authorized media beneath it, reject symlinks and non-regular inputs, and invoke FFmpeg with local-file protocols only so a media container cannot make the decoder open a network URL or an unrelated file.
+
+On exit code 0, the result JSON contains matching `schema_version`, `job_id`, and `timeline_version_id`; output relative path and SHA-256; `sample_rate`, `channel_layout`, `sample_count`; integrated LUFS and true peak (nullable only for unmeasurable output);
+ormalization_status` (`disabled`, `applied`, `ceiling_limited`, or `unmeasurable`); and `target_reached`. Exit status 0 is the only successful status. Stable nonzero exit codes map one-to-one to `invalid_manifest` (1), `unsupported_schema` (2), `unsupported_media` (3), `decode_failed` (4), `resource_limit_exceeded` (5), `render_failed` (6), `cancelled` (7), or `output_validation_failed` (8); unknown codes fail as `render_failed`. Stdout/stderr and result diagnostics contain no source paths, user media, credentials, or payload samples. A missing result, nonzero exit, stale/mismatched job identity, digest mismatch, invalid WAV header, or metadata mismatch fails the worker job and removes partial outputs. The worker publishes no audio/video artifact from that job.
+
+The output is RIFF/WAVE IEEE float32 little-endian, interleaved stereo at 48 kHz, with exact `sample_count` matching the result. Each render job has at most 100 timeline clips, at most 512 MiB of aggregate decoded float32 PCM inputs, and at most 1 GiB of aggregate encoded audio-source bytes (no single source over 512 MiB). The audio probe is bounded to 15 seconds per source; decode, engine execution, result validation, and cleanup together have a 300-second deadline. The audio child processes have a combined 1 GiB memory limit; the existing Linux worker remains at one concurrent render, 4 GiB total memory, 2 CPUs, and a 900-second overall job timeout. Exceeding any limit returns `resource_limit_exceeded` before publication. Temporary input/output artifacts are removed on success, failure, and cancellation.
+
+## Minimal Behavior Contract
+
+When a supported private app opens a local audio file for playback, the shared engine plays it through the selected available Windows output and applies enabled shared processing, including playback-speed changes. It operates only on sources and devices explicitly supplied by that app, returns typed state and recoverable errors, and preserves existing capture behavior. A capability unavailable on a target reports that fact without silently switching devices, accessing unrelated app data, or pretending audio was captured or played. The easiest missed edge case is one app upgrading the shared client while another still uses the previous API version.
+
+## Success Behavior
+
+BeatGlows and ContentGlows use the same built-in DSP and mix behavior through the shared C++ core. ContentGlows keeps its video timeline, resolves render inputs, receives an offline audio mix from the shared engine, and combines it with rendered video; its preview and final export use the same audio processing contract. BeatGlows keeps DAW projects, track layout, and editing while later using the same DSP for playback, monitoring, and recording. Existing capture consumers continue using the established API. Windows realtime support is validated on devices; Linux offline rendering is validated in the worker; Android parity is claimed only for behavior that passes physical-device checks. Each capability reports platform availability and failure state.
+
+## Error Behavior
+
+Unsupported source, codec, device, permission, or platform returns a stable typed error. The Windows decoder accepts only user-selected local files in the declared profile; malformed media, unsupported subtype, missing endpoint, decode failure, or device interruption does not silently switch to a web worker or another output device. Interrupted streams follow a documented bounded recovery policy and preserve valid prior capture data. Stale client commands or callbacks cannot affect a newer session. A failed decode or offline render reports a typed error and does not publish a partial audio/video artifact; a failed playback session leaves the consumer's queue and unrelated capture sessions intact.
+
+## Scope In
+
+- Preserve and version the current capture API and native session format.
+- Define a versioned capability boundary for capture, decoding, playback, output routing, metering, offline render, and realtime processing.
+- Keep app-specific projects, timelines, queues, clip semantics, recording journeys, UI, permission prompts, video composition, and durable product data in their owning apps/services.
+- Add local Windows file playback through the shared C++ DSP and WASAPI output in BeatGlows and ContentGlows; decode only MP3 Layer III, AAC-LC M4A, and specified PCM WAV through Media Foundation; preserve the recorder as a distinct compatible capability.
+- Define the first worker boundary as MP3 Layer III, M4A AAC-LC/ALAC, and mono/stereo PCM WAV (signed 16/24/32-bit integer or IEEE float32, 8-192 kHz input) decoded by the pinned worker FFmpeg build to interleaved float32, 48 kHz stereo; reject other codecs/streams/channels/rates. Invoke strict CLI protocol v1 with a job manifest and publish its float32 WAV result atomically only after successful identity/digest/metadata validation.
+- When normalization is enabled, apply
+ormalization_gain` as a pre-normalization linear trim and measure integrated loudness and true peak on the completed mix using ITU-R BS.1770-4 / EBU R 128 semantics. Compute `requested_gain_db = target_lufs - measured_lufs` and `ceiling_gain_db = (-1.1 dBTP) - measured_true_peak_dbTP`; the second render applies the smaller gain. The -0.1 dB reserve keeps the final measurement at or below the -1.0 dBTP ceiling. Measure true peak with at least 4x oversampling and verify the final render. Return measured loudness and peak values; do not report the target as achieved when the ceiling prevents it. Silence or unmeasurable output receives no normalization gain and a typed result.
+- Decode local source files through a Windows Media Foundation adapter on non-realtime workers and feed the shared realtime output path; keep decoding, filesystem access, and storage off the audio callback.
+- Preserve ContentGlows audio controls as input semantics to the common processor: clip trim/position, volume keyframes/fades, master volume, normalization controls, ducking, and per-clip tone/pitch and echo settings. Preserve current parameter meanings or explicitly version any incompatible migration.
+- Keep video-frame scheduling and Remotion's visual composition/muxing outside the shared audio engine; the worker supplies the engine-rendered audio result as the audio input to video export.
+- Support low-latency voice monitoring and a small built-in effect chain with bounded CPU/memory and measurable input-to-output latency.
+- Define the shared engine's device, clock, graph, effect-parameter, and lifecycle contract independently of Flutter/UI.
+- Build the engine core, mixer, graph, and built-in DSP as ShipGlows-owned C++; use native platform I/O adapters and preserve compatibility with current capture consumers.
+- Define Android Oboe/AAudio behavior and prove voice input-to-effect-to-output on named physical devices before claiming parity.
+- Retain native, Flutter, platform-integration, physical-device, and performance proof as distinct evidence.
+
+## Scope Out
+
+Product screens, DAW/video project and timeline persistence, media-library indexing, product-specific arrangement and editing policy, video decoding/composition, final video container policy, streaming services, cloud audio, accounts, social integrations, and app-specific permission UX. Integrating JUCE, miniaudio, SoLoud, third-party DSP/effect code, or third-party effect plugins as the engine is out of scope. Host adapters remain separate from the C++ engine; the current Android Oboe adapter is retained pending its implementation-phase review.
+
+## Package Delivery Decision
+
+Use Dart Pub's private Git dependency syntax for the Flutter package `flutter/shipglows_audio`, pinned to a full immutable engine commit SHA with each consumer's `pubspec.lock` checked in. The Linux ContentGlows worker also pins the same engine source revision and builds the offline C++ core through its own host adapter; it must not carry a second DSP implementation. Keep CI credentials read-only and scoped to the private repository. Developers may use a local path override while co-developing, but must never commit a machine-specific override. Keep the repository private and `publish_to: none`; exact Linux binding/packaging mechanics remain an implementation-readiness decision.
+
+## Engine Ownership Decision (Selected)
+
+Build the shared engine as our own C++ implementation. ShipGlows owns the sample-frame clock, float block processing, mixer, routing graph, parameter handling, effects, and media-worker contracts. Windows device I/O uses WASAPI. Preserve the existing Android Oboe adapter for the later Android phase; it is a platform bridge, not the engine or DSP implementation. Flutter remains the product interface and control plane.
+
+Do not integrate a third-party audio engine, DSP/effect implementation, or effect plugin. The OSS research list remains available to study design and callback patterns without copying implementation code. The existing SoLoud probe demonstrates only basic playback, not DAW or monitoring readiness; it is not a foundation for the selected engine.
+
+The first Windows milestone is local file playback with effects through the shared engine in both apps, exercised on a real Windows output device. Real microphone voice monitoring and recording integrity remain subsequent Windows milestones; Android follows with named physical-device proof. Do not claim playback readiness from a synthetic probe alone.
+
+## Windows Playback Scope and Deferred Linux Export Phase
+
+The first implementation slice is local Windows file playback through the shared engine and WASAPI in both apps, with Windows Media Foundation decoding for the specified MP3 Layer III, AAC-LC M4A, and PCM WAV profiles. The engine performs common playback and selected built-in effects; products retain their own queues and project/timeline behavior. The Linux ContentGlows worker later reuses the same DSP for deterministic offline mixdown, loudness normalization, and Remotion handoff; video frames, timeline persistence, preset labels, and product provenance stay outside the engine.
+
+After file playback works in the Windows apps, expand the shared graph to voice monitoring/capture workflows, including the previously proposed built-in voice chain (trim, high-pass/EQ, gate/expander, compressor, limiter, with time effects after the core path). Measure real-device round-trip latency, glitches, CPU, and recovery before setting a support budget. Android Oboe/AAudio follows with named physical-device evidence.
+
+## Constraints
+
+- The engine remains private infrastructure. Its proprietary license and `publish_to: none` stay in force. Consumers must use an approved private delivery route; public release, mirroring, or redistribution needs a separate operator decision.
+- Native real-time callbacks do not call Flutter, perform file or network I/O, allocate, block on application locks, or decode compressed media. Non-real-time workers own decoding, storage, and analysis where applicable.
+- A consumer owns project/arrangement state and musical transport. The engine owns sample-frame/device timing and exposes it explicitly; the two clocks must be mapped without drift or duplicate authority.
+- Existing recording sessions, session format, recovery semantics, and tested platform behavior remain compatible or receive an explicit versioned migration.
+- Local sources and permission-bearing URIs remain opaque to shared product-domain code. The owning platform adapter enforces access and revocation behavior.
+- Initial Flutter consumers are private applications on Windows and Android. The ContentGlows render worker is an explicit Linux offline-render consumer; additional languages/platforms need an explicit consumer and contract review.
+- The ContentGlows render worker receives only server-resolved local media inputs; credentials and signed URLs never enter engine diagnostics.
+
+## Test Contract
+
+Surface: Windows local file playback, speed control, and effects through the shared C++ core and Flutter host adapters in BeatGlows and ContentGlows. Acceptance and fixture profiles are specified in the revised first-priority section: deterministic native DSP/transport fixtures, all selected decoder profiles, stable errors, callback safety, unchanged capture compatibility, and real output on a named Windows endpoint in each app. Duration-preserving pitch, broader BeatGlows player parity, Linux worker decode/render/mux, Android devices, and package release are later phases; they cannot substitute for the Windows local playback proof.
+
+## Dependencies
+
+- A private read-only source credential and reproducible Linux native build are available to the ContentGlows worker.
+- A versioned host boundary lets Flutter clients and the Linux worker call the same C++ DSP implementation.
+- Windows 10/11 Media Foundation supports the selected built-in decoder profiles and WASAPI output is available; the installed Windows SDK/runtime and named physical endpoints are available to the implementation and acceptance run. M4A/ALAC is deferred.
+- The Linux worker can supply authorized local media inputs and route the engine-rendered audio into Remotion without exposing signed URLs or credentials to engine logs.
+- Windows WASAPI device access and named physical output hardware are available for the first realtime playback acceptance gate.
+- Android Oboe/AAudio output and physical-device latency evidence remain later parity gates.
+
+## Invariants
+
+- One shared engine owns reusable audio mechanics; each product owns product meaning and user decisions.
+- Existing capture clients remain usable during additive playback work.
+- The DAW owns musical/project transport; the engine owns the device sample clock and reports its frame position.
+- No false success: requested, opened, producing PCM, and audibly accepted are distinct states.
+- No device or permission substitution without the product's explicit policy.
+- Resource limits, queue bounds, callback generations, shutdown, and partial failure are explicit at every native/client boundary.
+- Engine diagnostics omit audio payloads, credentials, private paths, and unnecessary device identifiers.
+
+## Links & Consequences
+
+- First consumer: [BeatGlows audio product spec](../../../../beatglows/shipglows_data/workflow/specs/beatbox-audio-player-flutter.md); its existing local-player scope must be expanded or split before a DAW implementation starts.
+- Cross-product offline consumer: [ContentGlows render worker architecture](../../../../contentglows/shipglows_data/technical/worker/architecture.md), [render API](../../../../contentglows/shipglows_data/technical/worker/runtime-and-render-api.md), and [Remotion timeline composition](../../../../contentglows/worker/remotion/ContentGlowsTimelineVideo.tsx).
+- Candidate measurements and proof gaps: [BeatGlows audio feasibility report](../../../../beatglows/shipglows_data/technical/audio-platform-feasibility.md).
+- Existing architectural baseline: [JUCE decision matrix](../../technical/contracts/juce-decision-matrix.md); it previously deferred a DAW graph and plugin routing.
+- Research findings and implementation gates: [shared audio engine research](../../technical/audio-engine-research.md); the selected direction is now a custom ShipGlows engine.
+- Ownership rationale: [engine ownership decision](../../technical/contracts/engine-ownership-decision.md).
+- Package delivery rules: [Dart Pub Git and path dependencies](https://dart.dev/tools/pub/dependencies#git-packages).
+- Native UI boundary: [Flutter FFI package guidance](https://docs.flutter.dev/platform-integration/bind-native-code).
+- Historical architecture reference only: [JUCE audio graph tutorial](https://juce.com/tutorials/tutorial_audio_processor_graph/) and [JUCE DSP tutorial](https://juce.com/tutorials/tutorial_dsp_introduction/); JUCE is not selected or planned for comparison.
+- Android low-latency requirements: [Google Oboe guidance](https://developer.android.com/games/sdk/oboe/low-latency-audio).
+- Bounded playback/effects prototype only: [`flutter_soloud` 5.1.4](https://pub.dev/packages/flutter_soloud/versions/5.1.4) and [SoLoud source and license](https://github.com/jarikomppa/soloud).
+- Future consumer apps adopt the versioned engine contract and run their own platform acceptance; they do not copy platform implementations into product repositories.
+- Flutter clients and the server render worker call the same C++ DSP implementation through host-specific adapters; Remotion must not retain a competing mix/effect implementation for shared-engine audio.
+- Capture-only consumers do not acquire playback dependencies. Playback consumers do not acquire capture permissions unless they request capture.
+- A major client or session-contract change requires a compatibility window and consumer migration evidence before legacy support is retired.
+
+## Documentation Coherence
+
+Update the audio engine README, technical code-docs map, architecture contract, platform adapter docs, and verification record as capabilities are implemented. Keep the BeatGlows DAW spec and ContentGlows worker docs linked to this contract. Distinguish offline DSP/render proof, video mux proof, realtime player/monitoring proof, and product-session proof. This document defines the Windows first implementation slice and the later Linux export slice; it claims no implementation, export parity, or DAW readiness.
+
+## Edge Cases
+
+- Consumer built against an older client while the engine is upgraded.
+- Two apps or sessions use input and output devices concurrently; one closes while another continues.
+- Output device disappears, changes route, suspends, or resumes during a transition.
+- URI access is revoked, moved, or unavailable after indexing.
+- Decoder returns malformed, unsupported, truncated, or unexpectedly large media.
+- A stale callback arrives after stop, seek, queue replacement, or recovery.
+- Buffer starvation, overflow, clock drift, and worker backpressure occur under load.
+- A requested effect is unavailable or cannot be applied without clipping.
+- Linux worker build or native binding differs from the Flutter build and produces a different DSP result.
+- Audio processing succeeds but the Remotion mux fails, or a retry associates audio from a stale timeline version with a newer video render.
+- Private binaries or third-party notices cannot be traced to the reviewed release.
+
+## Implementation Tasks
+
+## Execution Batches â€” Windows Playback Slice
+
+The first implementation slice used independent bounded domain/source writes. Root integration has connected the Windows source batches to the versioned host and added the BeatGlows command adapter; the product UI and runtime proof remain open.
+
+| Batch | Owner | Exclusive write set | Dependency and proof |
+| --- | --- | --- | --- |
+| A â€” BeatGlows transport speed | BeatGlows domain agent | `beatglows/app_flutter/lib/core/audio_engine/` playback domain source only | Add varispeed as generation-tagged transport state (0.5â€“2.0; new source defaults to 1.0); preserve queue/generation ownership. Source review only in this pass; focused tests/build are deferred until explicitly requested. |
+| B â€” Shared DSP foundation | Audio Engine core agent | `shipglows-audio-engine/flutter/shipglows_audio/native/engine/include/shipglows/audio/`, `src/`, and that directory's `CMakeLists.txt` | Add the portable processor/parameter foundation while preserving capture APIs. No BeatGlows/ContentGlows writes; native test/build execution is deferred until explicitly requested. |
+| F â€” DSP live-update safety | Audio Engine core agent | The Batch B DSP header/source only | Make control-thread parameter changes race-free at audio block boundaries without callback locks/allocations; apply the configured gate release to output gain. This follows Batch B; no tests/builds are run in this pass. |
+| C â€” ContentGlows clip speed | ContentGlows model agent | `contentglows` audio timeline model/schema source only | Persist `playback_speed` per audio clip, default absent legacy values to 1.0, preserve `tone_frequency` separately and keep timeline bounds fixed. Focused tests/build are deferred until explicitly requested. |
+| D â€” Windows source decoder | Media Foundation agent | `shipglows-audio-engine/flutter/shipglows_audio/windows/windows_mf_decoder.h` and `.cpp` | Implement a standalone typed decoder boundary for the admitted local Windows profiles, yielding stereo float32/48 kHz from source-reader work off the render callback. No CMake, Flutter, or WASAPI edits; decoder fixtures/build are deferred until explicitly requested. |
+| G â€” Decoder contract correction | Media Foundation agent | The Batch D decoder header/source only | Use full Media Foundation startup for Source Reader/decoder use; reject unconfirmed container/extra streams and preserve typed errors. No tests/builds in this pass. |
+| E â€” Windows output adapter | WASAPI agent | `shipglows-audio-engine/flutter/shipglows_audio/windows/windows_wasapi_playback.h` and `.cpp` | Implement standalone shared-mode event-driven output against an engine-owned render callback and typed device status. No decoder, plugin, or CMake edits; hardware/build proof is deferred until explicitly requested. |
+| H â€” Output format and startup correction | WASAPI agent | The Batch E output header/source only | Keep the engine callback at stereo float32/48 kHz across endpoint mix formats, report source-buffer underruns, and make initialization failure observable to Start callers without blocking forever. No tests/builds in this pass. |
+| I â€” Versioned Flutter playback host | Audio Engine plugin agent | `shipglows_audio/windows/shipglows_audio_plugin.cpp` and `.h`; `shipglows_audio/lib/shipglows_audio.dart`, `shipglows_audio_platform_interface.dart`, and `shipglows_audio_method_channel.dart` | Source connects local file, transport generation, speed, EQ/gate/compressor and typed status to the Windows decoder/output and shared DSP without PCM crossing Flutter. Capture API retained. No tests/builds; native behavior remains unverified. |
+| J â€” BeatGlows command adapter | Root orchestrator | `beatglows/app_flutter/pubspec.yaml`, `pubspec.lock`, and `lib/core/audio_engine/windows_playback_adapter.dart` | Adapter source maps generation-tagged domain commands to the shared host and polls only its status. The sibling path dependency resolves in the lockfile and Windows plugin registration is generated. App UI wiring, analysis, native build and audio proof remain outstanding; package publishing is deferred. |
+| Integration â€” Root | Root orchestrator | Shared spec history/flow, BeatGlows audio domain docs, native CMake wiring, BeatGlows app adapter and cross-batch integration review | CMake and host wiring are present in source. Remaining integration is BeatGlows UI invocation, required limiter/effects controls, ContentGlows host integration, and verification. No playback acceptance without native checks and named-device listening evidence. |
+
+The source batches are independent and may proceed in parallel. The root owns integration and CMake/plugin wiring. Any change beyond these exclusive paths requires a revised ownership matrix before writing.
+
+1. Implement the frozen Windows local playback contract for BeatGlows and ContentGlows: Media Foundation decode of the approved MP3/M4A/WAV profiles, float32 stereo 48 kHz handoff, transport and speed controls, the ordered built-in effect graph, WASAPI shared-mode output, typed device/source errors, and callback/recovery constraints. Keep playback local and independent of any network worker.
+2. Implement the shared C++ source-to-PCM, mixer/effect path, playback-speed control, and Windows WASAPI output required by the approved contract. Keep filesystem access and decode work outside realtime callbacks; preserve existing capture and recovery APIs. Add deterministic native tests for the chosen processing behavior.
+3. Defer duration-preserving pitch shifting. Reopen only through a separate spec/mini-readiness decision after speech/music reference fixtures, independent pitch/duration measures, human listening criteria, and CPU budget are available.
+4. Add and validate the versioned Flutter host integration in both Windows apps. Prove supported local-file playback, speed changes, and effect changes on a named Windows output device in each app, with correct queue/session state, typed error recovery, and reported latency/glitch/CPU evidence. Retain human listening proof separately from automated DSP results.
+5. Preserve ContentGlows timeline serialization when adding per-clip `playback_speed`: old timelines default to 1.0 and round-trip without changing existing `tone_frequency` values. In the deferred Linux worker, apply the product of the two ratios to the source and echo progression inside unchanged timeline clip bounds; add compatibility fixtures for fast source exhaustion, slow source truncation, and legacy timelines.
+6. Use the frozen deferred export contract above: decode only authorized MP3 Layer III, M4A AAC-LC/ALAC, and supported PCM WAV source ranges through the pinned worker FFmpeg build to interleaved float32 48 kHz stereo; pass job-scoped PCM and a strict schema-version-1 manifest to the C++ CLI; return a validated float32 WAV and result JSON; normalize the completed mix in two passes toward `target_lufs`, treating
+ormalization_gain` as pre-trim and reporting any true-peak-limited result.
+7. Implement the portable C++ float-block offline renderer and normalization stage, schema-version-1 CLI protocol, and deterministic render path within the stated time/memory/PCM/source-byte limits; preserve existing capture APIs. Validate manifest bounds and canonical job-relative paths before opening files. Validate with `cmake -S . -B build/native`, `cmake --build build/native`, and `ctest --test-dir build/native --output-on-failure`; remove the generated `build/native` directory after evidence capture.
+8. Add the Linux worker adapter using shell-free process invocation; resolve only authorized job inputs, generate job-scoped canonical PCM, validate manifest/result identity, digest, exit/error code, WAV encoding and audio metadata, and provide the completed engine artifact to Remotion. Keep video composition/muxing in the worker and ensure failed, partial, cancelled, or stale jobs cannot publish it. Validate with the worker's
+pm run lint`,
+pm run test:storage`,
+pm run test:timeline`, the new audio-worker contract tests, and a pinned Linux render/mux integration run; remove transient build/render/fixture output after recording evidence.
+9. Port the agreed ContentGlows compatibility behavior (mixing, gain automation/fades, ducking, loudness normalization, persisted playback speed multiplied by the retained tone-frequency ratio, and one bounded echo repeat) into the shared processor. Generate codec fixtures and canonical decode fingerprints with the pinned FFmpeg image; test deterministic samples, measured metadata, typed failures, and the four preset parameter sets. Defer subjective audible acceptance until the Linux artifact can be rendered and reviewed.
+
+### Additional phases after the first Windows playback slice
+
+10. Extend the same graph to any additional Flutter preview paths and prove parameter parity with the Windows core.
+11. Preserve current capture behavior and recovery proofs; measure and correct Android callback analysis duplication before adding DSP load.
+12. Define Android Oboe/AAudio parity and test it on named physical devices after the Windows path.
+13. Add private source delivery/build credentials for app and worker consumers when the ABI/module boundary is stable; publish migration and compatibility evidence with exact source, binary, and platform proof.
+
+## Acceptance Criteria
+
+### Windows local playback (first priority)
+
+- BeatGlows and ContentGlows can play supported files from local Windows storage through the shared engine and a Windows output device; playback does not require uploading the source or calling the Linux/web render worker.
+- Each app retains its own queue/project/timeline and user controls while the shared engine applies the agreed built-in effects to the playing audio.
+- Playback speed can be changed during a file session and survives supported seek/pause/resume transitions without corrupting queue or source position. The control is a playback/transport parameter, not an effect; baseline varispeed changes pitch together with speed. BeatGlows holds speed as active track/session transport state. ContentGlows stores per-clip `playback_speed` in [0.5,2.0], defaults absent legacy values to 1.0, preserves it through serialization, and keeps timeline clip bounds fixed; faster playback leaves silence if the source ends early, while slower playback may be truncated at the clip end. The later Linux export applies this ratio multiplied by existing `tone_frequency`.
+- Duration-preserving pitch adjustment is optional for the first release and remains included only if Windows quality and CPU acceptance pass. Simple varispeed that changes speed and pitch together is not represented as an independent pitch control.
+- Unsupported files, device loss, stop/seek/reopen races, and shutdown return typed outcomes without stale playback, partial session state, or impact to unrelated capture sessions.
+- Automated processing tests and Windows device playback/listening evidence are both required. Use the profile/parameter matrix and per-app procedure above; the implementation must instrument underruns and callback duration.
+
+### Deferred Linux offline-export contract
+
+- The Linux slice accepts only MP3 Layer III, M4A AAC-LC or ALAC, and mono/stereo WAV PCM encoded as signed 16/24/32-bit integer or IEEE float32 at 8-192 kHz; it converts referenced source ranges through the pinned worker decoder to interleaved float32 48 kHz stereo and returns typed failures for unsupported streams/subtypes/rates or malformed/truncated input.
+- The worker enforces the existing 180-second/30-fps/12-track/100-clip timeline bounds, 512 MiB per source and 1 GiB aggregate encoded source bytes, 512 MiB aggregate decoded PCM, 15 seconds per source for metadata probing, 300 seconds for aggregate audio preparation/render/validation, 1 GiB combined audio child-process memory, and single-job worker concurrency. Every cap has a test that proves the job fails before artifact publication.
+- CLI protocol v1 strictly validates the documented manifest schema, requires 1-100 inputs and 1-100 clips, and rejects empty lists as `invalid_manifest`; it validates job-relative paths/digests, sample counts and unique IDs; the result must match job and timeline IDs and contain output digest, sample rate/layout/count, measured integrated LUFS/true peak, normalization status and target-reached state. Stable exit/error codes and cleanup behavior match the contract.
+- The engine output is RIFF/WAVE IEEE float32 little-endian interleaved stereo at 48 kHz; its `sample_count`, digest and WAV metadata match the result manifest. The worker integration proves this WAV can be consumed by the pinned Remotion render and that the resulting video contains the engine-produced audio.
+- With normalization enabled,
+ormalization_gain` is applied before integrated-loudness targeting under ITU-R BS.1770-4 / EBU R 128 semantics; the renderer returns measured LUFS/true peak and states when the -1.0 dBTP ceiling prevents reaching `target_lufs`. The second pass uses the smaller of target gain and gain allowed by a -1.1 dBTP internal cap, then verifies final true peak at or below -1.0 dBTP; the Â±0.1 dB reference comparison tolerance does not relax this ceiling. Silence is not amplified and is reported as unmeasurable.
+- Compatibility tests cover every retained ContentGlows audio parameter, legacy timelines missing `playback_speed`, combined source-rate mapping and all four stable tone/echo preset IDs and values, and distinguish persisted-but-not-rendered values from implemented processing. Volume interpolation/clamping, ducking overlap/attack/release, playback-rate tone ratio, echo delay/repeat/truncation, and sample-time conversion match the existing 30 fps Remotion semantics.
+- ContentGlows final video receives the shared-engine audio render; its timeline remains product-owned and Remotion handles visuals and muxing. Failed, partial, cancelled, stale, or identity-mismatched audio jobs cannot be mistaken for a complete final video. FFmpeg is used for decode/resample only and contains no competing mix/effect/normalization filters.
+- Offline rendering reports output sample rate, channel layout, sample count/duration, loudness, true peak and typed failures. Capture API and session format remain unchanged.
+### Additional Phase Acceptance (after Windows local playback)
+
+- Two private app consumers can resolve the same full-SHA Flutter package dependency and lockfile with read-only credentials, without copying engine source into each app.
+- Consumers can query capability and platform availability before starting a session.
+- The engine reports sample-frame time and device state while each app retains project/timeline authority; stale commands cannot affect a newer session.
+- The existing recording API, example, and integrity contract remain compatible through the first additive render/DSP release.
+- Unsupported input, revoked access, device loss, decode/render failure, and shutdown produce typed outcomes and preserve unrelated sessions and artifacts.
+- Windows voice monitoring through built-in effects meets the agreed latency/glitch/CPU budget and passes human audible acceptance before support is claimed.
+- Android implements the agreed built-in-effect behavior and passes named real-device audible, latency, and interruption criteria before parity is claimed.
+- Release evidence identifies exact package versions and native binary hashes/notices; no private payload or secret is required in the evidence record.
+- Selected native dependencies have reviewed licenses, source provenance, reproducible version pins, hashes, and notices; effects used in both products are built into the shared engine.
+- Capability availability, failures, data boundaries, and each proof gap are discoverable in maintained documentation.
+
+## ZOMBIES Coverage
+
+- Zero: empty queue, no source, no endpoint, or unavailable capability returns a stable empty/unavailable state.
+- One: one client session can capture or play and shut down without leaking native resources.
+- Many: queue transitions, simultaneous app sessions, and repeated start/stop are tested within declared limits.
+- Boundaries: minimum/maximum buffer and source sizes, unsupported rates/codecs, and stale generations are rejected or handled explicitly.
+- Interfaces: Flutter/native serialization and capability discovery remain compatible across supported client versions.
+- Exceptions: permission revocation, device loss, decoder errors, worker failure, and partial writes yield typed recoverable outcomes.
+- Persistence: existing recording journals and product-owned queue/library recovery preserve their distinct owners.
+- Security: app-granted sources only; malformed media is treated as untrusted input; no network access or payload logging is introduced.
+
+## Test Strategy
+
+For the Windows-first slice, use known-frequency local fixtures to measure the selected playback-speed ratios, duration, source-position mapping, seek/pause/resume behavior, and correct queue state in both apps. For ContentGlows, verify per-clip speed persistence/default migration and that the preview holds the original clip bounds; the later Linux fixture must also verify the combined `playback_speed * tone_frequency` source-rate behavior. Verify effect processing and callback safety with deterministic native tests, then test real output and human listening on named Windows devices. If duration-preserving pitch shift is attempted, compare pitch and duration against independent references and retain human quality plus CPU measurements; fail or defer the optional feature without blocking the baseline speed control.
+
+For the Linux offline slice, keep the fixture generator, lossless PCM vectors, compressed-fixture generator, independent standard-library reference meter, and a JSON reference manifest in source control; do not rely on opaque binary fixtures. Generate deterministic 48 kHz mono/stereo tones, impulses, silence, and gated/noise-plus-tone signals with fixed sample counts and gains. Cover each accepted PCM WAV subtype plus MP3 Layer III, M4A AAC-LC, and M4A ALAC. Pin FFmpeg to an exact package version in a digest-pinned Linux/amd64 worker image; the reference manifest records that image digest, FFmpeg version, each canonical decoded PCM SHA-256, sample count, integrated-LUFS, and true-peak reference measurements. Regenerate and compare lossy decode hashes only inside that pinned image; never compare lossy samples to their pre-encode source. Compute independent loudness references using the normative BS.1770-4 / EBU R 128 K-weighting and gating equations, and true-peak references with 64x band-limited oversampling; keep reference-meter source and versioned equations separate from the engine implementation. Cover volume interpolation/easing, ducking overlap/attack/release, tone ratio, one-repeat echo and clip-end truncation, normalization disabled/enabled, ceiling-limited output, silence/unmeasurable input, every decoder subtype, malformed/truncated media, unsupported streams, manifest/path/digest errors, empty and over-limit input/clip lists, symlink and non-regular input rejection, FFmpeg local-protocol escape attempts, each resource cap, cancellation, stale job identity, and worker failure without publishing a partial artifact. Verify each input is authorized before staging into an owner-only job directory and that FFmpeg cannot access network protocols or files outside that directory. Numeric acceptance: deterministic float32 DSP sample comparisons within 1e-6 full scale absolute error; PCM decode within one source quantization LSB after canonical conversion; regenerated lossy PCM SHA-256 and sample count exactly match the pinned reference manifest; integrated-loudness measurement within 0.1 LU of the pinned reference; true-peak measurement within 0.1 dB of the pinned reference while rendered output is at or below -1.0 dBTP according to the engine's declared measurement algorithm; un-limited normalization within 0.2 LU of target. `target_reached` is true only for enabled, measurable normalization whose final measured loudness is within 0.2 LU of target; it is false for disabled, unmeasurable, or ceiling-limited output. Peak-limited cases report actual measured loudness and `ceiling_limited` even when farther from target. The generated-engine WAV must match the declared RIFF/IEEE-float32 format and exact output sample count. These deterministic checks establish numeric compatibility, not subjective audio parity. Any later human audio acceptance is a separate evidence item. The Windows playback criteria above define the first phase; Android physical-device acceptance follows. Record skipped and manual-only proof explicitly.
+
+## Risks
+
+- SoLoud's synthetic two-voice playback probe does not establish DAW monitoring, project routing, or automation.
+- A custom native engine keeps product and license control but carries substantial DSP, device, and validation work.
+- Owning the engine avoids framework adoption but requires ShipGlows to implement and validate the mixer, graph, device integration, effects, and recovery itself.
+- Building polished DSP effects ourselves takes more time than wiring an existing plugin, especially for noise removal and pitch correction.
+- A private cross-repo dependency fails in CI if its read-only credential or pinned revision is missing.
+- Native licenses or generated binary changes can prevent compliant, repeatable distribution; source-build inputs do not by themselves prove the final binaries.
+- Combining playback and capture in one callback or session could increase latency, CPU, failure coupling, or device contention.
+- Android URI grants and Windows filesystem access have different trust and recovery semantics.
+- A broad capability API can become premature architecture; each addition therefore needs a named consumer and testable outcome.
+- The existing Oboe capture callback currently performs metering and clipping analysis that also run in the storage worker; playback expansion must first preserve real-time headroom and avoid retaining duplicated work.
+
+## OWASP Security Gate
+
+Trust boundary: the authenticated ContentGlows worker owns job authorization and resolves media access; the decoder and native CLI receive only validated job-scoped files and manifests. Original URLs, credentials, and source paths stay outside the engine boundary. The audio worker handles untrusted media and must fail closed without publishing partial artifacts.
+
+Relevant OWASP Top 10:2025 categories are A01 Broken Access Control (authorize each job and resolved input before staging), A02 Security Misconfiguration (local-only decoder inputs and restrictive worker configuration), A03 Software Supply Chain Failures (pin FFmpeg package/image and record engine binary provenance), A05 Injection (argv-based CLI invocation plus strict JSON/path validation), A06 Insecure Design (resource caps, no fallback codecs, stale-job checks), A08 Software or Data Integrity Failures (job/timeline identity, input/output digests, WAV metadata validation), A09 Security Logging and Alerting Failures (typed redacted outcomes and failure observability), and A10 Mishandling of Exceptional Conditions (timeouts, cancellation, cleanup, and atomic publication). A04 Cryptographic Failures and A07 Authentication Failures are not implemented by the engine slice; worker transport and caller authentication remain owned by the existing service boundary and must be preserved.
+
+Selected OWASP ASVS 5.0.0 requirements: `v5.0.0-1.2.5` (OS command injection), `v5.0.0-5.1.1` (document permitted file types and size), `v5.0.0-5.2.1` (file size must not cause denial of service), `v5.0.0-5.2.2` (verify content matches declared type), and `v5.0.0-5.3.2` (trusted or validated file paths). Proof includes unauthorized job/input rejection; extension, magic-byte, stream, subtype, and size mismatch cases; CLI argument-injection and manifest traversal cases; escaped symlink/path rejection; attempts to make FFmpeg use network protocols or read outside the job directory; empty/over-limit input and clip lists; each resource cap and timeout; cancellation cleanup; redacted logs; and no-publication checks for every failure. Residual risk: codec parser vulnerabilities remain possible in the pinned FFmpeg build; keep it patched through reviewed image updates and retain malformed-media coverage. This is a scoped security gate, not a claim of full OWASP or ASVS compliance. See the [OWASP Top 10:2025](https://top10.owasp.org/2025/), [ASVS 5.0.0](https://github.com/OWASP/ASVS/tree/v5.0.0), and [ASVS V5 File Handling](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x14-V5-File-Handling.md).
+
+## Execution Notes
+
+Read first: `shipglows_data/technical/audio-engine-research.md`, `shipglows_data/technical/contracts/engine-ownership-decision.md`, the BeatGlows player spec and feasibility report linked above, and ContentGlows timeline/preview code plus worker architecture. Implement the Windows platform decode/output adapters around the shared C++ PCM DSP core; do not move product queues, timeline state, or file authorization into the engine. Keep compressed decode, resampling, graph changes, and storage off the callback. Configure and validate the Windows native engine with `cmake -S . -B build/windows`, `cmake --build build/windows --config RelWithDebInfo --target shipglows_audio_sources_tests`, and `ctest --test-dir build/windows -C RelWithDebInfo --output-on-failure`; remove `build/windows` after recording evidence. Run each consumer test suite through its Doppler project/config (for example, `doppler run --project beatglows --config dev -- flutter test` and `doppler run --project contentglows --config dev -- flutter test`). Then launch interactively with `doppler run --project beatglows --config dev -- flutter run -d windows` from `beatglows/app_flutter` and `doppler run --project contentglows --config dev -- flutter run -d windows` from the ContentGlows Flutter app directory; perform the named-endpoint procedure in both. Stop if the engine adapter cannot decode an admitted profile, cannot meet the 10-minute underrun/callback gate, changes capture behavior, or either app would need an upload/worker path for ordinary local playback. Remove generated build/render artifacts after recording evidence. Initial unverified C++ EQ/gate/compressor source exists; the true-peak limiter, Windows playback proof, and export parity remain outstanding.
+
+## Deferred Decisions
+
+Operator decision, 2026-10-04: ContentGlows playback speed is persisted per audio clip. Legacy clips with no `playback_speed` deserialize as 1.0. The ratio changes both pitch and source progress while the clip timeline start/end stay fixed: faster playback can exhaust the source early and yields silence to the clip end; slower playback may leave source audio unconsumed at the clip end. BeatGlows keeps speed as a transport value for the active track/session. When Linux export is implemented, multiply ContentGlows `playback_speed` by legacy `tone_frequency` to preserve both controls; keep their independent serialized values, and apply the combined source-rate mapping to the clip and its existing echo repeat. Duration-preserving pitch shift remains deferred and does not block varispeed. M4A/ALAC and broader BeatGlows player parity are also deferred; they do not expand the AAC-LC-only Windows profile.
+
+
+## Skill Run History
+
+| Date | Skill | Model / Agents | Action | Result | Next |
+| --- | --- | --- | --- | --- | --- |
+| 2026-09-30 | 100-sg-spec | GPT-6 | Initial player-scope review of private delivery and Windows playback candidates | Recommended private Pub Git source route; SoLoud was only evaluated against simple playback evidence, not a DAW | Reopened after operator clarified DAW and voice-effect goals |
+| 2026-09-30 | 100-sg-spec | GPT-6 + three research agents | Audit current engine and compare DAW frameworks, Flutter integration, licensing, and platform constraints | Existing engine is capture/recovery infrastructure; JUCE, a custom C++ core, and SoLoud have different roles; no backend selected | Define built-in voice effects and compare bounded Windows prototypes |
+| 2026-09-30 | 100-sg-spec | GPT-6 | Record operator choice to exclude third-party effect plugins | BeatGlows effects will be built into the shared ShipGlows engine; framework licensing is a separate architecture question | Define the first effect chain and Windows proof budget |
+| 2026-09-30 | 300-sg-docs | GPT-6 + three research agents | Record primary-source research on real-time rules, WASAPI/Oboe, Flutter FFI, OSS DAW/DSP projects, and licenses | Created a linked research report with a custom C++ prototype direction; no dependency or backend selected | Define BeatGlows' first workflow/effect chain and compare custom C++ with JUCE against the report's Windows gates |
+| 2026-10-01 | 100-sg-spec | GPT-6 | Record operator decision to build the engine in-house and cancel framework comparison; define a bounded first voice prototype | Custom C++ engine, Windows WASAPI, one-microphone monitoring/recording, and a staged built-in voice chain recorded | Measure the Windows device baseline and implement the first native slice against its acceptance budget |
+| 2026-10-03 | 100-sg-spec | GPT-6 | Expand the shared-engine contract to include ContentGlows video mix/render and select an offline-first common DSP milestone | Scope covers the same C++ DSP in ContentGlows' Linux render worker and later Flutter realtime consumers; timeline/UI/video mux remain product-owned | Freeze media formats, current-behavior compatibility and normalization semantics, then ready the Linux offline renderer slice |
+| 2026-10-03 | 100-sg-spec | GPT-6 | Record the approved first-slice format, worker binding, and normalization contract | Select MP3/M4A audio/PCM WAV decoding through worker FFmpeg to float32 48 kHz stereo, a versioned C++ CLI boundary, and two-pass integrated-LUFS normalization with pre-trim and true-peak reporting; no code or audio proof performed | Complete readiness fixtures, numeric true-peak ceiling and effect-preset compatibility, then pass the Linux offline-render slice to readiness review |
+| 2026-10-03 | 100-sg-spec | GPT-6 | Freeze first-slice peak, deterministic fixture tolerances, and ContentGlows tone/echo compatibility | Specified -1.0 dBTP, BS.1770-4 / EBU R 128 measurement, deterministic PCM and pinned-decoder fixture classes with numeric tolerances, and retained deep/bright/space/dream parameters; no implementation, compilation, tests, or audio proof performed | Implement the Linux slice against this contract, then submit code and evidence to readiness review |
+| 2026-10-03 | 101-sg-ready | unknown | Review first Linux offline-render slice readiness | Not ready: implementation boundary is mixed with later phases; CLI manifest/result/error contract, resource caps, output WAV encoding, and reproducible lossy decoder references are underspecified; the -0.9 dBTP acceptance limit conflicts with the -1.0 dBTP ceiling. Topology, metadata, readiness, reporting, OWASP, ZOMBIES, guided-product, budget, and runtime-sync checks passed; no implementation or audio proof reviewed. | Resolve the listed contract gaps and repeat readiness review |
+| 2026-10-03 | 100-sg-spec | unknown | Resolve first-slice readiness findings | Defined the bounded Linux implementation, supported codec profiles, resource limits, versioned CLI manifest/result/error contract, IEEE float32 WAV output, pinned decoder references, numeric peak rule, exact existing audio semantics, and OWASP proof gate; metadata and workflow checks passed. No engine implementation or audio proof performed. | Re-review readiness against the frozen slice |
+| 2026-10-03 | 101-sg-ready | unknown | Review the bounded Linux offline-render slice | Ready for implementation: all first-slice behavior, scope, security boundaries, resource limits, CLI/result protocol, output format, fixtures/tolerances, and validation path are explicit; official OWASP Top 10:2025 and selected ASVS 5.0.0 requirements are mapped. Topology, metadata, readiness, reporting, OWASP, ZOMBIES, guided-product, budget, and runtime-sync checks passed. No implementation or audio/runtime proof performed. | Implement the Linux slice and verify it against the fixture and worker contract |
+| 2026-10-04 | 100-sg-spec | GPT-6 | Reprioritize the first implementation from Linux export to local Windows playback | Recorded local file playback with shared effects in BeatGlows and ContentGlows as the first outcome; retained the fully specified Linux export contract as a later phase. The Windows contract remains draft because formats, effects, app controls, and device acceptance need decisions. No implementation or audio proof performed. | Complete the Windows playback contract and submit it to readiness |
+| 2026-10-04 | 100-sg-spec | GPT-6 | Add agreed first effects, playback speed, and conditional pitch shift | Recorded MP3/M4A/WAV, EQ/gate/compressor/limiter, later tone/echo, varispeed as a playback control, and duration-preserving pitch shift only if Windows quality/CPU proof supports it. No implementation or audio proof performed. | Set the Windows playback/effect ranges and acceptance; defer duration-preserving pitch to a later quality/CPU gate; submit the Windows slice to readiness |
+
+| 2026-10-04 | 100-sg-spec | GPT-6 | Complete the Windows first-slice contract | Fixed Media Foundation input profiles, float32/48 kHz handoff, WASAPI behavior, effect parameters, varispeed range, fixtures, and per-app device gates; operator confirmed persisted ContentGlows clip speed with explicit fixed-bound behavior. No implementation or audio proof performed. | Review Windows slice readiness |
+| 2026-10-04 | 101-sg-ready | GPT-6 | Review Windows local playback readiness | Ready for implementation: inputs, decoder adapter, app-specific speed semantics, effects, device and failure behavior, fixture tolerances, and manual proof are defined; security boundaries and deferred export migration are explicit. Documentation checks passed; no implementation/build/audio proof performed. | Begin the Windows slice under 102-sg-start; refresh readiness on the Linux manifest delta before that phase |
+| 2026-10-04 | 102-sg-start | GPT-6 orchestrator + 3 agents | Implement parallel product-speed, shared-DSP and Windows host source batches under root integration | BeatGlows transport carries generation-tagged varispeed commands and a Windows adapter targets the sibling shared package; ContentGlows timeline clips serialize `playback_speed` with legacy default 1.0; shared C++ source adds EQ/gate/compressor; Windows decoder/output and host source are implemented. No tests/builds were run; native source and package resolution remain unverified, and the true-peak limiter, player/effect UI and named-device listening are outstanding. | Continue the bounded Media Foundation/WASAPI/Flutter integration slices, then request focused automated and named-device proof |
+| 2026-10-05 | 300-sg-docs | GPT-6 | Reconcile shared-engine contract with current implementation and lockfile | Recorded Windows decoder/output/host and BeatGlows adapter source, path dependency resolution and plugin registration; preserved missing limiter, UI, native build and audio proof as open | Continue UI/effects integration, then run requested native and named-endpoint verification |
+| 2026-10-05 | 103-sg-verify | GPT-6 + 3 read-only agents | Cross-review BeatGlows, ContentGlows and shared Windows engine source against the ready slice | Not verified: implementation is incomplete across both app integrations; limiter/effect command path is absent; ContentGlows speed bounds are not enforced in its model; decoder, DSP and playback tests plus native and device proof are absent. No build or tests were run. | Resume implementation, add deterministic tests and complete named-endpoint Windows proof in both apps |
+
+## Current Chantier Flow
+
+- 100-sg-spec: Windows local playback in both apps: MP3 Layer III, AAC-LC M4A, PCM WAV; Media Foundation decode; float32 stereo 48 kHz graph input; WASAPI shared mode; EQ/gate/compressor/limiter; varispeed 0.5x-2.0x. Independent pitch shift, ALAC, broader BeatGlows player parity, and Linux export are deferred.
+- 101-sg-ready: ready: ContentGlows speed is persisted per audio clip with the 1.0 legacy default and explicit fixed-clip-bound behavior; the earlier Linux readiness ruling predates the `playback_speed` manifest delta and must be refreshed before that later export phase.
+- 102-sg-start: implementation remains in progress. BeatGlows varispeed commands and a Windows command adapter target the shared versioned host; the path dependency resolves and plugin registration is generated, but no app UI invokes the adapter. ContentGlows clip-speed serialization exists with the 1.0 legacy default, but its model does not enforce the contracted 0.5x-2.0x range and there is no ContentGlows host/UI playback path. Shared EQ/gate/compressor and Windows Media Foundation/WASAPI/host source are present; the true-peak limiter and effect command path are missing. Native compile/runtime, deterministic fixtures/tests, and named-device listening remain open. No tests, analyzer or native build were run for this slice.
+- 103-sg-verify: not verified on 2026-10-05. Three read-only reviews found substantive implementation gaps across both apps and the engine, in addition to missing proof. Re-run after implementation and automated tests, then finish native and named-endpoint Windows proof in both apps.
+- 104-sg-end: pending.
+- 005-sg-ship: pending.

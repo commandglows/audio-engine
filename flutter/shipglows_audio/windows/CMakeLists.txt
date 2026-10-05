@@ -28,8 +28,12 @@ list(APPEND PLUGIN_SOURCES
   "shipglows_audio_plugin.cpp"
   "shipglows_audio_plugin.h"
   "windows_wasapi_capture.cpp"
+  "windows_wasapi_playback.cpp"
+  "windows_mf_decoder.cpp"
   "windows_wasapi_sources.cpp"
   "windows_wasapi_capture.h"
+  "windows_wasapi_playback.h"
+  "windows_mf_decoder.h"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
@@ -64,6 +68,9 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE
   flutter_wrapper_plugin
   shipglows::audio_engine
   avrt
+  mfplat
+  mfreadwrite
+  mfuuid
   ole32
   mmdevapi
 )
@@ -115,6 +122,9 @@ target_link_libraries(${TEST_RUNNER} PRIVATE
   gmock
   shipglows::audio_engine
   avrt
+  mfplat
+  mfreadwrite
+  mfuuid
   ole32
   mmdevapi
 )

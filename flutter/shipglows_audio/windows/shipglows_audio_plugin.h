@@ -6,12 +6,15 @@
 
 #include <memory>
 #include <optional>
+#include <cstdint>
 #include <string>
 #include <vector>
 
 namespace shipglows_audio {
 
 class WindowsWasapiCapture;
+class WindowsWasapiPlayback;
+class WindowsLocalPlayback;
 
 class ShipglowsAudioPlugin : public flutter::Plugin {
  public:
@@ -38,6 +41,11 @@ class ShipglowsAudioPlugin : public flutter::Plugin {
   flutter::PluginRegistrarWindows* registrar_ = nullptr;
   int window_proc_delegate_id_ = -1;
   std::unique_ptr<WindowsWasapiCapture> capture_;
+  std::unique_ptr<WindowsLocalPlayback> playback_;
+  std::unique_ptr<WindowsWasapiPlayback> playback_output_;
+  std::int64_t playback_generation_ = 0;
+  double playback_speed_ = 1.0;
+  std::string playback_state_ = "stopped";
   std::vector<std::wstring> input_endpoint_ids_;
 };
 

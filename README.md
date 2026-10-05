@@ -45,6 +45,14 @@ See `shipglows_data/technical/contracts/verification.md` for the exact proof
 level of each backend. A native build is a compile/package proof, not a
 substitute for the device matrix needed before a production release.
 
+The current Flutter API is capture-only. The planned shared capabilities and
+consumer boundary are specified in
+[`shipglows_data/workflow/specs/shared-multi-app-audio-engine.md`](shipglows_data/workflow/specs/shared-multi-app-audio-engine.md).
+
+The selected in-house C++ engine direction and supporting research are recorded
+in `shipglows_data/technical/contracts/engine-ownership-decision.md` and
+`shipglows_data/technical/audio-engine-research.md`.
+
 For internal maintenance, start with
 `shipglows_data/technical/code-docs-map.md`; it routes each code area to its
 contract and focused validation.
