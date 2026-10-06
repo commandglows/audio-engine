@@ -335,6 +335,9 @@ class WindowsLocalPlayback final {
         self->drained_eof_.store(true, std::memory_order_release);
       }
     }
+    // A clean EOF leaves the pre-zeroed output block intact. Continue passing
+    // those zero frames through DSP so the fixed limiter lookahead drains its
+    // final source samples instead of truncating them when the decoder stops.
     self->dsp_.process(output, frames);
     return true;
   }

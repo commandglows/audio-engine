@@ -1,7 +1,7 @@
 ---
 artifact: technical_module_context
 metadata_schema_version: "1.0"
-artifact_version: "0.1.0"
+artifact_version: "0.2.0"
 project: ShipGlows Audio Engine
 created: "2026-10-06"
 updated: "2026-10-06"
@@ -24,8 +24,10 @@ supersedes: []
 evidence:
   - "2026-10-06 source review: the Windows plugin exposes local playback, speed and effect methods, and reports WASAPI status and callback metrics through its Flutter channel."
   - "2026-10-06 BeatGlows run: a generated WAV completed ten minutes on the named system-default render endpoint; the product UI reported zero underruns and p99 callback time 127 microseconds. Process-loopback limits are recorded in the BeatGlows feasibility report."
+  - "2026-10-06 engine DSP verification: deterministic limiter fixtures passed an independent 64x windowed-sinc meter for high-frequency sine, start/end impulses, Nyquist alternation, multisine, and fixed-seed noise across varied block sizes."
+  - "2026-10-06 portable DSP timing probe: optimized GNU C++ measured 3,638 microseconds p99 and 7,437 microseconds maximum per 480-frame block over 5,000 calls. This is DSP-only on a synthetic block, not a WASAPI callback measurement or comparison against a device period."
 next_review: "2026-10-16"
-next_step: "Run deterministic DSP/decoder tests and native Windows failure-path checks; finish the true-peak limiter before claiming the shared effect contract complete."
+next_step: "Build and exercise the updated Windows plugin and WASAPI failure paths; measure callback p99 and endpoint period with the limiter enabled. Run decoder fixtures and ContentGlows Windows playback proof."
 ---
 
 # Windows Local Playback
@@ -43,7 +45,7 @@ owning the audio clock or callback.
 | --- | --- | --- |
 | `flutter/shipglows_audio/windows/shipglows_audio_plugin.cpp` | Flutter channel, local source session, effect commands, status serialization | Keep source paths local to the host; return typed non-sensitive errors and numeric native HRESULT separately. |
 | `flutter/shipglows_audio/windows/windows_wasapi_playback.cpp` | Event-driven WASAPI render worker | Keep callback work bounded; device invalidation must surface as a device error rather than a decode failure. |
-| `flutter/shipglows_audio/native/engine/src/dsp_chain.cpp` | Stateful stereo EQ, gate, and compressor | Updates are bounded and applied at a processing-block boundary. The true-peak limiter is not implemented. |
+| `flutter/shipglows_audio/native/engine/src/dsp_chain.cpp` | Stateful stereo EQ, gate, compressor, and always-on true-peak limiter | Parameter updates are bounded and applied at a processing-block boundary. The limiter uses 64-phase, 32-tap windowed-sinc peak detection, a -1.5 dBTP internal guard for the -1.0 dBTP contract, and 32 frames of lookahead. |
 | `flutter/shipglows_audio/lib/shipglows_audio.dart` | Flutter method/status API | Treat missing status fields as defaults for compatibility. |
 | `../beatglows/app_flutter/lib/core/audio_engine/windows_playback_adapter.dart` | BeatGlows transport adapter | Keep the queue and clock in BeatGlows; pass generation-tagged commands to the host. |
 
@@ -68,18 +70,19 @@ product adapter
 - Flutter is not in the native render callback and does not estimate playback position.
 - Playback speed is finite and bounded to 0.5x–2.0x; the host applies it to source-frame consumption.
 - Effect parameter updates enter a bounded queue and are applied by the DSP consumer between blocks.
-- Current DSP source contains EQ, gate, and compressor stages. There is no true-peak limiter, so this source does not satisfy the `-1.0 dBTP` ceiling contract.
+- Current DSP source contains EQ, gate, compressor, and an always-on limiter. Its internal target is -1.5 dBTP; the deterministic independent 64x reference test verifies output at or below the contracted -1.0 dBTP ceiling for its sine, impulse, Nyquist-alternating, multisine, and fixed-noise fixtures. This test does not establish compliance for every possible signal or the normative BS.1770 measurement procedure.
+- The limiter adds 32 frames of latency (about 0.67 ms at 48 kHz). At clean source EOF the local playback callback sends its already-zeroed output blocks through the DSP, draining those frames; forced stop or teardown does not flush the tail.
 - Process-loopback confirms signal emitted by a process, not analog output or human perception. Record endpoint identity and device period separately when comparing callback p99 with the device deadline.
 
 ## Failure Modes
 
 - Unsupported local media and decode errors return typed playback errors.
-- WASAPI device invalidation is surfaced distinctly from source decode failure; the current source change has not been revalidated by a fresh native build in this workstream.
+- WASAPI device invalidation is surfaced distinctly from source decode failure. This status/error change and the limiter have not yet been checked in a full Flutter Windows plugin build.
 - An invalid effect update or full bounded update queue returns an error rather than silently accepting the command.
 
 ## Validation
 
-- Run the focused Flutter API/channel and native DSP tests listed in `code-docs-map.md` after source changes.
+- Run the focused Flutter API/channel and native DSP tests listed in `code-docs-map.md` after source changes. The standalone DSP test is configured from `flutter/shipglows_audio/native/engine/tests`; its current Release CTest passes 1/1 on GNU C++ 13.2 with Ninja.
 - Build and run the Windows host with a licensed/generated fixture on the named render endpoint.
 - Record app-reported underruns, callback p99, endpoint identity, device period, and bounded process-loopback results. Keep physical listening claims separate from process capture.
 

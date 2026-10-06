@@ -1,7 +1,7 @@
 ---
 artifact: technical_docs_map
 metadata_schema_version: "1.0"
-artifact_version: "1.3.0"
+artifact_version: "1.4.0"
 project: ShipGlows Audio Engine
 created: "2026-08-31"
 updated: "2026-10-06"
@@ -27,6 +27,7 @@ evidence:
   - "2026-10-01: mapped the selected in-house C++ engine direction and decision record."
   - "2026-10-03: mapped ContentGlows Linux offline rendering as a shared-core consumer before Flutter realtime playback."
   - "2026-10-06: mapped Windows playback host, Flutter status/effect API, and named-default-endpoint proof to windows-playback.md and the shared multi-app spec."
+  - "2026-10-06: mapped the standalone deterministic shared-DSP test project and the post-limiter callback-period proof gap."
 next_review: "2026-11-30"
 next_step: "Update this map with every new subsystem or validation route."
 ---
@@ -41,7 +42,7 @@ next_step: "Update this map with every new subsystem or validation route."
 | `lib/`, platform bridges | `platform-adapters.md` | `flutter/shipglows_audio/README.md`, `../workflow/specs/shared-multi-app-audio-engine.md` | `flutter analyze`, `flutter test` |
 | `tests/` | `recording-recovery-index.md` | `contracts/verification.md` | native CTest suite |
 | Shared DSP, offline render worker, DAW playback, and engine ownership | `audio-engine-research.md` | `../workflow/specs/shared-multi-app-audio-engine.md`, `contracts/engine-ownership-decision.md`, ContentGlows worker architecture/render contract | Prove offline processing in the Linux worker, then shared DSP equivalence and Windows/Android realtime gates |
-| `flutter/shipglows_audio/windows/windows_wasapi_playback.cpp`, `windows/shipglows_audio_plugin.cpp`, `native/engine/src/dsp_chain.cpp` | `windows-playback.md` | `../workflow/specs/shared-multi-app-audio-engine.md`, Flutter package README | Focused Flutter/channel and deterministic DSP tests; Windows playback build and endpoint run with error, underrun, callback-p99 and device-period evidence |
+| `flutter/shipglows_audio/windows/windows_wasapi_playback.cpp`, `windows/shipglows_audio_plugin.cpp`, `native/engine/src/dsp_chain.cpp` | `windows-playback.md` | `../workflow/specs/shared-multi-app-audio-engine.md`, Flutter package README | Configure `flutter/shipglows_audio/native/engine/tests` with CMake/Ninja in a temporary build directory, then run CTest; also run focused Flutter/channel tests and the Windows plugin build. Endpoint evidence records errors, underruns, callback p99, and device period |
 | `example/integration_test/` | `platform-adapters.md` | `contracts/verification.md` | `flutter test integration_test/plugin_integration_test.dart -d <device>` |
 
 ## Documentation Update Plan

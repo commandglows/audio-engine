@@ -61,6 +61,19 @@ class DspChain final {
   bool gate_open_[2]{true, true};
   float gate_gain_[2]{1.0F, 1.0F};
   float compressor_envelope_[2]{};
+  // Fixed, allocation-free lookahead for the always-on true-peak limiter.
+  // Thirty-two frames cover the FIR support and a 16-interval gain lookahead.
+  static constexpr std::uint32_t kLimiterFirLookaheadFrames = 16;
+  static constexpr std::uint32_t kLimiterDelayFrames = 32;
+  static constexpr std::uint32_t kLimiterRingFrames = 128;
+  static constexpr std::uint32_t kLimiterPhases = 64;
+  static constexpr std::uint32_t kLimiterTaps = 32;
+  static constexpr std::uint32_t kLimiterPeakWindowFrames = 18;
+  float limiter_ring_[kLimiterRingFrames][2]{};
+  float limiter_coefficients_[kLimiterPhases - 1][kLimiterTaps]{};
+  float limiter_peak_ring_[kLimiterRingFrames]{};
+  std::uint64_t limiter_frame_count_ = 0;
+  float limiter_gain_ = 1.0F;
 };
 
 }  // namespace shipglows::audio
