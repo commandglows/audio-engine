@@ -1,12 +1,12 @@
-﻿---
+---
 artifact: spec
 metadata_schema_version: "1.0"
-artifact_version: "1.10.2"
+artifact_version: "1.11.0"
 project: ShipGlows Audio Engine
 created: "2026-09-30"
-updated: "2026-10-05"
+updated: "2026-10-06"
 created_at: "2026-09-30T16:05:00Z"
-updated_at: "2026-10-05T16:47:43Z"
+updated_at: "2026-10-06T00:47:38Z"
 source_model: GPT-6
 status: ready
 source_skill: 100-sg-spec
@@ -48,6 +48,7 @@ evidence:
   - "Operator decision, 2026-10-03: validate the common DSP core with offline rendering first, then reuse it for realtime playback/monitoring across products."
   - "Operator approval, 2026-10-03: prepare the first Linux offline-render slice with MP3/M4A/WAV decoding at the worker boundary, a versioned C++ CLI adapter, and two-pass integrated-LUFS normalization with a true-peak ceiling."
   - "Spec resolution, 2026-10-03: set the offline true-peak ceiling to -1.0 dBTP, define deterministic PCM/codec/normalization fixtures and tolerances, and retain the current ContentGlows deep, bright, space, and dream preset parameter semantics."
+  - "Live playback proof, 2026-10-06: BeatGlows completed a ten-minute generated WAV on the Windows default eConsole render endpoint; the app reported zero underruns and p99 callback time 127 microseconds. Two process-loopback samples carried the 440 Hz signal; each recorded 30 ms of inserted trailing silence at capture cutoff. This is not human listening or endpoint-specific loopback, and device period was not recorded."
   - "Readiness resolution, 2026-10-03: bounded the Linux slice; specified supported codec subtypes, resource caps, CLI v1 manifest/result/error codes, float32 WAV output, independent fixture references, security proof, and a -1.1 dBTP internal gain cap that enforces the -1.0 dBTP output ceiling."
   - "Operator decision, 2026-10-04: prioritize local Windows file playback with shared built-in effects in BeatGlows and ContentGlows; keep playback local without requiring the web worker, and defer Linux offline export until afterward."
   - "Operator decision, 2026-10-04: include local playback speed control and investigate pitch adjustment as an additional capability if Windows quality and performance allow it."
@@ -387,12 +388,13 @@ Operator decision, 2026-10-04: ContentGlows playback speed is persisted per audi
 | 2026-10-04 | 102-sg-start | GPT-6 orchestrator + 3 agents | Implement parallel product-speed, shared-DSP and Windows host source batches under root integration | BeatGlows transport carries generation-tagged varispeed commands and a Windows adapter targets the sibling shared package; ContentGlows timeline clips serialize `playback_speed` with legacy default 1.0; shared C++ source adds EQ/gate/compressor; Windows decoder/output and host source are implemented. No tests/builds were run; native source and package resolution remain unverified, and the true-peak limiter, player/effect UI and named-device listening are outstanding. | Continue the bounded Media Foundation/WASAPI/Flutter integration slices, then request focused automated and named-device proof |
 | 2026-10-05 | 300-sg-docs | GPT-6 | Reconcile shared-engine contract with current implementation and lockfile | Recorded Windows decoder/output/host and BeatGlows adapter source, path dependency resolution and plugin registration; preserved missing limiter, UI, native build and audio proof as open | Continue UI/effects integration, then run requested native and named-endpoint verification |
 | 2026-10-05 | 103-sg-verify | GPT-6 + 3 read-only agents | Cross-review BeatGlows, ContentGlows and shared Windows engine source against the ready slice | Not verified: implementation is incomplete across both app integrations; limiter/effect command path is absent; ContentGlows speed bounds are not enforced in its model; decoder, DSP and playback tests plus native and device proof are absent. No build or tests were run. | Resume implementation, add deterministic tests and complete named-endpoint Windows proof in both apps |
+| 2026-10-06 00:47:38 UTC | 300-sg-docs | GPT-6 | Reconcile the Windows playback slice with current source and BeatGlows live evidence | BeatGlows ten-minute generated-WAV run completed on `Headphones (Mon Bose QC35 II tupeupatest)` with 0 app-reported underruns and p99 127 µs. Source now includes the BeatGlows UI adapter, ContentGlows speed bounds and Windows authorized-asset preview, and a Flutter/native effect command path plus playback error/metric status. ContentGlows and the current engine source changes still lack fresh Windows build/runtime proof; the true-peak limiter is absent. | Run focused decoder/DSP/channel checks and ContentGlows Windows proof; finish limiter and refresh Linux readiness before export |
 
 ## Current Chantier Flow
 
 - 100-sg-spec: Windows local playback in both apps: MP3 Layer III, AAC-LC M4A, PCM WAV; Media Foundation decode; float32 stereo 48 kHz graph input; WASAPI shared mode; EQ/gate/compressor/limiter; varispeed 0.5x-2.0x. Independent pitch shift, ALAC, broader BeatGlows player parity, and Linux export are deferred.
 - 101-sg-ready: ready: ContentGlows speed is persisted per audio clip with the 1.0 legacy default and explicit fixed-clip-bound behavior; the earlier Linux readiness ruling predates the `playback_speed` manifest delta and must be refreshed before that later export phase.
-- 102-sg-start: implementation remains in progress. BeatGlows varispeed commands and a Windows command adapter target the shared versioned host; the path dependency resolves and plugin registration is generated, but no app UI invokes the adapter. ContentGlows clip-speed serialization exists with the 1.0 legacy default, but its model does not enforce the contracted 0.5x-2.0x range and there is no ContentGlows host/UI playback path. Shared EQ/gate/compressor and Windows Media Foundation/WASAPI/host source are present; the true-peak limiter and effect command path are missing. Native compile/runtime, deterministic fixtures/tests, and named-device listening remain open. No tests, analyzer or native build were run for this slice.
+- 102-sg-start: implementation remains in progress. BeatGlows' Windows adapter is wired into its playback UI, with speed and EQ/compressor controls; a generated WAV completed ten minutes on the named Windows default render endpoint with zero app-reported underruns and p99 127 µs. ContentGlows' current local work adds finite 0.5x–2.0x clip-speed validation, a speed control, Remotion `playbackRate`, and Windows-only audition from a project-authorized playback URL through a temporary cache capped at 200 MiB; this work has no fresh native build, end-to-end runtime, or long-run proof. The shared Flutter/native source includes a setPlaybackEffects command path and reports typed WASAPI output failures, HRESULT, underruns, and callback p99, but those current changes have not had fresh focused tests/build proof. EQ/gate/compressor are present in source; the required true-peak limiter remains absent. The process-loopback samples are signal evidence only: both have a 30 ms inserted tail at capture cutoff, and neither is an endpoint-specific nor human-listening test. Device period, decoder/DSP fixtures, ContentGlows device proof, and Linux readiness refresh remain open.
 - 103-sg-verify: not verified on 2026-10-05. Three read-only reviews found substantive implementation gaps across both apps and the engine, in addition to missing proof. Re-run after implementation and automated tests, then finish native and named-endpoint Windows proof in both apps.
 - 104-sg-end: pending.
 - 005-sg-ship: pending.

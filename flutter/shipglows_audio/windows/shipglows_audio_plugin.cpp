@@ -551,12 +551,17 @@ bool ParseEffects(const flutter::MethodCall<flutter::EncodableValue>& call,
 
 flutter::EncodableValue PlaybackStatusValue(int64_t generation,
     const std::string& state, const WindowsLocalPlayback* source,
-    double speed, const std::string& error = {}) {
+    double speed, const std::string& error = {},
+    const WindowsWasapiPlayback* output = nullptr) {
   flutter::EncodableMap value;
+  const auto output_status = output ? output->Status() : WasapiPlaybackResult{};
+  const bool output_failed = output_status.failure != WasapiPlaybackFailure::none;
   const std::string reported_state = source && source->failed() ? "error"
-      : (source && source->completed() ? "completed" : state);
+      : (output_failed ? "error"
+      : (source && source->completed() ? "completed" : state));
   const std::string reported_error = source && source->failed()
-      ? "decode_failed" : error;
+      ? "decode_failed"
+      : (output_failed ? WasapiPlaybackFailureCode(output_status.failure) : error);
   value[flutter::EncodableValue("generation")] = flutter::EncodableValue(generation);
   value[flutter::EncodableValue("state")] = flutter::EncodableValue(reported_state);
   value[flutter::EncodableValue("positionSeconds")] = flutter::EncodableValue(
@@ -565,6 +570,13 @@ flutter::EncodableValue PlaybackStatusValue(int64_t generation,
       source ? source->duration() : 0.0);
   value[flutter::EncodableValue("playbackSpeed")] = flutter::EncodableValue(speed);
   value[flutter::EncodableValue("errorCode")] = flutter::EncodableValue(reported_error);
+  value[flutter::EncodableValue("nativeErrorHresult")] = flutter::EncodableValue(
+      static_cast<int64_t>(output_failed ? output_status.hresult : 0));
+  const auto metrics = output ? output->Metrics() : WasapiPlaybackMetrics{};
+  value[flutter::EncodableValue("underruns")] =
+      flutter::EncodableValue(static_cast<int64_t>(metrics.underruns));
+  value[flutter::EncodableValue("p99CallbackMicroseconds")] =
+      flutter::EncodableValue(static_cast<int64_t>(metrics.p99_callback_microseconds));
   return flutter::EncodableValue(value);
 }
 
@@ -798,7 +810,7 @@ void ShipglowsAudioPlugin::HandleMethodCall(
     // Loading only prepares and buffers the source. The caller decides when
     // audio becomes audible by issuing generation-matched playPlayback.
     playback_state_ = "ready";
-    result->Success(PlaybackStatusValue(playback_generation_, playback_state_, playback_.get(), playback_speed_));
+    result->Success(PlaybackStatusValue(playback_generation_, playback_state_, playback_.get(), playback_speed_, {}, playback_output_.get()));
   } else if (method_call.method_name() == "seekPlayback" ||
              method_call.method_name() == "playPlayback" ||
              method_call.method_name() == "pausePlayback" ||
@@ -820,7 +832,7 @@ void ShipglowsAudioPlugin::HandleMethodCall(
       return;
     }
     if (method == "getPlaybackStatus") {
-      result->Success(PlaybackStatusValue(playback_generation_, playback_state_, playback_.get(), playback_speed_));
+      result->Success(PlaybackStatusValue(playback_generation_, playback_state_, playback_.get(), playback_speed_, {}, playback_output_.get()));
       return;
     } else if (method == "setPlaybackSpeed") {
       double speed = 0;
@@ -904,7 +916,7 @@ void ShipglowsAudioPlugin::HandleMethodCall(
         return;
       }
     }
-    result->Success(PlaybackStatusValue(playback_generation_, playback_state_, playback_.get(), playback_speed_));
+    result->Success(PlaybackStatusValue(playback_generation_, playback_state_, playback_.get(), playback_speed_, {}, playback_output_.get()));
   } else {
     result->NotImplemented();
   }

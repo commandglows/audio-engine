@@ -10,6 +10,7 @@
 
 #include "shipglows_audio_plugin.h"
 #include "windows_wasapi_capture.h"
+#include "windows_wasapi_playback.h"
 
 namespace shipglows_audio {
 namespace test {
@@ -39,6 +40,16 @@ TEST(ShipglowsAudioPlugin, GetEngineInfo) {
             "0.1.0");
   EXPECT_TRUE(std::get<bool>(
       result_map.at(EncodableValue("nativeCoreLoaded"))));
+}
+
+TEST(WindowsWasapiPlayback, ExposesStableFailureCodes) {
+  EXPECT_STREQ(WasapiPlaybackFailureCode(WasapiPlaybackFailure::none), "");
+  EXPECT_STREQ(WasapiPlaybackFailureCode(WasapiPlaybackFailure::device_unavailable),
+               "wasapi_device_unavailable");
+  EXPECT_STREQ(WasapiPlaybackFailureCode(WasapiPlaybackFailure::invalid_endpoint),
+               "wasapi_invalid_endpoint");
+  EXPECT_STREQ(WasapiPlaybackFailureCode(WasapiPlaybackFailure::stream_failed),
+               "wasapi_stream_failed");
 }
 
 TEST(WindowsWasapiCapture, KeepsLostSelectedEndpoint) {

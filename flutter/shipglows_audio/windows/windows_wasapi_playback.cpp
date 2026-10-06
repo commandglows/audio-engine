@@ -22,6 +22,10 @@ WasapiPlaybackResult Failure(WasapiPlaybackFailure kind, HRESULT hr) noexcept {
 inline std::uint32_t BucketUpperBound(std::size_t bucket) noexcept {
   return bucket >= 31 ? 0xffffffffu : ((1u << (bucket + 1)) - 1u);
 }
+
+inline bool IsDeviceInvalidated(HRESULT hr) noexcept {
+  return hr == AUDCLNT_E_DEVICE_INVALIDATED || hr == AUDCLNT_E_RESOURCES_INVALIDATED;
+}
 }  // namespace
 
 WindowsWasapiPlayback::WindowsWasapiPlayback(WasapiRenderFunction render,
@@ -121,6 +125,11 @@ WasapiPlaybackMetrics WindowsWasapiPlayback::Metrics() const noexcept {
   return m;
 }
 
+WasapiPlaybackResult WindowsWasapiPlayback::Status() const noexcept {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return result_;
+}
+
 void WindowsWasapiPlayback::Worker() {
   const HRESULT com_hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   if (FAILED(com_hr)) {
@@ -197,6 +206,14 @@ void WindowsWasapiPlayback::Worker() {
       BYTE* bytes = nullptr;
       hr = render_client->GetBuffer(frames, &bytes);
       if (FAILED(hr)) {
+        if (IsDeviceInvalidated(hr)) {
+          std::lock_guard<std::mutex> lock(mutex_);
+          result_ = Failure(WasapiPlaybackFailure::device_unavailable, hr);
+          command_ = Command::stop;
+          ++request_id_;
+          SetEvent(control_event);
+          continue;
+        }
         underruns_.fetch_add(1, std::memory_order_relaxed);
         continue;
       }
@@ -215,7 +232,17 @@ void WindowsWasapiPlayback::Worker() {
       if (!rendered) underruns_.fetch_add(1, std::memory_order_relaxed);
       else std::memcpy(bytes, float_buffer.data(), static_cast<std::size_t>(frames) * channels * sizeof(float));
       hr = render_client->ReleaseBuffer(frames, rendered ? 0 : AUDCLNT_BUFFERFLAGS_SILENT);
-      if (FAILED(hr)) underruns_.fetch_add(1, std::memory_order_relaxed);
+      if (FAILED(hr)) {
+        if (IsDeviceInvalidated(hr)) {
+          std::lock_guard<std::mutex> lock(mutex_);
+          result_ = Failure(WasapiPlaybackFailure::device_unavailable, hr);
+          command_ = Command::stop;
+          ++request_id_;
+          SetEvent(control_event);
+        } else {
+          underruns_.fetch_add(1, std::memory_order_relaxed);
+        }
+      }
       continue;
     }
     if (wait != WAIT_OBJECT_0) continue;

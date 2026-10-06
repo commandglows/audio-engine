@@ -23,6 +23,22 @@ enum class WasapiPlaybackFailure : std::uint8_t {
   control_failed,
 };
 
+[[nodiscard]] inline const char* WasapiPlaybackFailureCode(
+    WasapiPlaybackFailure failure) noexcept {
+  switch (failure) {
+    case WasapiPlaybackFailure::already_running: return "wasapi_already_running";
+    case WasapiPlaybackFailure::invalid_endpoint: return "wasapi_invalid_endpoint";
+    case WasapiPlaybackFailure::device_unavailable: return "wasapi_device_unavailable";
+    case WasapiPlaybackFailure::unsupported_format: return "wasapi_unsupported_format";
+    case WasapiPlaybackFailure::initialization_failed: return "wasapi_initialization_failed";
+    case WasapiPlaybackFailure::start_failed: return "wasapi_start_failed";
+    case WasapiPlaybackFailure::stream_failed: return "wasapi_stream_failed";
+    case WasapiPlaybackFailure::control_failed: return "wasapi_control_failed";
+    case WasapiPlaybackFailure::none: return "";
+  }
+  return "wasapi_unknown_failure";
+}
+
 struct WasapiPlaybackResult final {
   WasapiPlaybackFailure failure = WasapiPlaybackFailure::none;
   long hresult = 0;
@@ -63,6 +79,7 @@ class WindowsWasapiPlayback final {
   WasapiPlaybackResult Resume();
   WasapiPlaybackResult Stop();
   [[nodiscard]] WasapiPlaybackMetrics Metrics() const noexcept;
+  [[nodiscard]] WasapiPlaybackResult Status() const noexcept;
 
  private:
   enum class Command : std::uint8_t { none, start, pause, resume, stop };
