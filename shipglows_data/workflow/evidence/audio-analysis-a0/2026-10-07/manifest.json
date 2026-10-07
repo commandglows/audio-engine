@@ -1,0 +1,70 @@
+﻿{
+    "harness":  "audio_analysis_a0_private_1",
+    "captured_utc":  "2026-10-07T04:29:06.7996934Z",
+    "engine_revision":  "853509a25bacd0cfed31408e8ef374626e75cd9b",
+    "beatglows_revision":  "0799318eee5bcedac9de75dd2b6f1b4246e9667e",
+    "engine_worktree":  [
+                            " M flutter/shipglows_audio/windows/CMakeLists.txt",
+                            " M flutter/shipglows_audio/windows/shipglows_audio_plugin.cpp",
+                            " M flutter/shipglows_audio/windows/windows_wasapi_playback.cpp",
+                            " M flutter/shipglows_audio/windows/windows_wasapi_playback.h",
+                            " M shipglows_data/README.md",
+                            " M shipglows_data/technical/contracts/juce-decision-matrix.md",
+                            " M shipglows_data/technical/windows-playback.md",
+                            "?? flutter/shipglows_audio/windows/a0_windows_probe.h",
+                            "?? shipglows_data/technical/audio-engine-research.md",
+                            "?? shipglows_data/technical/contracts/engine-ownership-decision.md",
+                            "?? shipglows_data/workflow/specs/shared-audio-analysis-and-visualization.md",
+                            "?? tools/"
+                        ],
+    "beatglows_worktree":  [
+                               " D shipglows_data/workflow/specs/shared-multi-app-audio-engine.md",
+                               "?? shipglows_data/workflow/explorations/",
+                               "?? spikes/audio_analysis_a0/"
+                           ],
+    "source_sha256":  {
+                          "tools\\audio_analysis_a0\\calibration.cpp":  "d9633847e111f7a5e4a9cac3b57fef31240ef3ca1f03889733e7fefc8cf6d806",
+                          "flutter\\shipglows_audio\\native\\engine\\src\\dsp_chain.cpp":  "2b9e38ca58a36e3e4ee3e5b6b2390d59bcf8d19af780f73a4fdfc2465cccf74f",
+                          "flutter\\shipglows_audio\\windows\\CMakeLists.txt":  "def144fb654bb8e1c644e58a01402f49ead1ce3de7dd06b036150b651e2cc5a7",
+                          "..\\beatglows\\spikes\\audio_analysis_a0\\windows\\CMakeLists.txt":  "85d8c7b1b3bb3451e561269f50b510bbc33410d13c0ea25a56e42dac04f7ed8b",
+                          "flutter\\shipglows_audio\\windows\\shipglows_audio_plugin.cpp":  "41cbf1c47513fa5e2456340cc95c3e458c3b8067bce3853115c708a782e965df",
+                          "..\\beatglows\\spikes\\audio_analysis_a0\\lib\\main.dart":  "bcb6417d9aa1aba0f55eedc7e43b79cc4a06d5ea52250ff0aa3f7041dbfe222c",
+                          "flutter\\shipglows_audio\\windows\\windows_wasapi_playback.cpp":  "d5f46d71274120c92e1d24a4e875c4d201c6d6ce05eebe059cf3053c8417038d",
+                          "flutter\\shipglows_audio\\windows\\windows_wasapi_playback.h":  "175d0b54ec26be6ac3ad3a0552365fc383280ee60876f39951c8d7c651ef480f",
+                          "tools\\audio_analysis_a0\\analysis_a0.hpp":  "c811912a4899745bd73a4d2e8732d92ff500a746cb3f1ee17f0e3ab41a5f20fb",
+                          "flutter\\shipglows_audio\\windows\\a0_windows_probe.h":  "2444520dc3b3df65adda7e294e9373bf48513eed11fd5d058e251621e9b9e1c8",
+                          "..\\beatglows\\spikes\\audio_analysis_a0\\lib\\analysis_source.dart":  "26681dfd0edb05895db37766ff3ff588c7ccd038948ee055445ea278ef919269"
+                      },
+    "os":  "Windows 11 Pro 10.0.26300 build26300",
+    "cpu":  "AMD Ryzen7 7730U",
+    "logical_processors":  16,
+    "physical_memory_bytes":  31031443456,
+    "flutter":  "3.47.1 6655482ec0",
+    "dart":  "3.13.1",
+    "native_harness":  "GNU13.2 Release Ninja",
+    "windows_harness":  "Visual Studio2022 MSVC Profile /fp:precise Impeller OpenGLES",
+    "doppler_project":  "beatglows",
+    "doppler_config":  "dev",
+    "mask":  11,
+    "seconds_per_state":  600,
+    "source":  "precomputed1second loop stereo antiphase997Hz amplitude0.025 native DspChain default effects speed1.0",
+    "transform_defaults":  {
+                               "ceiling_db":  0,
+                               "sensitivity_db":  0,
+                               "gamma":  0.8,
+                               "floor_db":  -80,
+                               "attack_ms":  20,
+                               "release_ms":  180
+                           },
+    "endpoint_alias":  "Bose QC35II",
+    "endpoint_id":  "{0.0.0.00000000}.{7db05587-6538-4609-9228-06838579b1fe}",
+    "endpoint_period_100ns":  100000,
+    "endpoint_max_frames":  1056,
+    "binary_sha256":  {
+                          "shipglows_audio_plugin.dll":  "2355b88091cbad9d74e457150dac61c6d48f64418e4d9fb955b153705a28c3d9",
+                          "data\\app.so":  "334ca2034b1f9747ef1bf7fd6fb61d34a922d3d51e5d6633bf97c35e456ef5e6",
+                          "audio_analysis_a0.exe":  "2a570081091a3aeb86155795c3b1f31ebdcb57ef180ffd5f3a4536db5e3a8fe3"
+                      },
+    "concurrent_music":  "Operator said music stopped for final run; first long attempt had music for an unspecified initial interval.",
+    "final_run_log":  "../beatglows/spikes/audio_analysis_a0/build/a0-windows-600-final.log"
+}

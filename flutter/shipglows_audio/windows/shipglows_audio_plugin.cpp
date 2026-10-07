@@ -39,6 +39,9 @@
 #include "windows_wasapi_capture.h"
 #include "windows_mf_decoder.h"
 #include "windows_wasapi_playback.h"
+#ifdef SHIPGLOWS_AUDIO_A0
+#include "a0_windows_probe.h"
+#endif
 
 namespace shipglows_audio {
 namespace {
@@ -599,6 +602,56 @@ void ShipglowsAudioPlugin::RegisterWithRegistrar(
           &flutter::StandardMethodCodec::GetInstance());
 
   auto plugin = std::make_unique<ShipglowsAudioPlugin>(registrar);
+
+#ifdef SHIPGLOWS_AUDIO_A0
+  auto probe = std::make_shared<std::unique_ptr<A0WindowsProbe>>();
+  auto diagnostic = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      registrar->messenger(), "shipglows_audio/a0", &flutter::StandardMethodCodec::GetInstance());
+  diagnostic->SetMethodCallHandler([probe](const auto& call, auto result) {
+    using V = flutter::EncodableValue;
+    if(call.method_name()=="start") {
+      const auto* mask=IntArgument(call,"mask");
+      if(!mask || (*mask!=3 && *mask!=11 && *mask!=5 && *mask!=13)) {
+        result->Error("a0_invalid_mask","Expected 3, 11, 5 or 13.");return;
+      }
+      bool enabled=true;
+      bool silent_output=false;
+      if(call.arguments())if(const auto* args=std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto it=args->find(V("enabled"));if(it!=args->end())if(auto b=std::get_if<bool>(&it->second))enabled=*b;
+        it=args->find(V("silent_output"));if(it!=args->end())if(auto b=std::get_if<bool>(&it->second))silent_output=*b;
+      }
+      probe->reset();
+      auto endpoints=EnumerateInputEndpoints(eRender);
+      if(endpoints.empty()){result->Error("a0_no_endpoint","No active output endpoint.");return;}
+      try {
+        *probe=std::make_unique<A0WindowsProbe>(unsigned(*mask),enabled,silent_output);
+        auto started=(*probe)->Start(endpoints.front().first);
+        if(!started){probe->reset();result->Error(WasapiPlaybackFailureCode(started.failure),"A0 WASAPI start failed.");return;}
+        flutter::EncodableMap reply;
+        reply[V("endpoint_id")]=V(Utf8String(endpoints.front().first));
+        reply[V("endpoint_name")]=V(Utf8String(endpoints.front().second));
+        reply[V("mask")]=V(*mask);reply[V("enabled")]=V(enabled);reply[V("silent_output")]=V(silent_output);result->Success(V(reply));
+      } catch(const std::exception& error){probe->reset();result->Error("a0_start_failed",error.what());}
+    } else if(call.method_name()=="poll") {
+      if(!*probe){result->Error("a0_not_started","Start the diagnostic first.");return;}
+      uint64_t after=0;
+      if(call.arguments())if(const auto* args=std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto it=args->find(V("after_sequence"));if(it!=args->end()) {
+          if(auto n=std::get_if<int>(&it->second))after=uint64_t(std::max(0,*n));
+          else if(auto wide=std::get_if<int64_t>(&it->second))after=uint64_t(std::max<int64_t>(0,*wide));
+        }
+      }
+      try { result->Success((*probe)->Poll(after)); }
+      catch(const std::exception& error){result->Error("a0_poll_failed",error.what());}
+    } else if(call.method_name()=="stop") {
+      if(*probe){
+        (*probe)->Stop();
+        try { result->Success((*probe)->Poll(0)); }
+        catch(const std::exception& error){result->Error("a0_stop_snapshot_failed",error.what());}
+      }else result->Success();
+    } else result->NotImplemented();
+  });
+#endif
 
   channel->SetMethodCallHandler(
       [plugin_pointer = plugin.get()](const auto &call, auto result) {

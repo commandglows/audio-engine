@@ -1,0 +1,110 @@
+{
+  "harness": "audio_analysis_a0_private_1",
+  "captured_utc": "2026-10-07T05:52:58Z",
+  "instrumentation_version": 2,
+  "poll_snapshot_change": "Copy up to 16 fixed native records and counters while holding the worker mutex; construct Flutter maps/vectors after release.",
+  "phase": "ON only, 600.002226 seconds, Windows Profile, mask 11",
+  "engine_revision": "853509a25bacd0cfed31408e8ef374626e75cd9b",
+  "beatglows_revision": "0799318eee5bcedac9de75dd2b6f1b4246e9667e",
+  "dirty_worktrees": true,
+  "doppler": { "project": "beatglows", "config": "dev" },
+  "runtime": {
+    "os": "Windows 11 Pro build 26300",
+    "cpu": "AMD Ryzen 7 7730U",
+    "flutter": "3.47.1",
+    "dart": "3.13.1",
+    "endpoint_alias": "Bose QC35 II",
+    "endpoint_period_ms": 10,
+    "endpoint_max_frames": 1056,
+    "silent_output": true,
+    "signal_note": "Deterministic source and DSP execute, then zero-valued PCM is submitted and analysed; no non-silent feature or listening-latency proof."
+  },
+  "records": {
+    "published": 59739,
+    "received": 59739,
+    "delivery_coverage": 1.0,
+    "missing": 0,
+    "resynchronizations": 0,
+    "pcm_resets": 0,
+    "undelivered_tail": 0,
+    "final_batch_accepted": true,
+    "queue_drops": 0,
+    "queue_high_water_blocks": 8,
+    "underruns": 0,
+    "worker_failed": false,
+    "stop_failed": false
+  },
+  "progress": {
+    "no_forward_intervals_over_100ms": 2,
+    "max_no_forward_interval_ms": 110.365,
+    "submitted_frame_lag_proxy_max_ms": 82.0,
+    "audible_lag_ms": null,
+    "clock_uncertainty_ms": null
+  },
+  "timing": {
+    "callback_p99_us_upper_bound": 16383,
+    "callback_max_us": 104360,
+    "submission_max_us": 104371,
+    "endpoint_period_us": 10000,
+    "rtt_mean_ms": 0.75648,
+    "rtt_max_ms": 32.874,
+    "poll_spacing_max_ms": 109.527,
+    "ui_build_max_ms": 11.715,
+    "ui_raster_p99_ms_bucket": 12,
+    "ui_raster_max_ms": 85.27,
+    "poll_mutex_wait_ns_total": 446875900,
+    "poll_mutex_hold_ns_total": 266771500,
+    "worker_mutex_wait_ns_total": 115785600,
+    "worker_mutex_wait_ns_max": 9518400,
+    "worker_processor_push_ns_total": 26509518600,
+    "worker_processor_push_ns_max": 18844600,
+    "worker_elapsed_us_including_wait": 26604855,
+    "queue_pop_copy_ns_total": 165595900
+  },
+  "analysis_cost": {
+    "fft_calls": 119478,
+    "measurement_ns_including_fft": 9748351100,
+    "fft_ns_subset_of_measurement": 8508149300,
+    "transform_ns": 15843081800,
+    "tap_copy_ns": 116562500,
+    "tap_copy_bytes": 229396224,
+    "worker_copy_bytes": 458792448,
+    "bridge_float_copy_bytes": 385487644,
+    "encoded_response_bytes_total": 455840027,
+    "max_encoded_response_bytes": 74957,
+    "serialization_probe_ns": 1454518600
+  },
+  "memory_cpu": {
+    "process_cpu_one_core_percent": 60.99284,
+    "process_working_set_bytes": 150917120,
+    "process_peak_working_set_bytes": 154238976,
+    "process_private_bytes": 183492608,
+    "native_context_bytes": 1474488
+  },
+  "comparison_to_previous_silent_on": {
+    "worker_mutex_wait_max_ms": { "before": 18.9445, "after": 9.5184 },
+    "worker_mutex_wait_total_ms": { "before": 224.9335, "after": 115.7856 },
+    "poll_mutex_hold_total_seconds": { "before": 2.5126502, "after": 0.2667715 },
+    "no_forward_intervals": { "before": 5, "after": 2 },
+    "max_no_forward_ms": { "before": 283.478, "after": 110.365 }
+  },
+  "interpretation": {
+    "mutex": "Poll mutex hold fell by about 89%; worker wait total and max fell by about 49% and 50%. This supports reduced mutex contention in the measured silent run.",
+    "callback": "The p99 upper bucket is now 16.383 ms, above the 10 ms endpoint period; zero underruns do not establish callback-budget pass.",
+    "limits": "Comparisons are workload observations, not causal proof across different phases. Silent PCM does not reproduce non-zero spectral band mapping. Total native and Dart allocation events, audible latency and clock uncertainty remain unmeasured. A0 remains unpassed and schema defaults remain provisional."
+  },
+  "source_sha256": {
+    "engine/tools/audio_analysis_a0/analysis_a0.hpp": "64AA6A0073EEFF57D785008FE7AB125E2A2821C514A15DE3AD1E1E387737D951",
+    "engine/flutter/shipglows_audio/windows/a0_windows_probe.h": "EAE4B690A2E866E5D7781CBC87C87658EB704EDBCB1D7243F984C6C0D809BA31",
+    "engine/flutter/shipglows_audio/windows/shipglows_audio_plugin.cpp": "A13BCDB1C9DB72863A83843FED24EEF2F20C4FD267E01F19A57E2F6528ECDDA4",
+    "beatglows/spikes/audio_analysis_a0/lib/main.dart": "48B043234B775F241A6BC708B2732A4770A331392CCCBE3FFFBF60952701FF5E",
+    "beatglows/spikes/audio_analysis_a0/lib/analysis_source.dart": "2C1C67EE89913A332CC95C7271CA91AE2C1AA35A4221B335C9D897F0C1F0BBD4"
+  },
+  "binary_sha256": {
+    "audio_analysis_a0.exe": "2A570081091A3AEB86155795C3B1F31EBDCB57EF180FFD5F3A4536DB5E3A8FE3",
+    "shipglows_audio_plugin.dll": "D2905856B06A62EA35A20C29F755B8112CF3FD791069A8094D50014058D7364D",
+    "flutter_windows.dll": "289FB4F40B7F01ED925B48E13436501D25B7BD8DA2228C52B716DAB724F6FF97",
+    "data/app.so": "3A15D623454677535500762559139120455AEE1E7CAB0798A8238F8C7EDAA6E2",
+    "data/icudtl.dat": "325A86063D26334C2EABE1743CEA073B612540FBF3D8FC2EF0B5708E3763A8C7"
+  }
+}

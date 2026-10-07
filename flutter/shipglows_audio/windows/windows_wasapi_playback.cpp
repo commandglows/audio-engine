@@ -29,8 +29,8 @@ inline bool IsDeviceInvalidated(HRESULT hr) noexcept {
 }  // namespace
 
 WindowsWasapiPlayback::WindowsWasapiPlayback(WasapiRenderFunction render,
-                                             void* context)
-    : render_(render), context_(context) {
+                                             void* context, WasapiA0Observer observer)
+    : render_(render), context_(context), observer_(observer) {
   for (auto& bucket : callback_time_buckets_) bucket.store(0, std::memory_order_relaxed);
   worker_ = std::thread(&WindowsWasapiPlayback::Worker, this);
 }
@@ -122,6 +122,15 @@ WasapiPlaybackMetrics WindowsWasapiPlayback::Metrics() const noexcept {
   m.sample_rate = sample_rate_.load(std::memory_order_relaxed);
   m.channels = channels_.load(std::memory_order_relaxed);
   m.buffer_frames = buffer_frames_.load(std::memory_order_relaxed);
+  m.endpoint_period_100ns = endpoint_period_100ns_.load(std::memory_order_relaxed);
+  m.max_submission_microseconds = max_submission_us_.load(std::memory_order_relaxed);
+  if(total) {
+    std::uint64_t cumulative=0;
+    for(std::size_t i=0;i<submission_buckets_.size();++i) {
+      cumulative+=submission_buckets_[i].load(std::memory_order_relaxed);
+      if(cumulative>=(total*99+99)/100){m.p99_submission_microseconds=BucketUpperBound(i);break;}
+    }
+  }
   return m;
 }
 
@@ -232,6 +241,18 @@ void WindowsWasapiPlayback::Worker() {
       if (!rendered) underruns_.fetch_add(1, std::memory_order_relaxed);
       else std::memcpy(bytes, float_buffer.data(), static_cast<std::size_t>(frames) * channels * sizeof(float));
       hr = render_client->ReleaseBuffer(frames, rendered ? 0 : AUDCLNT_BUFFERFLAGS_SILENT);
+      if (observer_.submitted) observer_.submitted(rendered ? float_buffer.data() : nullptr,
+          frames, !rendered, SUCCEEDED(hr), observer_.context);
+      if (observer_.submitted) {
+      const auto submission_us = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::steady_clock::now() - begin).count());
+      std::size_t submission_bucket=0;
+      for(auto value=submission_us;value>1 && submission_bucket<63;value>>=1)++submission_bucket;
+      submission_buckets_[submission_bucket].fetch_add(1,std::memory_order_relaxed);
+      // One writer (this WASAPI thread), readers only sample the metric.
+      if (submission_us > max_submission_us_.load(std::memory_order_relaxed))
+        max_submission_us_.store(submission_us, std::memory_order_relaxed);
+      }
       if (FAILED(hr)) {
         if (IsDeviceInvalidated(hr)) {
           std::lock_guard<std::mutex> lock(mutex_);
@@ -265,6 +286,11 @@ void WindowsWasapiPlayback::Worker() {
       render_client.Reset();
       client.Reset();
       sample_rate_.store(0, std::memory_order_relaxed);
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        completed_id_ = id;
+      }
+      completion_cv_.notify_all();
       if (quit) break;
     } else if (command == Command::start) {
       WasapiPlaybackResult result{};
@@ -297,10 +323,23 @@ void WindowsWasapiPlayback::Worker() {
       if (result) hr = client->GetBufferSize(&buffer_frames);
       if (result && FAILED(hr)) result = Failure(WasapiPlaybackFailure::initialization_failed, hr);
       if (result) {
+        REFERENCE_TIME period = 0;
+        if (SUCCEEDED(client->GetDevicePeriod(&period, nullptr)))
+          endpoint_period_100ns_.store(static_cast<std::uint64_t>(period), std::memory_order_relaxed);
+        try {
+          if (observer_.admit && !observer_.admit(buffer_frames, observer_.context))
+            result = Failure(WasapiPlaybackFailure::initialization_failed, E_OUTOFMEMORY);
+        } catch(...) {
+          result = Failure(WasapiPlaybackFailure::initialization_failed, E_OUTOFMEMORY);
+        }
+      }
+      if (result) {
         float_buffer.resize(static_cast<std::size_t>(buffer_frames) * channels);
         BYTE* initial = nullptr;
         hr = render_client->GetBuffer(buffer_frames, &initial);
         if (SUCCEEDED(hr)) hr = render_client->ReleaseBuffer(buffer_frames, AUDCLNT_BUFFERFLAGS_SILENT);
+        if (observer_.submitted) observer_.submitted(nullptr, buffer_frames, true,
+            SUCCEEDED(hr), observer_.context);
         if (FAILED(hr)) result = Failure(WasapiPlaybackFailure::initialization_failed, hr);
       }
       if (result) hr = client->Start();

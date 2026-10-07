@@ -1,0 +1,12 @@
+﻿{
+    "captured_utc":  "2026-10-07T04:51:39.8409068Z",
+    "windows_recalibration":  false,
+    "windows_rebuild":  false,
+    "flutter_analysis":  "passed",
+    "instrumentation_version":  2,
+    "source_sha256":  {
+                          "..\\beatglows\\spikes\\audio_analysis_a0\\lib\\main.dart":  "4a3e23378ff34d9eb3e66ac21c10eedbabb1a8045100743d4125d6b3fbb487b8",
+                          "..\\beatglows\\spikes\\audio_analysis_a0\\lib\\analysis_source.dart":  "d1260c2865f135bf07797f737a31735a9fcbc3dcda2786e5444b469583e65db9"
+                      },
+    "flutter_tests":  7
+}
