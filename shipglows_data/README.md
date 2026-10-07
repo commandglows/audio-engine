@@ -26,7 +26,7 @@ next_review: "2026-11-30"
 next_step: "Maintain the technical map when a mapped subsystem or validation route changes."
 ---
 
-# ShipGlows Audio Engine Governance
+# Audio Engine Governance
 
 This directory is the canonical internal navigation and governance corpus for
 this repository. Its `technical/contracts/` documents are the human-readable

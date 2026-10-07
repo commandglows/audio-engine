@@ -1,4 +1,4 @@
-# ShipGlows Audio Engine — Pitch
+# Audio Engine — Pitch
 
 > Pitch reviewed: 2026-09-02 · Project state: see canonical sources below
 

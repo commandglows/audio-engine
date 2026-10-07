@@ -1,6 +1,6 @@
-# ShipGlows Audio Engine
+# Audio Engine
 
-Private native audio infrastructure shared by ShipGlows products.
+Public native audio infrastructure shared by ShipGlows products.
 
 The repository deliberately separates the real-time C++ engine from product
 interfaces. Flutter is a client of the engine, never part of the audio callback.

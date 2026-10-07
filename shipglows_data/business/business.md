@@ -2,7 +2,7 @@
 artifact: business_context
 metadata_schema_version: "1.0"
 artifact_version: "1.0.0"
-project: shipglows-audio-engine
+project: audio-engine
 created: "2026-09-02"
 updated: "2026-09-02"
 status: reviewed
