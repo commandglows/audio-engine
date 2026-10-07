@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "shipglows.backend.v1",
+  "provider": "none",
+  "mode": "none",
+  "reason": "This native audio plugin example records through the local ShipGlows audio engine into a local temporary session directory. It requires the native plugin but no application backend service.",
+  "command": null,
+  "dependencies": [],
+  "readiness": null
+}

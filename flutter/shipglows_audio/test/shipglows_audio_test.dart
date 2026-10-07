@@ -21,7 +21,13 @@ class MockShipglowsAudioPlatform
   Future<ShipglowsAudioCaptureStatus> startRecording({
     required String sessionDirectory,
     int? inputDeviceId,
+    bool microphoneEnabled = true,
+    String? inputEndpointId,
+    String? outputEndpointId,
   }) async => _status('recording');
+
+  @override
+  Future<List<ShipglowsAudioInputDevice>> getOutputDevices() async => const [];
 
   @override
   Future<List<ShipglowsAudioInputDevice>> getInputDevices() async => const [
@@ -54,6 +60,63 @@ class MockShipglowsAudioPlatform
   Future<ShipglowsAudioCaptureStatus> getRecordingStatus() async =>
       _status('recording');
 
+  @override
+  Future<ShipglowsAudioPlaybackStatus> loadPlayback({
+    required int generation,
+    required String localFilePath,
+    double seekSeconds = 0,
+    double playbackSpeed = 1,
+    ShipglowsAudioPlaybackEffects effects =
+        const ShipglowsAudioPlaybackEffects(),
+  }) async => _playbackStatus(generation);
+
+  @override
+  Future<ShipglowsAudioPlaybackStatus> seekPlayback({
+    required int generation,
+    required double positionSeconds,
+  }) async => _playbackStatus(generation);
+
+  @override
+  Future<ShipglowsAudioPlaybackStatus> playPlayback({
+    required int generation,
+  }) async => _playbackStatus(generation);
+
+  @override
+  Future<ShipglowsAudioPlaybackStatus> pausePlayback({
+    required int generation,
+  }) async => _playbackStatus(generation);
+
+  @override
+  Future<ShipglowsAudioPlaybackStatus> stopPlayback({
+    required int generation,
+  }) async => _playbackStatus(generation);
+
+  @override
+  Future<ShipglowsAudioPlaybackStatus> getPlaybackStatus({
+    required int generation,
+  }) async => _playbackStatus(generation);
+
+  @override
+  Future<ShipglowsAudioPlaybackStatus> setPlaybackSpeed({
+    required int generation,
+    required double playbackSpeed,
+  }) async => _playbackStatus(generation);
+
+  @override
+  Future<ShipglowsAudioPlaybackStatus> setPlaybackEffects({
+    required int generation,
+    required ShipglowsAudioPlaybackEffects effects,
+  }) async => _playbackStatus(generation);
+
+  ShipglowsAudioPlaybackStatus _playbackStatus(int generation) =>
+      ShipglowsAudioPlaybackStatus(
+        generation: generation,
+        state: 'ready',
+        positionSeconds: 0,
+        durationSeconds: 0,
+        playbackSpeed: 1,
+      );
+
   ShipglowsAudioCaptureStatus _status(String state) =>
       ShipglowsAudioCaptureStatus(
         state: state,
@@ -77,6 +140,36 @@ class MockShipglowsAudioPlatform
 }
 
 void main() {
+  test('playback status preserves typed native output failure details', () {
+    final status = ShipglowsAudioPlaybackStatus.fromMap({
+      'generation': 4,
+      'state': 'error',
+      'errorCode': 'wasapi_device_unavailable',
+      'nativeErrorHresult': -2004287484,
+      'underruns': 2,
+      'p99CallbackMicroseconds': 128,
+    });
+    expect(status.state, 'error');
+    expect(status.errorCode, 'wasapi_device_unavailable');
+    expect(status.nativeErrorHresult, -2004287484);
+    expect(status.underruns, 2);
+    expect(status.p99CallbackMicroseconds, 128);
+    expect(ShipglowsAudioPlaybackStatus.fromMap({}).nativeErrorHresult, 0);
+  });
+
+  test('output activity is optional and decoded independently of mixed levels', () {
+    final legacy = ShipglowsAudioCaptureStatus.fromMap({});
+    expect(legacy.outputActiveMilliseconds, isNull);
+    expect(legacy.outputSilentMilliseconds, isNull);
+    final mixed = ShipglowsAudioCaptureStatus.fromMap({
+      'peakLevel': 0.9,
+      'outputActiveMilliseconds': 8000,
+      'outputSilentMilliseconds': 7000,
+    });
+    expect(mixed.outputActiveMilliseconds, 8000);
+    expect(mixed.outputSilentMilliseconds, 7000);
+    expect(mixed.peakLevel, 0.9);
+  });
   final ShipglowsAudioPlatform initialPlatform =
       ShipglowsAudioPlatform.instance;
 

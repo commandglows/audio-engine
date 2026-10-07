@@ -15,3 +15,15 @@ target_include_directories(shipglows_audio_interruption_bench PRIVATE
 )
 add_test(NAME shipglows_audio_interruption_bench
          COMMAND shipglows_audio_interruption_bench)
+
+if(WIN32)
+  add_executable(shipglows_audio_sources_tests
+    windows_sources_tests.cpp
+    ../flutter/shipglows_audio/windows/windows_wasapi_capture.cpp
+    ../flutter/shipglows_audio/windows/windows_wasapi_sources.cpp)
+  target_compile_features(shipglows_audio_sources_tests PRIVATE cxx_std_20)
+  target_compile_definitions(shipglows_audio_sources_tests PRIVATE NOMINMAX UNICODE _UNICODE)
+  target_include_directories(shipglows_audio_sources_tests PRIVATE ../flutter/shipglows_audio/windows)
+  target_link_libraries(shipglows_audio_sources_tests PRIVATE shipglows::audio_engine ole32 avrt mmdevapi)
+  add_test(NAME shipglows_audio_sources_tests COMMAND shipglows_audio_sources_tests)
+endif()
