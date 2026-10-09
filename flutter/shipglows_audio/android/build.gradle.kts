@@ -2,7 +2,7 @@ group = "com.commandglows.shipglows_audio"
 version = "1.0-SNAPSHOT"
 
 buildscript {
-    val kotlinVersion = "2.4.0"
+    val kotlinVersion = "2.4.20"
     repositories {
         google()
         mavenCentral()
@@ -89,7 +89,7 @@ kotlin {
 }
 
 dependencies {
-    implementation("com.google.oboe:oboe:1.10.0")
+    implementation("com.google.oboe:oboe:1.11.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
-    testImplementation("org.mockito:mockito-core:5.0.0")
+    testImplementation("org.mockito:mockito-core:5.24.0")
 }
