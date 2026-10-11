@@ -8,3 +8,9 @@
 **/*.user
 **/*.suo
 *.log
+
+# Local build objects and heavy profiling traces
+*.obj
+*.etl
+*.wprp
+shipglows_data/workflow/evidence/audio-analysis-a0/2026-10-07/s21-exploratory/
