@@ -1,0 +1,606 @@
+﻿{
+    "schema":  "shared-scene-profile-review-1",
+    "collected_at_utc":  "2026-10-07T23:29:17Z",
+    "verdict":  "renderer profile evidence only; Stage A8 remains NOT READY",
+    "environment":  {
+                        "os":  "Microsoft Windows 11 Professionnel",
+                        "version":  "10.0.26300",
+                        "build":  "26300",
+                        "cpu":  "AMD Ryzen 7 7730U with Radeon Graphics",
+                        "logical_processors":  16,
+                        "flutter":  "3.47.1",
+                        "dart":  "3.13.1",
+                        "renderer":  "Impeller OpenGLES",
+                        "mode":  "Windows Profile",
+                        "window_logical_px":  "1264.0x681.0",
+                        "cmake_cache":  "flutter/shipglows_audio/example/build/windows/x64/CMakeCache.txt",
+                        "SHIPGLOWS_AUDIO_A0":  "OFF"
+                    },
+    "method":  {
+                   "command":  "flutter run --profile --target tool/shared_scene_profile.dart -d windows --no-pub",
+                   "warmup_seconds_per_mode":  2,
+                   "measure_seconds_per_mode":  10,
+                   "update_period_ms":  33,
+                   "scene_state":  "precomputed synthetic transformed VisualRecord and SpeechWindow; SceneEvaluator and SharedSceneView run each update",
+                   "source":  "No audio endpoint, callback, plugin bridge, or analysis controller polling",
+                   "build_seconds":  161.4,
+                   "build_warning":  "MSVC C4324 alignment padding warning for AnalysisBlockQueue"
+               },
+    "frame_results":  [
+                          {
+                              "mode":  "spectrumBars",
+                              "scene_updates":  303,
+                              "frames":  304,
+                              "build_us":  {
+                                               "count":  304,
+                                               "p50":  369,
+                                               "p95":  664,
+                                               "p99":  920,
+                                               "max":  2628
+                                           },
+                              "raster_us":  {
+                                                "count":  304,
+                                                "p50":  1792,
+                                                "p95":  3055,
+                                                "p99":  5663,
+                                                "max":  10125
+                                            },
+                              "total_span_us":  {
+                                                    "count":  304,
+                                                    "p50":  3356,
+                                                    "p95":  5157,
+                                                    "p99":  9577,
+                                                    "max":  21376
+                                                }
+                          },
+                          {
+                              "mode":  "musicOscilloscope",
+                              "scene_updates":  303,
+                              "frames":  305,
+                              "build_us":  {
+                                               "count":  305,
+                                               "p50":  295,
+                                               "p95":  418,
+                                               "p99":  490,
+                                               "max":  639
+                                           },
+                              "raster_us":  {
+                                                "count":  305,
+                                                "p50":  1699,
+                                                "p95":  2452,
+                                                "p99":  2898,
+                                                "max":  3332
+                                            },
+                              "total_span_us":  {
+                                                    "count":  305,
+                                                    "p50":  3066,
+                                                    "p95":  4220,
+                                                    "p99":  4810,
+                                                    "max":  5845
+                                                }
+                          },
+                          {
+                              "mode":  "speechEnvelope",
+                              "scene_updates":  303,
+                              "frames":  306,
+                              "build_us":  {
+                                               "count":  306,
+                                               "p50":  190,
+                                               "p95":  280,
+                                               "p99":  332,
+                                               "max":  364
+                                           },
+                              "raster_us":  {
+                                                "count":  306,
+                                                "p50":  640,
+                                                "p95":  937,
+                                                "p99":  1080,
+                                                "max":  1372
+                                            },
+                              "total_span_us":  {
+                                                    "count":  306,
+                                                    "p50":  1807,
+                                                    "p95":  2838,
+                                                    "p99":  3069,
+                                                    "max":  3361
+                                                }
+                          }
+                      ],
+    "process":  {
+                    "sampling":  "external Get-Process snapshots every ~500 ms",
+                    "sample_count":  75,
+                    "duration_seconds":  39.202,
+                    "working_set_min_bytes":  4952064,
+                    "working_set_peak_bytes":  107945984,
+                    "private_bytes_min":  1433600,
+                    "private_bytes_peak":  153591808,
+                    "cpu_seconds":  7.25,
+                    "cpu_percent_one_core":  18.49,
+                    "samples":  [
+                                    {
+                                        "utc":  "2026-10-07T23:28:06.7353278Z",
+                                        "working_set_bytes":  4952064,
+                                        "private_bytes":  1433600,
+                                        "cpu_seconds":  0
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:07.2852710Z",
+                                        "working_set_bytes":  64602112,
+                                        "private_bytes":  80502784,
+                                        "cpu_seconds":  0.3125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:07.8108502Z",
+                                        "working_set_bytes":  69279744,
+                                        "private_bytes":  85114880,
+                                        "cpu_seconds":  1.109375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:08.3302871Z",
+                                        "working_set_bytes":  70705152,
+                                        "private_bytes":  86962176,
+                                        "cpu_seconds":  1.890625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:08.8625081Z",
+                                        "working_set_bytes":  72777728,
+                                        "private_bytes":  89464832,
+                                        "cpu_seconds":  2.875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:09.3790112Z",
+                                        "working_set_bytes":  96047104,
+                                        "private_bytes":  149934080,
+                                        "cpu_seconds":  3.515625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:09.9075176Z",
+                                        "working_set_bytes":  99807232,
+                                        "private_bytes":  150528000,
+                                        "cpu_seconds":  3.59375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:10.4312112Z",
+                                        "working_set_bytes":  100384768,
+                                        "private_bytes":  150528000,
+                                        "cpu_seconds":  3.625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:10.9573172Z",
+                                        "working_set_bytes":  101015552,
+                                        "private_bytes":  151056384,
+                                        "cpu_seconds":  3.703125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:11.4851728Z",
+                                        "working_set_bytes":  101572608,
+                                        "private_bytes":  151056384,
+                                        "cpu_seconds":  3.75
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:11.9978564Z",
+                                        "working_set_bytes":  102088704,
+                                        "private_bytes":  151601152,
+                                        "cpu_seconds":  3.78125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:12.5221600Z",
+                                        "working_set_bytes":  101154816,
+                                        "private_bytes":  150200320,
+                                        "cpu_seconds":  3.84375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:13.0421324Z",
+                                        "working_set_bytes":  101707776,
+                                        "private_bytes":  149184512,
+                                        "cpu_seconds":  4.015625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:13.5904596Z",
+                                        "working_set_bytes":  102371328,
+                                        "private_bytes":  149745664,
+                                        "cpu_seconds":  4.078125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:14.1158048Z",
+                                        "working_set_bytes":  102903808,
+                                        "private_bytes":  150310912,
+                                        "cpu_seconds":  4.140625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:14.6471343Z",
+                                        "working_set_bytes":  103550976,
+                                        "private_bytes":  150351872,
+                                        "cpu_seconds":  4.21875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:15.1663798Z",
+                                        "working_set_bytes":  100376576,
+                                        "private_bytes":  149327872,
+                                        "cpu_seconds":  4.25
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:15.6915676Z",
+                                        "working_set_bytes":  100978688,
+                                        "private_bytes":  149327872,
+                                        "cpu_seconds":  4.34375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:16.2191433Z",
+                                        "working_set_bytes":  101617664,
+                                        "private_bytes":  149348352,
+                                        "cpu_seconds":  4.4375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:16.7468845Z",
+                                        "working_set_bytes":  102240256,
+                                        "private_bytes":  149413888,
+                                        "cpu_seconds":  4.515625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:17.2806815Z",
+                                        "working_set_bytes":  102830080,
+                                        "private_bytes":  149938176,
+                                        "cpu_seconds":  4.5625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:17.8039067Z",
+                                        "working_set_bytes":  103469056,
+                                        "private_bytes":  150544384,
+                                        "cpu_seconds":  4.671875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:18.3198582Z",
+                                        "working_set_bytes":  102445056,
+                                        "private_bytes":  149508096,
+                                        "cpu_seconds":  4.6875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:18.8327669Z",
+                                        "working_set_bytes":  103071744,
+                                        "private_bytes":  149565440,
+                                        "cpu_seconds":  4.765625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:19.3680657Z",
+                                        "working_set_bytes":  103694336,
+                                        "private_bytes":  149565440,
+                                        "cpu_seconds":  4.84375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:19.8894281Z",
+                                        "working_set_bytes":  104312832,
+                                        "private_bytes":  150171648,
+                                        "cpu_seconds":  4.890625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:20.4141050Z",
+                                        "working_set_bytes":  104943616,
+                                        "private_bytes":  150192128,
+                                        "cpu_seconds":  4.9375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:20.9377386Z",
+                                        "working_set_bytes":  104017920,
+                                        "private_bytes":  149209088,
+                                        "cpu_seconds":  5.046875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:21.4590469Z",
+                                        "working_set_bytes":  104554496,
+                                        "private_bytes":  149782528,
+                                        "cpu_seconds":  5.09375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:21.9768130Z",
+                                        "working_set_bytes":  105086976,
+                                        "private_bytes":  150384640,
+                                        "cpu_seconds":  5.125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:22.4979179Z",
+                                        "working_set_bytes":  105480192,
+                                        "private_bytes":  150384640,
+                                        "cpu_seconds":  5.171875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:23.0199043Z",
+                                        "working_set_bytes":  105811968,
+                                        "private_bytes":  150913024,
+                                        "cpu_seconds":  5.25
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:23.5381057Z",
+                                        "working_set_bytes":  106147840,
+                                        "private_bytes":  151437312,
+                                        "cpu_seconds":  5.34375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:24.0536810Z",
+                                        "working_set_bytes":  106008576,
+                                        "private_bytes":  150908928,
+                                        "cpu_seconds":  5.390625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:24.5735762Z",
+                                        "working_set_bytes":  106381312,
+                                        "private_bytes":  151437312,
+                                        "cpu_seconds":  5.40625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:25.0854294Z",
+                                        "working_set_bytes":  106795008,
+                                        "private_bytes":  151961600,
+                                        "cpu_seconds":  5.46875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:25.6058280Z",
+                                        "working_set_bytes":  107159552,
+                                        "private_bytes":  152010752,
+                                        "cpu_seconds":  5.53125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:26.1334917Z",
+                                        "working_set_bytes":  107487232,
+                                        "private_bytes":  152539136,
+                                        "cpu_seconds":  5.5625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:26.6558858Z",
+                                        "working_set_bytes":  107892736,
+                                        "private_bytes":  153063424,
+                                        "cpu_seconds":  5.625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:27.1757861Z",
+                                        "working_set_bytes":  106635264,
+                                        "private_bytes":  151486464,
+                                        "cpu_seconds":  5.703125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:27.6909178Z",
+                                        "working_set_bytes":  104992768,
+                                        "private_bytes":  150433792,
+                                        "cpu_seconds":  5.71875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:28.2154151Z",
+                                        "working_set_bytes":  105398272,
+                                        "private_bytes":  150962176,
+                                        "cpu_seconds":  5.796875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:28.7340708Z",
+                                        "working_set_bytes":  105725952,
+                                        "private_bytes":  150962176,
+                                        "cpu_seconds":  5.90625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:29.2531183Z",
+                                        "working_set_bytes":  106119168,
+                                        "private_bytes":  151486464,
+                                        "cpu_seconds":  5.96875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:29.7645206Z",
+                                        "working_set_bytes":  106528768,
+                                        "private_bytes":  152010752,
+                                        "cpu_seconds":  6.078125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:30.2863130Z",
+                                        "working_set_bytes":  105267200,
+                                        "private_bytes":  150433792,
+                                        "cpu_seconds":  6.15625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:30.8084756Z",
+                                        "working_set_bytes":  105623552,
+                                        "private_bytes":  152018944,
+                                        "cpu_seconds":  6.1875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:31.3289107Z",
+                                        "working_set_bytes":  106016768,
+                                        "private_bytes":  152543232,
+                                        "cpu_seconds":  6.265625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:31.8396168Z",
+                                        "working_set_bytes":  106344448,
+                                        "private_bytes":  152543232,
+                                        "cpu_seconds":  6.40625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:32.3544466Z",
+                                        "working_set_bytes":  106803200,
+                                        "private_bytes":  153067520,
+                                        "cpu_seconds":  6.421875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:32.8700861Z",
+                                        "working_set_bytes":  107163648,
+                                        "private_bytes":  153591808,
+                                        "cpu_seconds":  6.46875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:33.3891717Z",
+                                        "working_set_bytes":  105889792,
+                                        "private_bytes":  152014848,
+                                        "cpu_seconds":  6.515625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:33.9106318Z",
+                                        "working_set_bytes":  106655744,
+                                        "private_bytes":  153067520,
+                                        "cpu_seconds":  6.5625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:34.4276088Z",
+                                        "working_set_bytes":  106885120,
+                                        "private_bytes":  153591808,
+                                        "cpu_seconds":  6.59375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:34.9464362Z",
+                                        "working_set_bytes":  107122688,
+                                        "private_bytes":  153591808,
+                                        "cpu_seconds":  6.59375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:35.4661507Z",
+                                        "working_set_bytes":  107388928,
+                                        "private_bytes":  153591808,
+                                        "cpu_seconds":  6.640625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:35.9826217Z",
+                                        "working_set_bytes":  107716608,
+                                        "private_bytes":  153591808,
+                                        "cpu_seconds":  6.640625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:36.4940852Z",
+                                        "working_set_bytes":  107945984,
+                                        "private_bytes":  153112576,
+                                        "cpu_seconds":  6.6875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:37.0218459Z",
+                                        "working_set_bytes":  106512384,
+                                        "private_bytes":  152621056,
+                                        "cpu_seconds":  6.6875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:37.5407677Z",
+                                        "working_set_bytes":  106795008,
+                                        "private_bytes":  152621056,
+                                        "cpu_seconds":  6.734375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:38.0618418Z",
+                                        "working_set_bytes":  106991616,
+                                        "private_bytes":  152621056,
+                                        "cpu_seconds":  6.765625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:38.5784831Z",
+                                        "working_set_bytes":  107315200,
+                                        "private_bytes":  152621056,
+                                        "cpu_seconds":  6.828125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:39.1021786Z",
+                                        "working_set_bytes":  107614208,
+                                        "private_bytes":  152666112,
+                                        "cpu_seconds":  6.84375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:39.6217906Z",
+                                        "working_set_bytes":  107810816,
+                                        "private_bytes":  152666112,
+                                        "cpu_seconds":  6.921875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:40.1401581Z",
+                                        "working_set_bytes":  105906176,
+                                        "private_bytes":  152137728,
+                                        "cpu_seconds":  6.9375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:40.6610289Z",
+                                        "working_set_bytes":  106246144,
+                                        "private_bytes":  152137728,
+                                        "cpu_seconds":  7.015625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:41.1786803Z",
+                                        "working_set_bytes":  106442752,
+                                        "private_bytes":  152137728,
+                                        "cpu_seconds":  7.03125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:41.7060534Z",
+                                        "working_set_bytes":  106831872,
+                                        "private_bytes":  152137728,
+                                        "cpu_seconds":  7.0625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:42.2242098Z",
+                                        "working_set_bytes":  107028480,
+                                        "private_bytes":  152662016,
+                                        "cpu_seconds":  7.078125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:42.7463669Z",
+                                        "working_set_bytes":  105656320,
+                                        "private_bytes":  151085056,
+                                        "cpu_seconds":  7.078125
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:43.2602380Z",
+                                        "working_set_bytes":  105848832,
+                                        "private_bytes":  151085056,
+                                        "cpu_seconds":  7.109375
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:43.7807000Z",
+                                        "working_set_bytes":  106094592,
+                                        "private_bytes":  151085056,
+                                        "cpu_seconds":  7.15625
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:44.3049176Z",
+                                        "working_set_bytes":  106422272,
+                                        "private_bytes":  151613440,
+                                        "cpu_seconds":  7.1875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:44.8257598Z",
+                                        "working_set_bytes":  106618880,
+                                        "private_bytes":  151613440,
+                                        "cpu_seconds":  7.21875
+                                    },
+                                    {
+                                        "utc":  "2026-10-07T23:28:45.3497046Z",
+                                        "working_set_bytes":  106946560,
+                                        "private_bytes":  151613440,
+                                        "cpu_seconds":  7.25
+                                    }
+                                ]
+                },
+    "limits":  [
+                   "No audio callback, endpoint, analysis bridge or physical timing was measured.",
+                   "FrameTiming reports Flutter frame build/raster timing, not Dart allocation events.",
+                   "Process CPU and memory require external sampling and include Flutter runtime overhead.",
+                   "The 39.2 s process snapshot spans startup and all three phases; process metrics are not per-scene or feature-owned.",
+                   "No comparative baseline was run; this is not a performance improvement delta.",
+                   "This result does not alter the OFF/ON audio A8 comparison or its NOT READY verdict."
+               ],
+    "sha256":  [
+                   {
+                       "path":  "flutter/shipglows_audio/example/tool/shared_scene_profile.dart",
+                       "sha256":  "b932188d04bf54fd34df0e8578337dd09f067940c0eb6bdfe3d10302a464f119"
+                   },
+                   {
+                       "path":  "flutter/shipglows_visualization/lib/src/painters.dart",
+                       "sha256":  "b266ddfff8ac0377f4ddea6e99c8638b82048c8dfb9b6db5deaa229d2867d2fb"
+                   },
+                   {
+                       "path":  "flutter/shipglows_visualization/lib/src/scene.dart",
+                       "sha256":  "2940a99b4c9f21c75a46d752482e2668aa4a28915200353ad9012827859bd01e"
+                   },
+                   {
+                       "path":  "flutter/shipglows_visualization/lib/src/speech_window.dart",
+                       "sha256":  "303f71e32a43acd010d7a83059d91ed1d5afdb02a0d14e65f49b0a9fabcdf072"
+                   },
+                   {
+                       "path":  "flutter/shipglows_audio/example/build/windows/x64/runner/Profile/shipglows_audio_example.exe",
+                       "sha256":  "c39328e2d18827f25b8be344f319aefe58efd7cc83a1e8fe6419ae716ef1fad9"
+                   },
+                   {
+                       "path":  "flutter/shipglows_visualization/lib/src/visual_record.dart",
+                       "sha256":  "df42bc9188a858022264c62f8e204b9cf4af5df84179e43469275bab21206766"
+                   }
+               ]
+}

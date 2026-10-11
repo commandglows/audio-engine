@@ -1,0 +1,74 @@
+{
+    "kind":  "a0_physical_canvas_trace_compile_idle_review",
+    "utc":  "2026-10-07T12:54:36.2849052Z",
+    "flags":  [
+                  "A0_NATIVE_MEMORY_CAPTURE=false",
+                  "A0_MEMORY_FIXTURE=false",
+                  "A0_PHYSICAL_STIMULUS=true",
+                  "A0_AUTORUN=false",
+                  "A0_MASK=11"
+              ],
+    "profile_build_and_launch":  "pass",
+    "live_state":  {
+                       "kind":  "physical_trace_profile_idle_probe",
+                       "utc":  "2026-10-07T12:53:54.060501Z",
+                       "process_id":  38068,
+                       "running":  "false",
+                       "trace_class":  "PhysicalCanvasTrace",
+                       "trace_active":  "false",
+                       "run_id":  "0",
+                       "event_count":  "0",
+                       "scope":  "Live VM state only; no Start ON requested, audible or filmed proof."
+                   },
+    "tests":  {
+                  "full_flutter_analyze":  "pass",
+                  "full_flutter_tests":  21,
+                  "physical_trace_tests":  4
+              },
+    "trace":  {
+                  "version":  1,
+                  "event_capacity":  512,
+                  "overflow_counted":  true,
+                  "visible_ids":  "R(run) T(transition)",
+                  "uniform_patch":  "64x64 logical pixels, top-right below28-pixel label strip, clipped tocanvas",
+                  "data":  "paint timestamp, scheduler timestamp with distinct origin, samplewindow/recordsequence/continuity/RMS and acceptedbatch hostwindow/nativeobservation"
+              },
+    "limits":  [
+                   "Idle software state only: no StartON requested, native audible pulse or filmed clip collected",
+                   "No raster-completion/photon/audio-device timing proof",
+                   "No calibrated phone A/V bias or absolute clock U; sourceedge schedule nominal notacoustic onset",
+                   "Diagnostic trace adds memory/paint overhead only in physical mode, separate from silentOFF/ON baselines"
+               ],
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\lib\\main.dart",
+                          "bytes":  18339,
+                          "sha256":  "9F79F94DAC0242E7BA4A805FA6F21279470EF2D1A295625AA306573941872262"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\lib\\physical_canvas_trace.dart",
+                          "bytes":  9939,
+                          "sha256":  "D6EC87D161E8DB0F0AD29D5103CEA17E688AFAE093C5AE800F099F81C2361D48"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\test\\physical_canvas_trace_test.dart",
+                          "bytes":  6620,
+                          "sha256":  "EAC5E3B324E00AF335438E3225EC0D0CD0EC3F855E33F00C1FEE7BA7A335D40B"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\build\\windows\\x64\\runner\\Profile\\audio_analysis_a0.exe",
+                          "bytes":  91648,
+                          "sha256":  "CB2BB78BC57C806F121312D759538794376027071EC12EFC379C9D7E1D2DAB45"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\build\\windows\\x64\\runner\\Profile\\data\\app.so",
+                          "bytes":  7291784,
+                          "sha256":  "B1F08B6B0B808B726F6064F2BC94EA2FE94CF7FE5720E0F7396F6F241FAE6D30"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\build\\windows\\x64\\runner\\Profile\\shipglows_audio_plugin.dll",
+                          "bytes":  319488,
+                          "sha256":  "41E9E4BB20C0388D22F540FB85DAC370C8E4C4D858D4C360038B503418D47B53"
+                      }
+                  ]
+}

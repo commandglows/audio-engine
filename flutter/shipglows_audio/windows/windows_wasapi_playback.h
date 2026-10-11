@@ -74,6 +74,14 @@ struct WasapiA0Observer {
   bool (*admit)(std::uint32_t max_frames, void*) = nullptr;
   void (*submitted)(const float*, std::uint32_t, bool, bool, void*) noexcept = nullptr;
   void* context = nullptr;
+  // Optional private observation, raw device ticks/frequency and correlated QPC
+  // in 100 ns units. Query bracket uses the adapter's steady-clock ns origin.
+  void (*clock)(std::uint64_t ticks, std::uint64_t frequency,
+                std::uint64_t qpc_100ns, std::uint64_t begin_ns,
+                std::uint64_t end_ns, long status, void*) noexcept = nullptr;
+  void (*analysis_submitted)(const float*, std::uint32_t, std::uint64_t,
+                             bool, bool, void*) noexcept = nullptr;
+  void* analysis_context = nullptr;
 };
 
 class WindowsWasapiPlayback final {

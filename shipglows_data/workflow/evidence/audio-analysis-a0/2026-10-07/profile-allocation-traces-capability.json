@@ -1,0 +1,9 @@
+﻿{
+    "rpc":  "getAllocationTraces",
+    "error_code":  null,
+    "error_message":  null,
+    "error_details":  null,
+    "result_type":  "CpuSamples",
+    "sample_count":  0,
+    "limits":  "Capability probe after the matched phases; no class tracing enabled and no allocation throughput measurement."
+}

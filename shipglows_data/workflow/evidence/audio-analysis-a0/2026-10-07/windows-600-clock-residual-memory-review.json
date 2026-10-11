@@ -1,0 +1,158 @@
+﻿{
+    "kind":  "private_a0_memory_series_review",
+    "observed_utc":  "2026-10-07T07:26:05.7438776Z",
+    "total_samples":  25,
+    "groups":  [
+                   {
+                       "completed_phases":  0,
+                       "sample_count":  10,
+                       "first_utc":  "2026-10-07T07:08:17.8767345Z",
+                       "last_utc":  "2026-10-07T07:15:13.7159218Z",
+                       "error_samples":  0,
+                       "sampled_process_cpu_one_core_percent":  41.704072222247727541189334178,
+                       "metrics":  {
+                                       "process_working_set_bytes":  {
+                                                                         "sample_count":  10,
+                                                                         "minimum":  129052672,
+                                                                         "maximum":  150937600,
+                                                                         "first":  129052672,
+                                                                         "last":  150937600,
+                                                                         "last_minus_first":  21884928
+                                                                     },
+                                       "process_private_bytes":  {
+                                                                     "sample_count":  10,
+                                                                     "minimum":  175370240,
+                                                                     "maximum":  183390208,
+                                                                     "first":  176549888,
+                                                                     "last":  183062528,
+                                                                     "last_minus_first":  6512640
+                                                                 },
+                                       "dart_current_bytes":  {
+                                                                  "sample_count":  10,
+                                                                  "minimum":  14302784,
+                                                                  "maximum":  16721872,
+                                                                  "first":  16721872,
+                                                                  "last":  16472448,
+                                                                  "last_minus_first":  -249424
+                                                              },
+                                       "heapUsage":  {
+                                                         "sample_count":  10,
+                                                         "minimum":  8370672,
+                                                         "maximum":  10644400,
+                                                         "first":  10633792,
+                                                         "last":  10538064,
+                                                         "last_minus_first":  -95728
+                                                     },
+                                       "externalUsage":  {
+                                                             "sample_count":  10,
+                                                             "minimum":  1888,
+                                                             "maximum":  84752,
+                                                             "first":  82048,
+                                                             "last":  84752,
+                                                             "last_minus_first":  2704
+                                                         }
+                                   }
+                   },
+                   {
+                       "completed_phases":  1,
+                       "sample_count":  13,
+                       "first_utc":  "2026-10-07T07:15:59.7313634Z",
+                       "last_utc":  "2026-10-07T07:25:13.9415496Z",
+                       "error_samples":  0,
+                       "sampled_process_cpu_one_core_percent":  51.201806113609825961008292994,
+                       "metrics":  {
+                                       "process_working_set_bytes":  {
+                                                                         "sample_count":  13,
+                                                                         "minimum":  148348928,
+                                                                         "maximum":  153714688,
+                                                                         "first":  152047616,
+                                                                         "last":  148893696,
+                                                                         "last_minus_first":  -3153920
+                                                                     },
+                                       "process_private_bytes":  {
+                                                                     "sample_count":  13,
+                                                                     "minimum":  184594432,
+                                                                     "maximum":  189194240,
+                                                                     "first":  184938496,
+                                                                     "last":  188325888,
+                                                                     "last_minus_first":  3387392
+                                                                 },
+                                       "dart_current_bytes":  {
+                                                                  "sample_count":  13,
+                                                                  "minimum":  14526256,
+                                                                  "maximum":  16658096,
+                                                                  "first":  15492912,
+                                                                  "last":  15922784,
+                                                                  "last_minus_first":  429872
+                                                              },
+                                       "heapUsage":  {
+                                                         "sample_count":  13,
+                                                         "minimum":  8566880,
+                                                         "maximum":  10794352,
+                                                         "first":  9583760,
+                                                         "last":  10009008,
+                                                         "last_minus_first":  425248
+                                                     },
+                                       "externalUsage":  {
+                                                             "sample_count":  13,
+                                                             "minimum":  1920,
+                                                             "maximum":  231456,
+                                                             "first":  79392,
+                                                             "last":  189376,
+                                                             "last_minus_first":  109984
+                                                         }
+                                   }
+                   },
+                   {
+                       "completed_phases":  2,
+                       "sample_count":  2,
+                       "first_utc":  "2026-10-07T07:25:59.8939186Z",
+                       "last_utc":  "2026-10-07T07:26:04.5526403Z",
+                       "error_samples":  0,
+                       "sampled_process_cpu_one_core_percent":  5.030886476863385078357438694,
+                       "metrics":  {
+                                       "process_working_set_bytes":  {
+                                                                         "sample_count":  2,
+                                                                         "minimum":  150208512,
+                                                                         "maximum":  154632192,
+                                                                         "first":  150208512,
+                                                                         "last":  154632192,
+                                                                         "last_minus_first":  4423680
+                                                                     },
+                                       "process_private_bytes":  {
+                                                                     "sample_count":  2,
+                                                                     "minimum":  188428288,
+                                                                     "maximum":  193728512,
+                                                                     "first":  188428288,
+                                                                     "last":  193728512,
+                                                                     "last_minus_first":  5300224
+                                                                 },
+                                       "dart_current_bytes":  {
+                                                                  "sample_count":  2,
+                                                                  "minimum":  14635040,
+                                                                  "maximum":  15478272,
+                                                                  "first":  14635040,
+                                                                  "last":  15478272,
+                                                                  "last_minus_first":  843232
+                                                              },
+                                       "heapUsage":  {
+                                                         "sample_count":  2,
+                                                         "minimum":  8702928,
+                                                         "maximum":  9546160,
+                                                         "first":  8702928,
+                                                         "last":  9546160,
+                                                         "last_minus_first":  843232
+                                                     },
+                                       "externalUsage":  {
+                                                             "sample_count":  2,
+                                                             "minimum":  2112,
+                                                             "maximum":  3072,
+                                                             "first":  2112,
+                                                             "last":  3072,
+                                                             "last_minus_first":  960
+                                                         }
+                                   }
+                   }
+               ],
+    "limits":  "Groups use completed-phase count at sample start, not precise OFF/ON boundaries. Sparse snapshots cannot establish allocation throughput, a memory cap or a flat working set. Whole-process CPU includes profiling and UI; no isolated causal attribution."
+}

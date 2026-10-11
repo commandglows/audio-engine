@@ -1,6 +1,6 @@
-# ShipGlows Audio Engine
+# Audio Engine
 
-Private native audio infrastructure shared by ShipGlows products.
+Public native audio infrastructure shared by ShipGlows products.
 
 The repository deliberately separates the real-time C++ engine from product
 interfaces. Flutter is a client of the engine, never part of the audio callback.
@@ -8,8 +8,11 @@ interfaces. Flutter is a client of the engine, never part of the audio callback.
 ## Repository layout
 
 - `flutter/shipglows_audio/native/engine/`: portable C++ session, buffering,
-  storage, and diagnostics core, packaged with the plugin but independent of
+  storage, bounded offline WAV analysis, paged sidecar writing and strict
+  random-access sidecar reading, packaged with the plugin but independent of
   Flutter APIs.
+- `tools/audio_analysis_cli/`: private draft manifest runner for bounded WAV
+  jobs with cancellation cleanup and atomic, no-replace directory publication.
 - `flutter/shipglows_audio/`: private Flutter plugin and example application.
 - `tests/`: dependency-free native tests.
 - `shipglows_data/technical/contracts/`: human-readable session and platform
@@ -18,6 +21,9 @@ interfaces. Flutter is a client of the engine, never part of the audio callback.
   maintenance map.
 
 ## Native checks
+
+Doppler configuration: `NONE`. Build and calibration commands run directly,
+without a secret environment or another product's Doppler project.
 
 ```powershell
 cmake -S . -B build/native -DSHIPGLOWS_AUDIO_BUILD_TESTS=ON

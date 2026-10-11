@@ -1,0 +1,21 @@
+﻿{
+    "observed_utc":  "2026-10-07T07:36:34.5917551Z",
+    "diagnostic_pid":  44436,
+    "wpr_start_exit_code":  -2147024891,
+    "wpr_output":  [
+                       "System.Management.Automation.RemoteException",
+                       "\tAccess is denied.",
+                       "System.Management.Automation.RemoteException",
+                       "System.Management.Automation.RemoteException",
+                       "\tProfile Id: A0Heap.Verbose.Memory",
+                       "\t",
+                       "\tError code: 0x80070005",
+                       "\t",
+                       "\tAccess is denied.",
+                       "System.Management.Automation.RemoteException",
+                       "\t",
+                       "\t"
+                   ],
+    "profile":  "Single diagnostic PID; 8 MiB nominal heap collector; no system collector",
+    "doppler":  "NONE"
+}

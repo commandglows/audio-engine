@@ -1,0 +1,1026 @@
+{
+  "schema": "a0-transport-heap-snapshot-v1",
+  "measurement": "synthetic parked fixture object graph",
+  "interpretation": "Retained reachable object union at snapshot time; not transient allocation throughput or a physical peak.",
+  "caveat": "requestHeapSnapshot can perturb execution and may trigger collection. This is one snapshot, not a no-GC capture.",
+  "sizeSemantics": "Reported owned totals sum VM-reported shallow sizes for reachable objects plus reported external properties. They exclude the separately counted shared VM/type metadata and are not allocator capacity, reserved heap, RSS, or allocation throughput.",
+  "isolateName": "main",
+  "snapshot": {
+    "objectCount": 171350,
+    "classCount": 2745,
+    "referenceCount": 770279,
+    "heapShallowBytes": 13671200,
+    "heapCapacityBytes": 14743168,
+    "heapExternalBytes": 704,
+    "snapshotBinary": "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0\\transport-heap-v3-wire.json.dartheap",
+    "identityHashMatch": true
+  },
+  "registrySnapshotIndex": 31580,
+  "cases": [
+    {
+      "index": 0,
+      "identityHashCode": 2718854061,
+      "className": "MemoryFixtureCase",
+      "mask": 13,
+      "wireLengthBytes": 73577,
+      "selectedRootIdentityHashes": {
+        "priorRecord": 3351179357,
+        "priorSpeech": 1041081387,
+        "incomingWire": 2600999173,
+        "decodedPacket": 3989567812,
+        "parsedBatch": 1884350388
+      },
+      "missingLiveRoots": [],
+      "snapshotObjectIndex": 31659,
+      "fieldRootSnapshotIndices": {
+        "priorRecord": 31657,
+        "priorSpeech": 130156,
+        "incomingWire": 137234,
+        "decodedPacket": 130151,
+        "parsedBatch": 130152
+      },
+      "missingRoots": [],
+      "groups": {
+        "priorRecord": {
+          "objectCount": 81,
+          "referenceCount": 83,
+          "shallowBytes": 1840,
+          "externalBytes": 0,
+          "classCounts": {
+            "::AnalysisRecord": 1,
+            "dart.core::Null": 1,
+            "dart.core::_ImmutableList": 2,
+            "dart.core::_Double": 70,
+            "dart.core::_Smi": 7
+          },
+          "classShallowBytes": {
+            "::AnalysisRecord": 80,
+            "dart.core::Null": 16,
+            "dart.core::_ImmutableList": 624,
+            "dart.core::_Double": 1120,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 1,
+          "excludedSharedMetadataShallowBytes": 48,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "priorSpeech": {
+          "objectCount": 154,
+          "referenceCount": 906,
+          "shallowBytes": 8480,
+          "externalBytes": 0,
+          "classCounts": {
+            "::CalibrationHopList": 1,
+            "dart.core::_List": 1,
+            "dart.core::Null": 1,
+            "::CompactHop": 150,
+            "dart.core::_Smi": 1
+          },
+          "classShallowBytes": {
+            "::CalibrationHopList": 32,
+            "dart.core::_List": 1232,
+            "dart.core::Null": 16,
+            "::CompactHop": 7200,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 2,
+          "excludedSharedMetadataShallowBytes": 96,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "incomingWire": {
+          "objectCount": 2,
+          "referenceCount": 1,
+          "shallowBytes": 73616,
+          "externalBytes": 0,
+          "classCounts": {
+            "dart.typed_data::_Uint8List": 1,
+            "dart.core::_Smi": 1
+          },
+          "classShallowBytes": {
+            "dart.typed_data::_Uint8List": 73616,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 0,
+          "excludedSharedMetadataShallowBytes": 0,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "decodedPacket": {
+          "objectCount": 407,
+          "referenceCount": 935,
+          "shallowBytes": 91664,
+          "externalBytes": 0,
+          "classCounts": {
+            "dart._internal::CastMap": 1,
+            "dart._compact_hash::_Map": 18,
+            "dart.typed_data::_Uint32List": 18,
+            "dart.core::_Smi": 116,
+            "dart.core::_List": 19,
+            "dart.core::Null": 1,
+            "dart.core::_OneByteString": 167,
+            "dart.core::bool": 2,
+            "dart.typed_data::_Float32ArrayView": 64,
+            "dart.typed_data::_Uint8List": 1
+          },
+          "classShallowBytes": {
+            "dart._internal::CastMap": 32,
+            "dart._compact_hash::_Map": 1152,
+            "dart.typed_data::_Uint32List": 2816,
+            "dart.core::_Smi": 0,
+            "dart.core::_List": 5216,
+            "dart.core::Null": 16,
+            "dart.core::_OneByteString": 5712,
+            "dart.core::bool": 32,
+            "dart.typed_data::_Float32ArrayView": 3072,
+            "dart.typed_data::_Uint8List": 73616
+          },
+          "excludedSharedMetadataCount": 3,
+          "excludedSharedMetadataShallowBytes": 208,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "parsedBatch": {
+          "objectCount": 1240,
+          "referenceCount": 1396,
+          "shallowBytes": 30624,
+          "externalBytes": 0,
+          "classCounts": {
+            "::AnalysisBatch": 1,
+            "dart.collection::UnmodifiableMapView": 1,
+            "dart._compact_hash::_Map": 1,
+            "dart.typed_data::_Uint32List": 1,
+            "dart.core::_Smi": 47,
+            "dart.core::_List": 1,
+            "dart.core::_OneByteString": 16,
+            "dart.core::bool": 2,
+            "dart.core::Null": 1,
+            "dart.core::_ImmutableList": 33,
+            "::AnalysisRecord": 16,
+            "dart.core::_Double": 1120
+          },
+          "classShallowBytes": {
+            "::AnalysisBatch": 64,
+            "dart.collection::UnmodifiableMapView": 32,
+            "dart._compact_hash::_Map": 64,
+            "dart.typed_data::_Uint32List": 160,
+            "dart.core::_Smi": 0,
+            "dart.core::_List": 288,
+            "dart.core::_OneByteString": 624,
+            "dart.core::bool": 32,
+            "dart.core::Null": 16,
+            "dart.core::_ImmutableList": 10144,
+            "::AnalysisRecord": 1280,
+            "dart.core::_Double": 17920
+          },
+          "excludedSharedMetadataCount": 3,
+          "excludedSharedMetadataShallowBytes": 160,
+          "incompleteReasons": [],
+          "complete": true
+        }
+      },
+      "retainedUnion": {
+        "objectCount": 234,
+        "referenceCount": 989,
+        "shallowBytes": 10304,
+        "externalBytes": 0,
+        "classCounts": {
+          "::AnalysisRecord": 1,
+          "dart.core::Null": 1,
+          "dart.core::_ImmutableList": 2,
+          "dart.core::_Double": 70,
+          "dart.core::_Smi": 8,
+          "::CalibrationHopList": 1,
+          "dart.core::_List": 1,
+          "::CompactHop": 150
+        },
+        "classShallowBytes": {
+          "::AnalysisRecord": 80,
+          "dart.core::Null": 16,
+          "dart.core::_ImmutableList": 624,
+          "dart.core::_Double": 1120,
+          "dart.core::_Smi": 0,
+          "::CalibrationHopList": 32,
+          "dart.core::_List": 1232,
+          "::CompactHop": 7200
+        },
+        "excludedSharedMetadataCount": 3,
+        "excludedSharedMetadataShallowBytes": 144,
+        "incompleteReasons": [],
+        "complete": true
+      },
+      "incomingUnion": {
+        "objectCount": 1581,
+        "referenceCount": 2331,
+        "shallowBytes": 121616,
+        "externalBytes": 0,
+        "classCounts": {
+          "dart.typed_data::_Uint8List": 1,
+          "dart.core::_Smi": 116,
+          "dart._internal::CastMap": 1,
+          "dart._compact_hash::_Map": 19,
+          "dart.typed_data::_Uint32List": 19,
+          "dart.core::_List": 20,
+          "dart.core::Null": 1,
+          "dart.core::_OneByteString": 167,
+          "dart.core::bool": 2,
+          "dart.typed_data::_Float32ArrayView": 64,
+          "::AnalysisBatch": 1,
+          "dart.collection::UnmodifiableMapView": 1,
+          "dart.core::_ImmutableList": 33,
+          "::AnalysisRecord": 16,
+          "dart.core::_Double": 1120
+        },
+        "classShallowBytes": {
+          "dart.typed_data::_Uint8List": 73616,
+          "dart.core::_Smi": 0,
+          "dart._internal::CastMap": 32,
+          "dart._compact_hash::_Map": 1216,
+          "dart.typed_data::_Uint32List": 2976,
+          "dart.core::_List": 5504,
+          "dart.core::Null": 16,
+          "dart.core::_OneByteString": 5712,
+          "dart.core::bool": 32,
+          "dart.typed_data::_Float32ArrayView": 3072,
+          "::AnalysisBatch": 64,
+          "dart.collection::UnmodifiableMapView": 32,
+          "dart.core::_ImmutableList": 10144,
+          "::AnalysisRecord": 1280,
+          "dart.core::_Double": 17920
+        },
+        "excludedSharedMetadataCount": 5,
+        "excludedSharedMetadataShallowBytes": 304,
+        "incompleteReasons": [],
+        "complete": true
+      },
+      "union": {
+        "objectCount": 1808,
+        "shallowBytes": 131904,
+        "externalBytes": 0,
+        "combinedBytes": 131904,
+        "externalPropertyObjectCount": 0,
+        "excludedSharedMetadataCount": 7,
+        "excludedSharedMetadataShallowBytes": 400,
+        "missingRoots": [],
+        "complete": true,
+        "scope": "Reachable union from selected case-owned roots; shared objects deduplicated within this case."
+      },
+      "complete": true
+    },
+    {
+      "index": 1,
+      "identityHashCode": 1406284652,
+      "className": "MemoryFixtureCase",
+      "mask": 5,
+      "wireLengthBytes": 3305,
+      "selectedRootIdentityHashes": {
+        "priorRecord": 751557695,
+        "priorSpeech": 652079378,
+        "incomingWire": 4112220540,
+        "decodedPacket": 4044460887,
+        "parsedBatch": 2967816045
+      },
+      "missingLiveRoots": [],
+      "snapshotObjectIndex": 134858,
+      "fieldRootSnapshotIndices": {
+        "priorRecord": 134878,
+        "priorSpeech": 134879,
+        "incomingWire": 134880,
+        "decodedPacket": 134881,
+        "parsedBatch": 134882
+      },
+      "missingRoots": [],
+      "groups": {
+        "priorRecord": {
+          "objectCount": 15,
+          "referenceCount": 17,
+          "shallowBytes": 272,
+          "externalBytes": 0,
+          "classCounts": {
+            "::AnalysisRecord": 1,
+            "dart.core::Null": 1,
+            "dart.core::_ImmutableList": 1,
+            "dart.core::_Double": 6,
+            "dart.core::_Smi": 6
+          },
+          "classShallowBytes": {
+            "::AnalysisRecord": 80,
+            "dart.core::Null": 16,
+            "dart.core::_ImmutableList": 80,
+            "dart.core::_Double": 96,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 1,
+          "excludedSharedMetadataShallowBytes": 48,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "priorSpeech": {
+          "objectCount": 154,
+          "referenceCount": 906,
+          "shallowBytes": 8480,
+          "externalBytes": 0,
+          "classCounts": {
+            "::CalibrationHopList": 1,
+            "dart.core::_List": 1,
+            "dart.core::Null": 1,
+            "::CompactHop": 150,
+            "dart.core::_Smi": 1
+          },
+          "classShallowBytes": {
+            "::CalibrationHopList": 32,
+            "dart.core::_List": 1232,
+            "dart.core::Null": 16,
+            "::CompactHop": 7200,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 2,
+          "excludedSharedMetadataShallowBytes": 96,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "incomingWire": {
+          "objectCount": 2,
+          "referenceCount": 1,
+          "shallowBytes": 3344,
+          "externalBytes": 0,
+          "classCounts": {
+            "dart.typed_data::_Uint8List": 1,
+            "dart.core::_Smi": 1
+          },
+          "classShallowBytes": {
+            "dart.typed_data::_Uint8List": 3344,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 0,
+          "excludedSharedMetadataShallowBytes": 0,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "decodedPacket": {
+          "objectCount": 308,
+          "referenceCount": 583,
+          "shallowBytes": 15504,
+          "externalBytes": 0,
+          "classCounts": {
+            "dart._internal::CastMap": 1,
+            "dart._compact_hash::_Map": 18,
+            "dart.typed_data::_Uint32List": 18,
+            "dart.core::_Smi": 81,
+            "dart.core::_List": 19,
+            "dart.core::Null": 1,
+            "dart.core::_OneByteString": 135,
+            "dart.core::bool": 2,
+            "dart.typed_data::_Float32ArrayView": 32,
+            "dart.typed_data::_Uint8List": 1
+          },
+          "classShallowBytes": {
+            "dart._internal::CastMap": 32,
+            "dart._compact_hash::_Map": 1152,
+            "dart.typed_data::_Uint32List": 1792,
+            "dart.core::_Smi": 0,
+            "dart.core::_List": 3168,
+            "dart.core::Null": 16,
+            "dart.core::_OneByteString": 4432,
+            "dart.core::bool": 32,
+            "dart.typed_data::_Float32ArrayView": 1536,
+            "dart.typed_data::_Uint8List": 3344
+          },
+          "excludedSharedMetadataCount": 3,
+          "excludedSharedMetadataShallowBytes": 208,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "parsedBatch": {
+          "objectCount": 199,
+          "referenceCount": 340,
+          "shallowBytes": 5536,
+          "externalBytes": 0,
+          "classCounts": {
+            "::AnalysisBatch": 1,
+            "dart.collection::UnmodifiableMapView": 1,
+            "dart._compact_hash::_Map": 1,
+            "dart.typed_data::_Uint32List": 1,
+            "dart.core::_Smi": 46,
+            "dart.core::_List": 1,
+            "dart.core::_OneByteString": 16,
+            "dart.core::bool": 2,
+            "dart.core::Null": 1,
+            "dart.core::_ImmutableList": 17,
+            "::AnalysisRecord": 16,
+            "dart.core::_Double": 96
+          },
+          "classShallowBytes": {
+            "::AnalysisBatch": 64,
+            "dart.collection::UnmodifiableMapView": 32,
+            "dart._compact_hash::_Map": 64,
+            "dart.typed_data::_Uint32List": 160,
+            "dart.core::_Smi": 0,
+            "dart.core::_List": 288,
+            "dart.core::_OneByteString": 624,
+            "dart.core::bool": 32,
+            "dart.core::Null": 16,
+            "dart.core::_ImmutableList": 1440,
+            "::AnalysisRecord": 1280,
+            "dart.core::_Double": 1536
+          },
+          "excludedSharedMetadataCount": 3,
+          "excludedSharedMetadataShallowBytes": 160,
+          "incompleteReasons": [],
+          "complete": true
+        }
+      },
+      "retainedUnion": {
+        "objectCount": 168,
+        "referenceCount": 923,
+        "shallowBytes": 8736,
+        "externalBytes": 0,
+        "classCounts": {
+          "::AnalysisRecord": 1,
+          "dart.core::Null": 1,
+          "dart.core::_ImmutableList": 1,
+          "dart.core::_Double": 6,
+          "dart.core::_Smi": 7,
+          "::CalibrationHopList": 1,
+          "dart.core::_List": 1,
+          "::CompactHop": 150
+        },
+        "classShallowBytes": {
+          "::AnalysisRecord": 80,
+          "dart.core::Null": 16,
+          "dart.core::_ImmutableList": 80,
+          "dart.core::_Double": 96,
+          "dart.core::_Smi": 0,
+          "::CalibrationHopList": 32,
+          "dart.core::_List": 1232,
+          "::CompactHop": 7200
+        },
+        "excludedSharedMetadataCount": 3,
+        "excludedSharedMetadataShallowBytes": 144,
+        "incompleteReasons": [],
+        "complete": true
+      },
+      "incomingUnion": {
+        "objectCount": 442,
+        "referenceCount": 923,
+        "shallowBytes": 20368,
+        "externalBytes": 0,
+        "classCounts": {
+          "dart.typed_data::_Uint8List": 1,
+          "dart.core::_Smi": 81,
+          "dart._internal::CastMap": 1,
+          "dart._compact_hash::_Map": 19,
+          "dart.typed_data::_Uint32List": 19,
+          "dart.core::_List": 20,
+          "dart.core::Null": 1,
+          "dart.core::_OneByteString": 135,
+          "dart.core::bool": 2,
+          "dart.typed_data::_Float32ArrayView": 32,
+          "::AnalysisBatch": 1,
+          "dart.collection::UnmodifiableMapView": 1,
+          "dart.core::_ImmutableList": 17,
+          "::AnalysisRecord": 16,
+          "dart.core::_Double": 96
+        },
+        "classShallowBytes": {
+          "dart.typed_data::_Uint8List": 3344,
+          "dart.core::_Smi": 0,
+          "dart._internal::CastMap": 32,
+          "dart._compact_hash::_Map": 1216,
+          "dart.typed_data::_Uint32List": 1952,
+          "dart.core::_List": 3456,
+          "dart.core::Null": 16,
+          "dart.core::_OneByteString": 4432,
+          "dart.core::bool": 32,
+          "dart.typed_data::_Float32ArrayView": 1536,
+          "::AnalysisBatch": 64,
+          "dart.collection::UnmodifiableMapView": 32,
+          "dart.core::_ImmutableList": 1440,
+          "::AnalysisRecord": 1280,
+          "dart.core::_Double": 1536
+        },
+        "excludedSharedMetadataCount": 5,
+        "excludedSharedMetadataShallowBytes": 304,
+        "incompleteReasons": [],
+        "complete": true
+      },
+      "union": {
+        "objectCount": 604,
+        "shallowBytes": 29088,
+        "externalBytes": 0,
+        "combinedBytes": 29088,
+        "externalPropertyObjectCount": 0,
+        "excludedSharedMetadataCount": 7,
+        "excludedSharedMetadataShallowBytes": 400,
+        "missingRoots": [],
+        "complete": true,
+        "scope": "Reachable union from selected case-owned roots; shared objects deduplicated within this case."
+      },
+      "complete": true
+    },
+    {
+      "index": 2,
+      "identityHashCode": 823248840,
+      "className": "MemoryFixtureCase",
+      "mask": 11,
+      "wireLengthBytes": 107113,
+      "selectedRootIdentityHashes": {
+        "priorRecord": 4015477303,
+        "priorSpeech": 1791437381,
+        "incomingWire": 3565679920,
+        "decodedPacket": 3286622660,
+        "parsedBatch": 4011804984
+      },
+      "missingLiveRoots": [],
+      "snapshotObjectIndex": 134857,
+      "fieldRootSnapshotIndices": {
+        "priorRecord": 134859,
+        "priorSpeech": 124805,
+        "incomingWire": 137233,
+        "decodedPacket": 124800,
+        "parsedBatch": 124801
+      },
+      "missingRoots": [],
+      "groups": {
+        "priorRecord": {
+          "objectCount": 339,
+          "referenceCount": 341,
+          "shallowBytes": 8016,
+          "externalBytes": 0,
+          "classCounts": {
+            "::AnalysisRecord": 1,
+            "dart.core::_ImmutableList": 3,
+            "dart.core::_Double": 326,
+            "dart.core::_Smi": 8,
+            "dart.core::Null": 1
+          },
+          "classShallowBytes": {
+            "::AnalysisRecord": 80,
+            "dart.core::_ImmutableList": 2704,
+            "dart.core::_Double": 5216,
+            "dart.core::_Smi": 0,
+            "dart.core::Null": 16
+          },
+          "excludedSharedMetadataCount": 1,
+          "excludedSharedMetadataShallowBytes": 48,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "priorSpeech": {
+          "objectCount": 154,
+          "referenceCount": 906,
+          "shallowBytes": 8480,
+          "externalBytes": 0,
+          "classCounts": {
+            "::CalibrationHopList": 1,
+            "dart.core::_List": 1,
+            "dart.core::Null": 1,
+            "::CompactHop": 150,
+            "dart.core::_Smi": 1
+          },
+          "classShallowBytes": {
+            "::CalibrationHopList": 32,
+            "dart.core::_List": 1232,
+            "dart.core::Null": 16,
+            "::CompactHop": 7200,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 2,
+          "excludedSharedMetadataShallowBytes": 96,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "incomingWire": {
+          "objectCount": 2,
+          "referenceCount": 1,
+          "shallowBytes": 107152,
+          "externalBytes": 0,
+          "classCounts": {
+            "dart.typed_data::_Uint8List": 1,
+            "dart.core::_Smi": 1
+          },
+          "classShallowBytes": {
+            "dart.typed_data::_Uint8List": 107152,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 0,
+          "excludedSharedMetadataShallowBytes": 0,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "decodedPacket": {
+          "objectCount": 504,
+          "referenceCount": 1031,
+          "shallowBytes": 128016,
+          "externalBytes": 0,
+          "classCounts": {
+            "dart._internal::CastMap": 1,
+            "dart._compact_hash::_Map": 18,
+            "dart.typed_data::_Uint32List": 18,
+            "dart.core::_Smi": 149,
+            "dart.core::_List": 19,
+            "dart.core::Null": 1,
+            "dart.core::_OneByteString": 199,
+            "dart.core::bool": 2,
+            "dart.typed_data::_Float32ArrayView": 96,
+            "dart.typed_data::_Uint8List": 1
+          },
+          "classShallowBytes": {
+            "dart._internal::CastMap": 32,
+            "dart._compact_hash::_Map": 1152,
+            "dart.typed_data::_Uint32List": 2816,
+            "dart.core::_Smi": 0,
+            "dart.core::_List": 5216,
+            "dart.core::Null": 16,
+            "dart.core::_OneByteString": 6992,
+            "dart.core::bool": 32,
+            "dart.typed_data::_Float32ArrayView": 4608,
+            "dart.typed_data::_Uint8List": 107152
+          },
+          "excludedSharedMetadataCount": 3,
+          "excludedSharedMetadataShallowBytes": 208,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "parsedBatch": {
+          "objectCount": 5353,
+          "referenceCount": 5524,
+          "shallowBytes": 129440,
+          "externalBytes": 0,
+          "classCounts": {
+            "::AnalysisBatch": 1,
+            "dart.collection::UnmodifiableMapView": 1,
+            "dart._compact_hash::_Map": 1,
+            "dart.typed_data::_Uint32List": 1,
+            "dart.core::_Smi": 48,
+            "dart.core::_List": 1,
+            "dart.core::_OneByteString": 16,
+            "dart.core::bool": 2,
+            "dart.core::Null": 1,
+            "dart.core::_ImmutableList": 49,
+            "::AnalysisRecord": 16,
+            "dart.core::_Double": 5216
+          },
+          "classShallowBytes": {
+            "::AnalysisBatch": 64,
+            "dart.collection::UnmodifiableMapView": 32,
+            "dart._compact_hash::_Map": 64,
+            "dart.typed_data::_Uint32List": 160,
+            "dart.core::_Smi": 0,
+            "dart.core::_List": 288,
+            "dart.core::_OneByteString": 624,
+            "dart.core::bool": 32,
+            "dart.core::Null": 16,
+            "dart.core::_ImmutableList": 43424,
+            "::AnalysisRecord": 1280,
+            "dart.core::_Double": 83456
+          },
+          "excludedSharedMetadataCount": 3,
+          "excludedSharedMetadataShallowBytes": 160,
+          "incompleteReasons": [],
+          "complete": true
+        }
+      },
+      "retainedUnion": {
+        "objectCount": 492,
+        "referenceCount": 1247,
+        "shallowBytes": 16480,
+        "externalBytes": 0,
+        "classCounts": {
+          "::AnalysisRecord": 1,
+          "dart.core::_ImmutableList": 3,
+          "dart.core::_Double": 326,
+          "dart.core::_Smi": 9,
+          "dart.core::Null": 1,
+          "::CalibrationHopList": 1,
+          "dart.core::_List": 1,
+          "::CompactHop": 150
+        },
+        "classShallowBytes": {
+          "::AnalysisRecord": 80,
+          "dart.core::_ImmutableList": 2704,
+          "dart.core::_Double": 5216,
+          "dart.core::_Smi": 0,
+          "dart.core::Null": 16,
+          "::CalibrationHopList": 32,
+          "dart.core::_List": 1232,
+          "::CompactHop": 7200
+        },
+        "excludedSharedMetadataCount": 3,
+        "excludedSharedMetadataShallowBytes": 144,
+        "incompleteReasons": [],
+        "complete": true
+      },
+      "incomingUnion": {
+        "objectCount": 5790,
+        "referenceCount": 6555,
+        "shallowBytes": 256784,
+        "externalBytes": 0,
+        "classCounts": {
+          "dart.typed_data::_Uint8List": 1,
+          "dart.core::_Smi": 149,
+          "dart._internal::CastMap": 1,
+          "dart._compact_hash::_Map": 19,
+          "dart.typed_data::_Uint32List": 19,
+          "dart.core::_List": 20,
+          "dart.core::Null": 1,
+          "dart.core::_OneByteString": 199,
+          "dart.core::bool": 2,
+          "dart.typed_data::_Float32ArrayView": 96,
+          "::AnalysisBatch": 1,
+          "dart.collection::UnmodifiableMapView": 1,
+          "dart.core::_ImmutableList": 49,
+          "::AnalysisRecord": 16,
+          "dart.core::_Double": 5216
+        },
+        "classShallowBytes": {
+          "dart.typed_data::_Uint8List": 107152,
+          "dart.core::_Smi": 0,
+          "dart._internal::CastMap": 32,
+          "dart._compact_hash::_Map": 1216,
+          "dart.typed_data::_Uint32List": 2976,
+          "dart.core::_List": 5504,
+          "dart.core::Null": 16,
+          "dart.core::_OneByteString": 6992,
+          "dart.core::bool": 32,
+          "dart.typed_data::_Float32ArrayView": 4608,
+          "::AnalysisBatch": 64,
+          "dart.collection::UnmodifiableMapView": 32,
+          "dart.core::_ImmutableList": 43424,
+          "::AnalysisRecord": 1280,
+          "dart.core::_Double": 83456
+        },
+        "excludedSharedMetadataCount": 5,
+        "excludedSharedMetadataShallowBytes": 304,
+        "incompleteReasons": [],
+        "complete": true
+      },
+      "union": {
+        "objectCount": 6274,
+        "shallowBytes": 273248,
+        "externalBytes": 0,
+        "combinedBytes": 273248,
+        "externalPropertyObjectCount": 0,
+        "excludedSharedMetadataCount": 7,
+        "excludedSharedMetadataShallowBytes": 400,
+        "missingRoots": [],
+        "complete": true,
+        "scope": "Reachable union from selected case-owned roots; shared objects deduplicated within this case."
+      },
+      "complete": true
+    },
+    {
+      "index": 3,
+      "identityHashCode": 1206331875,
+      "className": "MemoryFixtureCase",
+      "mask": 3,
+      "wireLengthBytes": 36841,
+      "selectedRootIdentityHashes": {
+        "priorRecord": 3118609202,
+        "priorSpeech": 3392872454,
+        "incomingWire": 2475185703,
+        "decodedPacket": 1947852053,
+        "parsedBatch": 3129206638
+      },
+      "missingLiveRoots": [],
+      "snapshotObjectIndex": 134170,
+      "fieldRootSnapshotIndices": {
+        "priorRecord": 134077,
+        "priorSpeech": 132958,
+        "incomingWire": 120299,
+        "decodedPacket": 120300,
+        "parsedBatch": 120301
+      },
+      "missingRoots": [],
+      "groups": {
+        "priorRecord": {
+          "objectCount": 273,
+          "referenceCount": 275,
+          "shallowBytes": 6448,
+          "externalBytes": 0,
+          "classCounts": {
+            "::AnalysisRecord": 1,
+            "dart.core::_ImmutableList": 2,
+            "dart.core::_Double": 262,
+            "dart.core::_Smi": 7,
+            "dart.core::Null": 1
+          },
+          "classShallowBytes": {
+            "::AnalysisRecord": 80,
+            "dart.core::_ImmutableList": 2160,
+            "dart.core::_Double": 4192,
+            "dart.core::_Smi": 0,
+            "dart.core::Null": 16
+          },
+          "excludedSharedMetadataCount": 1,
+          "excludedSharedMetadataShallowBytes": 48,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "priorSpeech": {
+          "objectCount": 154,
+          "referenceCount": 906,
+          "shallowBytes": 8480,
+          "externalBytes": 0,
+          "classCounts": {
+            "::CalibrationHopList": 1,
+            "dart.core::_List": 1,
+            "dart.core::Null": 1,
+            "::CompactHop": 150,
+            "dart.core::_Smi": 1
+          },
+          "classShallowBytes": {
+            "::CalibrationHopList": 32,
+            "dart.core::_List": 1232,
+            "dart.core::Null": 16,
+            "::CompactHop": 7200,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 2,
+          "excludedSharedMetadataShallowBytes": 96,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "incomingWire": {
+          "objectCount": 2,
+          "referenceCount": 1,
+          "shallowBytes": 36880,
+          "externalBytes": 0,
+          "classCounts": {
+            "dart.typed_data::_Uint8List": 1,
+            "dart.core::_Smi": 1
+          },
+          "classShallowBytes": {
+            "dart.typed_data::_Uint8List": 36880,
+            "dart.core::_Smi": 0
+          },
+          "excludedSharedMetadataCount": 0,
+          "excludedSharedMetadataShallowBytes": 0,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "decodedPacket": {
+          "objectCount": 406,
+          "referenceCount": 935,
+          "shallowBytes": 54928,
+          "externalBytes": 0,
+          "classCounts": {
+            "dart._internal::CastMap": 1,
+            "dart._compact_hash::_Map": 18,
+            "dart.typed_data::_Uint32List": 18,
+            "dart.core::_Smi": 115,
+            "dart.core::_List": 19,
+            "dart.core::Null": 1,
+            "dart.core::_OneByteString": 167,
+            "dart.core::bool": 2,
+            "dart.typed_data::_Float32ArrayView": 64,
+            "dart.typed_data::_Uint8List": 1
+          },
+          "classShallowBytes": {
+            "dart._internal::CastMap": 32,
+            "dart._compact_hash::_Map": 1152,
+            "dart.typed_data::_Uint32List": 2816,
+            "dart.core::_Smi": 0,
+            "dart.core::_List": 5216,
+            "dart.core::Null": 16,
+            "dart.core::_OneByteString": 5712,
+            "dart.core::bool": 32,
+            "dart.typed_data::_Float32ArrayView": 3072,
+            "dart.typed_data::_Uint8List": 36880
+          },
+          "excludedSharedMetadataCount": 3,
+          "excludedSharedMetadataShallowBytes": 208,
+          "incompleteReasons": [],
+          "complete": true
+        },
+        "parsedBatch": {
+          "objectCount": 4312,
+          "referenceCount": 4468,
+          "shallowBytes": 104352,
+          "externalBytes": 0,
+          "classCounts": {
+            "::AnalysisBatch": 1,
+            "dart.collection::UnmodifiableMapView": 1,
+            "dart._compact_hash::_Map": 1,
+            "dart.typed_data::_Uint32List": 1,
+            "dart.core::_Smi": 47,
+            "dart.core::_List": 1,
+            "dart.core::_OneByteString": 16,
+            "dart.core::bool": 2,
+            "dart.core::Null": 1,
+            "dart.core::_ImmutableList": 33,
+            "::AnalysisRecord": 16,
+            "dart.core::_Double": 4192
+          },
+          "classShallowBytes": {
+            "::AnalysisBatch": 64,
+            "dart.collection::UnmodifiableMapView": 32,
+            "dart._compact_hash::_Map": 64,
+            "dart.typed_data::_Uint32List": 160,
+            "dart.core::_Smi": 0,
+            "dart.core::_List": 288,
+            "dart.core::_OneByteString": 624,
+            "dart.core::bool": 32,
+            "dart.core::Null": 16,
+            "dart.core::_ImmutableList": 34720,
+            "::AnalysisRecord": 1280,
+            "dart.core::_Double": 67072
+          },
+          "excludedSharedMetadataCount": 3,
+          "excludedSharedMetadataShallowBytes": 160,
+          "incompleteReasons": [],
+          "complete": true
+        }
+      },
+      "retainedUnion": {
+        "objectCount": 426,
+        "referenceCount": 1181,
+        "shallowBytes": 14912,
+        "externalBytes": 0,
+        "classCounts": {
+          "::AnalysisRecord": 1,
+          "dart.core::_ImmutableList": 2,
+          "dart.core::_Double": 262,
+          "dart.core::_Smi": 8,
+          "dart.core::Null": 1,
+          "::CalibrationHopList": 1,
+          "dart.core::_List": 1,
+          "::CompactHop": 150
+        },
+        "classShallowBytes": {
+          "::AnalysisRecord": 80,
+          "dart.core::_ImmutableList": 2160,
+          "dart.core::_Double": 4192,
+          "dart.core::_Smi": 0,
+          "dart.core::Null": 16,
+          "::CalibrationHopList": 32,
+          "dart.core::_List": 1232,
+          "::CompactHop": 7200
+        },
+        "excludedSharedMetadataCount": 3,
+        "excludedSharedMetadataShallowBytes": 144,
+        "incompleteReasons": [],
+        "complete": true
+      },
+      "incomingUnion": {
+        "objectCount": 4652,
+        "referenceCount": 5403,
+        "shallowBytes": 158608,
+        "externalBytes": 0,
+        "classCounts": {
+          "dart.typed_data::_Uint8List": 1,
+          "dart.core::_Smi": 115,
+          "dart._internal::CastMap": 1,
+          "dart._compact_hash::_Map": 19,
+          "dart.typed_data::_Uint32List": 19,
+          "dart.core::_List": 20,
+          "dart.core::Null": 1,
+          "dart.core::_OneByteString": 167,
+          "dart.core::bool": 2,
+          "dart.typed_data::_Float32ArrayView": 64,
+          "::AnalysisBatch": 1,
+          "dart.collection::UnmodifiableMapView": 1,
+          "dart.core::_ImmutableList": 33,
+          "::AnalysisRecord": 16,
+          "dart.core::_Double": 4192
+        },
+        "classShallowBytes": {
+          "dart.typed_data::_Uint8List": 36880,
+          "dart.core::_Smi": 0,
+          "dart._internal::CastMap": 32,
+          "dart._compact_hash::_Map": 1216,
+          "dart.typed_data::_Uint32List": 2976,
+          "dart.core::_List": 5504,
+          "dart.core::Null": 16,
+          "dart.core::_OneByteString": 5712,
+          "dart.core::bool": 32,
+          "dart.typed_data::_Float32ArrayView": 3072,
+          "::AnalysisBatch": 64,
+          "dart.collection::UnmodifiableMapView": 32,
+          "dart.core::_ImmutableList": 34720,
+          "::AnalysisRecord": 1280,
+          "dart.core::_Double": 67072
+        },
+        "excludedSharedMetadataCount": 5,
+        "excludedSharedMetadataShallowBytes": 304,
+        "incompleteReasons": [],
+        "complete": true
+      },
+      "union": {
+        "objectCount": 5071,
+        "shallowBytes": 173504,
+        "externalBytes": 0,
+        "combinedBytes": 173504,
+        "externalPropertyObjectCount": 0,
+        "excludedSharedMetadataCount": 7,
+        "excludedSharedMetadataShallowBytes": 400,
+        "missingRoots": [],
+        "complete": true,
+        "scope": "Reachable union from selected case-owned roots; shared objects deduplicated within this case."
+      },
+      "complete": true
+    }
+  ],
+  "allCasesComplete": true
+}

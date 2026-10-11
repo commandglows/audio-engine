@@ -1,0 +1,23 @@
+﻿{
+    "observed_utc":  "2026-10-07T07:08:38.2219058Z",
+    "probe_process_id":  10588,
+    "process_start_utc":  "2026-10-07T07:05:48.7830833Z",
+    "doppler":  "NONE",
+    "files":  [
+                  {
+                      "name":  "audio_analysis_a0.exe",
+                      "sha256":  "CB2BB78BC57C806F121312D759538794376027071EC12EFC379C9D7E1D2DAB45",
+                      "bytes":  91648
+                  },
+                  {
+                      "name":  "flutter_windows.dll",
+                      "sha256":  "289FB4F40B7F01ED925B48E13436501D25B7BD8DA2228C52B716DAB724F6FF97",
+                      "bytes":  21860352
+                  },
+                  {
+                      "name":  "shipglows_audio_plugin.dll",
+                      "sha256":  "1FD9BEEA6AC1D41E7A22E585EE4E8D31224FC42B0113E19DE6146737D0658338",
+                      "bytes":  318976
+                  }
+              ]
+}

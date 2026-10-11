@@ -1,10 +1,10 @@
 ---
 artifact: technical_module_context
 metadata_schema_version: "1.0"
-artifact_version: "0.2.0"
+artifact_version: "0.2.1"
 project: ShipGlows Audio Engine
 created: "2026-10-06"
-updated: "2026-10-06"
+updated: "2026-10-07"
 status: draft
 source_skill: 300-sg-docs
 scope: windows-local-playback
@@ -27,7 +27,7 @@ evidence:
   - "2026-10-06 engine DSP verification: deterministic limiter fixtures passed an independent 64x windowed-sinc meter for high-frequency sine, start/end impulses, Nyquist alternation, multisine, and fixed-seed noise across varied block sizes."
   - "2026-10-06 portable DSP timing probe: optimized GNU C++ measured 3,638 microseconds p99 and 7,437 microseconds maximum per 480-frame block over 5,000 calls. This is DSP-only on a synthetic block, not a WASAPI callback measurement or comparison against a device period."
 next_review: "2026-10-16"
-next_step: "Build and exercise the updated Windows plugin and WASAPI failure paths; measure callback p99 and endpoint period with the limiter enabled. Run decoder fixtures and ContentGlows Windows playback proof."
+next_step: "Run the post-limiter ten-minute named-endpoint playback, measure callback p99 against endpoint period, add decoder fixtures, and complete ContentGlows Windows playback proof."
 ---
 
 # Windows Local Playback
@@ -77,7 +77,7 @@ product adapter
 ## Failure Modes
 
 - Unsupported local media and decode errors return typed playback errors.
-- WASAPI device invalidation is surfaced distinctly from source decode failure. This status/error change and the limiter have not yet been checked in a full Flutter Windows plugin build.
+- WASAPI device invalidation is surfaced distinctly from source decode failure. The Doppler Flutter Windows Release build and app launch succeeded with the limiter compiled in; actual device-loss recovery and post-limiter playback remain unverified.
 - An invalid effect update or full bounded update queue returns an error rather than silently accepting the command.
 
 ## Validation
@@ -96,3 +96,39 @@ product adapter
 
 Update this doc and the code-docs map when a decoder, effect, status field,
 endpoint policy, or platform validation gate changes.
+
+## Private A0 calibration (2026-10-07)
+
+The disposable native analyser is `tools/audio_analysis_a0/`; BeatGlows owns the
+separate `spikes/audio_analysis_a0/` diagnostic app. Only its Windows CMake flag
+`SHIPGLOWS_AUDIO_A0` registers the private `shipglows_audio/a0` channel. Ordinary
+product builds do not instantiate this analyser or synthetic source. The optional
+WASAPI observer admits preallocated storage before audio starts, copies successful
+submitted PCM (including known silence), and never analyses or transforms on the
+callback. Submission failures and queue drops fence continuity; a dropped final
+tail is not padded as clean EOF. Stop now acknowledges the completed command.
+
+The probe uses precomputed 997 Hz stereo anti-phase PCM at amplitude 0.025,
+speed 1.0 and default shared DSP, including the limiter. It exercises the shared
+WASAPI/DSP route, not Media Foundation decoding or either product's player.
+Native reference tests and generated 30-second sequences are separate evidence
+from actual endpoint runs. Both builds and execution use Doppler beatglows/dev.
+
+Render p99 retains the existing coarse power-of-two upper-bound histogram.
+A0 additionally measures render-through-submission/tap; these extra clocks and
+buckets execute only with an observer. A bucket straddling the endpoint period
+does not prove pass or fail. Process CPU, working set and private bytes include
+Flutter; process peak working set is lifetime-wide. `worker_us` includes mutex
+wait plus analysis/transform, excludes queue pop; separate pop/copy, FFT,
+measurement and transform counters identify their own costs. FFT timing is a
+subset of measurement timing, never an additional total.
+
+The private float32 map transfer includes requested physical and visual fields,
+not callback PCM. Its bounded extra codec-size probe adds a measured encoding
+pass to RTT; this overhead is experimental, not a production bridge promise.
+Native context capacity is bounded; native/Dart allocator counts and source-to-
+photon/audible lag are separate proof. Submitted-frame lag is only a labelled
+proxy. Records, configuration, source hashes and interruptions belong in
+`shipglows_data/workflow/evidence/audio-analysis-a0/2026-10-07/`. The canonical
+analysis spec remains draft 1.1.0; no schema freeze or Stage A readiness follows
+from this prototype.

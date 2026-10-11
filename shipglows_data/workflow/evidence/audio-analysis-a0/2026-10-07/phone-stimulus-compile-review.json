@@ -1,0 +1,11 @@
+﻿{
+    "kind":  "a0_phone_mode_compile_and_idle_launch",
+    "physical_stimulus_define":  true,
+    "manual_start_required":  true,
+    "compile_and_idle_launch":  true,
+    "audible_test_run":  false,
+    "filmed_timing_measurement":  false,
+    "binary_sha256":  "CB2BB78BC57C806F121312D759538794376027071EC12EFC379C9D7E1D2DAB45",
+    "log":  "build/audio_analysis_a0/windows-phone-mode-compile.log",
+    "limits":  "Build and idle launch only; no Start ON, audible pulse, flash or AV bias/calibration validation."
+}

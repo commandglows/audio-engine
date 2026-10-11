@@ -6,11 +6,19 @@
 
 #include <memory>
 #include <optional>
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <vector>
 
+#include "shipglows/audio/analysis_stream.hpp"
+
 namespace shipglows_audio {
+
+static_assert(std::atomic<shipglows::audio::AnalysisStream*>::is_always_lock_free,
+              "Windows analysis callback requires lock-free stream publication");
+static_assert(std::atomic<std::uint32_t>::is_always_lock_free,
+              "Windows analysis callback requires lock-free reader fencing");
 
 class WindowsWasapiCapture;
 class WindowsWasapiPlayback;
@@ -35,6 +43,7 @@ class ShipglowsAudioPlugin : public flutter::Plugin {
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
  private:
+  void ClearAnalysisStream(bool clean_eof);
   std::optional<LRESULT> HandleWindowProc(HWND hwnd, UINT message,
                                           WPARAM wparam, LPARAM lparam);
 
@@ -43,10 +52,24 @@ class ShipglowsAudioPlugin : public flutter::Plugin {
   std::unique_ptr<WindowsWasapiCapture> capture_;
   std::unique_ptr<WindowsLocalPlayback> playback_;
   std::unique_ptr<WindowsWasapiPlayback> playback_output_;
+  // Kept alive until playback_output_ has quiesced its callback on session reload.
+  std::unique_ptr<shipglows::audio::AnalysisStream> analysis_stream_;
+  std::atomic<shipglows::audio::AnalysisStream*> analysis_stream_tap_{nullptr};
+  std::atomic<std::uint32_t> analysis_callbacks_active_{0};
+  std::string analysis_lease_id_;
+  std::string analysis_stream_id_;
+  std::string analysis_source_identity_;
+  std::string analysis_profile_;
+  std::string analysis_transform_digest_;
+  unsigned analysis_feature_mask_ = 0;
+  bool analysis_lease_stopped_ = false;
   std::int64_t playback_generation_ = 0;
   double playback_speed_ = 1.0;
   std::string playback_state_ = "stopped";
   std::vector<std::wstring> input_endpoint_ids_;
+#ifdef SHIPGLOWS_AUDIO_A0
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> diagnostic_channel_;
+#endif
 };
 
 }  // namespace shipglows_audio

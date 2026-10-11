@@ -1,0 +1,422 @@
+﻿{
+    "groups":  [
+                   {
+                       "pid":  20868,
+                       "type":  33,
+                       "count":  4625598,
+                       "payload_length":  28,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "AllocSize",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "AllocAddress",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SourceId",
+                                                "type":  8,
+                                                "length":  4
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  34,
+                       "count":  29050,
+                       "payload_length":  44,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "NewAllocAddress",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "OldAllocAddress",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "NewAllocSize",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "OldAllocSize",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SourceId",
+                                                "type":  8,
+                                                "length":  4
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  36,
+                       "count":  4619670,
+                       "payload_length":  20,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "FreeAddress",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SourceId",
+                                                "type":  8,
+                                                "length":  4
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  37,
+                       "count":  16,
+                       "payload_length":  60,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "CommittedSize",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "CommitAddress",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "FreeSpace",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "CommittedSpace",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "ReservedSpace",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "NoOfUCRs",
+                                                "type":  8,
+                                                "length":  4
+                                            },
+                                            {
+                                                "name":  "AllocatedSpace",
+                                                "type":  308,
+                                                "length":  8
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  43,
+                       "count":  16,
+                       "payload_length":  8,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  44,
+                       "count":  16,
+                       "payload_length":  8,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  47,
+                       "count":  211,
+                       "payload_length":  32,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegment",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegmentSize",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "BlockSize",
+                                                "type":  308,
+                                                "length":  8
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  48,
+                       "count":  216,
+                       "payload_length":  32,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegment",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegmentSize",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "BlockSize",
+                                                "type":  308,
+                                                "length":  8
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  49,
+                       "count":  35854,
+                       "payload_length":  32,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegment",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegmentSize",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "BlockSize",
+                                                "type":  308,
+                                                "length":  8
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  50,
+                       "count":  35856,
+                       "payload_length":  32,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegment",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegmentSize",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "BlockSize",
+                                                "type":  308,
+                                                "length":  8
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  53,
+                       "count":  35957,
+                       "payload_length":  36,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegment",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "BlockSize",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "BlockCount",
+                                                "type":  308,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "AffinityIndex",
+                                                "type":  8,
+                                                "length":  4
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  54,
+                       "count":  2,
+                       "payload_length":  12,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "BucketIndex",
+                                                "type":  8,
+                                                "length":  4
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  56,
+                       "count":  69812,
+                       "payload_length":  16,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "HeapHandle",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegment",
+                                                "type":  16,
+                                                "length":  8
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  20868,
+                       "type":  57,
+                       "count":  12,
+                       "payload_length":  20,
+                       "schema_status":  0,
+                       "field_layout":  [
+                                            {
+                                                "name":  "Heap",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SubSegment",
+                                                "type":  16,
+                                                "length":  8
+                                            },
+                                            {
+                                                "name":  "SlotIndex",
+                                                "type":  8,
+                                                "length":  4
+                                            }
+                                        ]
+                   },
+                   {
+                       "pid":  42132,
+                       "type":  38,
+                       "count":  8,
+                       "payload_length":  72,
+                       "schema_status":  1168,
+                       "field_layout":  [
+
+                                        ]
+                   },
+                   {
+                       "pid":  45980,
+                       "type":  38,
+                       "count":  8,
+                       "payload_length":  72,
+                       "schema_status":  1168,
+                       "field_layout":  [
+
+                                        ]
+                   }
+               ],
+    "observed_allocation_ledgers":  [
+                                        {
+                                            "pid":  20868,
+                                            "observed_new_block_requested_bytes":  1524291936,
+                                            "realloc_event_requested_bytes":  70298184,
+                                            "largest_request_bytes":  98152,
+                                            "observed_live_peak_bytes":  1250739,
+                                            "observed_live_final_bytes":  1025727,
+                                            "observed_live_final_count":  38065,
+                                            "unmatched_frees":  32137,
+                                            "realloc_old_address_missing":  29050,
+                                            "realloc_new_address_already_observed":  29050,
+                                            "duplicate_live_addresses":  0,
+                                            "rejected_layouts":  0
+                                        }
+                                    ],
+    "limits":  "Observed-live tracking excludes allocations already live before capture and non-heap allocation paths; it is not whole-process peak memory or Dart managed-object accounting."
+}

@@ -1,6 +1,9 @@
 #pragma once
 // Private disposable calibration host; never instantiated by production playback.
 #include "analysis_a0.hpp"
+#include "bridge_record.hpp"
+#include "clock_review.hpp"
+#include "clock_candidate.hpp"
 #include "shipglows/audio/dsp_chain.hpp"
 #include "windows_wasapi_playback.h"
 #include <flutter/encodable_value.h>
@@ -19,8 +22,8 @@ class A0WindowsProbe {
   using V = flutter::EncodableValue;
   using M = flutter::EncodableMap;
  public:
-  A0WindowsProbe(unsigned mask, bool enabled, bool silent_output)
-      : mask_(mask), enabled_(enabled), silent_output_(silent_output) {
+  A0WindowsProbe(unsigned mask, bool enabled, bool silent_output, bool physical_stimulus)
+      : mask_(mask), enabled_(enabled), silent_output_(silent_output), physical_stimulus_(physical_stimulus) {
     // One-second deterministic, low-level fixture; generated off the callback.
     source_.resize(48000*2);
     for (size_t i=0;i<48000;++i) {
@@ -32,7 +35,7 @@ class A0WindowsProbe {
     GetProcessTimes(GetCurrentProcess(), &creation_, &exit_, &kernel_start_, &user_start_);
     started_=std::chrono::steady_clock::now();
     output_=std::make_unique<WindowsWasapiPlayback>(&Render,this,
-      WasapiA0Observer{&Admit,&Submitted,this});
+      WasapiA0Observer{&Admit,&Submitted,this,&Clock});
   }
   ~A0WindowsProbe() { Stop(); output_.reset(); }
   WasapiPlaybackResult Start(const std::wstring& endpoint) { return output_->Start(endpoint); }
@@ -77,19 +80,11 @@ class A0WindowsProbe {
       worker_processor_push_ns=worker_processor_push_ns_;worker_processor_push_max_ns=worker_processor_push_max_ns_;
     }
     poll_snapshot_lock_ns_+=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-poll_lock_acquired).count());
+    records.reserve(record_count);
     for(size_t i=0;i<record_count;++i){
-      const auto& r=record_snapshot[i];M record;
-      record[V("sequence")]=V(int64_t(r.sequence));
-      record[V("center_frame")]=V(int64_t(r.center));
-      record[V("continuity_id")]=V(int64_t(r.continuity));
-      record[V("origin")]=V(int64_t(r.origin));
-      record[V("valid_frames")]=V(int(r.valid_frames));
-      record[V("physical_levels")]=Floats(r.levels);
-      record[V("visual_levels")]=Floats(r.visual_levels);
-      if(mask_&2){record[V("physical_envelope")]=Floats(r.envelope);record[V("visual_envelope")]=Floats(r.visual_envelope);}
-      if(mask_&8){record[V("physical_spectrum")]=Floats(r.spectrum);record[V("bands")]=Floats(r.bands);}
+      const auto& r=record_snapshot[i];
       bridge_float_copy_bytes_+=uint64_t(12+((mask_&2)?512:0)+((mask_&8)?1089:0))*4;
-      records.emplace_back(std::move(record));
+      records.emplace_back(shipglows::audio::a0::EncodeRecord(r,mask_));
     }
     root[V("latest_sequence")]=V(int64_t(latest_sequence));
     if(processor_){
@@ -146,17 +141,78 @@ class A0WindowsProbe {
       metrics[V("process_cpu_seconds")]=V(double(cpu)/1e7);
       metrics[V("process_cpu_one_core_percent")]=V(wall>0?double(cpu)/1e7/wall*100:0);
     }
-    root[V("records")]=V(std::move(records));root[V("resync")]=V(resync);
-    root[V("submitted_frames")]=V(int64_t(submitted_.load()));
-    root[V("observation_ns")]=V(int64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()));
+    root[V("records")]=std::move(records);root[V("resync")]=V(resync);
+    const auto submitted_frames=submitted_.load();
+    const auto observation_ns=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+    root[V("submitted_frames")]=V(int64_t(submitted_frames));
+    root[V("observation_ns")]=V(int64_t(observation_ns));
     root[V("sample_rate")]=V(48000);
     root[V("timing_uncertainty_known")]=V(false);
+    // Raw observation only: do not turn an API status or call duration into an
+    // asserted audible uncertainty bound. Snapshot retries are bounded.
+    std::array<uint64_t,19> clock_snapshot{};int64_t clock_status=0;bool clock_available=false;double clock_residual_ns=0,clock_local_residual_ns=0;
+    for(unsigned attempt=0;attempt<3;++attempt){
+      const auto version=clock_version_.load();if(!version || (version&1))continue;
+      for(size_t i=0;i<clock_snapshot.size();++i)clock_snapshot[i]=clock_values_[i].load();
+      clock_status=clock_status_.load();
+      clock_residual_ns=clock_residual_ns_.load();
+      clock_local_residual_ns=clock_local_residual_ns_.load();
+      if(version==clock_version_.load()){clock_available=true;break;}
+    }
+    for(auto value:clock_snapshot)if(value>uint64_t(INT64_MAX))clock_available=false;
+    metrics[V("device_clock_snapshot_available")]=V(clock_available);
+    shipglows::audio::a0::ClockCandidate candidate;
+    if(clock_available)candidate=shipglows::audio::a0::clock_candidate(clock_snapshot[0],clock_snapshot[1],clock_snapshot[2],clock_snapshot[3],clock_snapshot[4],observation_ns,submitted_frames,clock_status,!stopping_.load(),
+      !submission_failures_.load()&&!clock_snapshot[7]&&!clock_snapshot[8]);
+    if(candidate.available&&(candidate.output_frame>uint64_t(INT64_MAX)||candidate.qpc_ns>uint64_t(INT64_MAX))){candidate.available=false;candidate.reason="serialization_overflow";}
+    if(candidate.available)++clock_candidate_valid_polls_;else ++clock_candidate_unavailable_polls_;
+    metrics[V("device_clock_candidate_valid_polls")]=V(int64_t(clock_candidate_valid_polls_));
+    metrics[V("device_clock_candidate_unavailable_polls")]=V(int64_t(clock_candidate_unavailable_polls_));
+    metrics[V("device_clock_candidate_available")]=V(candidate.available);
+    metrics[V("device_clock_candidate_reason")]=V(candidate.reason);
+    if(candidate.available){
+      metrics[V("device_clock_candidate_output_frame")]=V(int64_t(candidate.output_frame));
+      metrics[V("device_clock_candidate_fractional_frame")]=V(candidate.fractional_frame);
+      metrics[V("device_clock_candidate_qpc_ns")]=V(int64_t(candidate.qpc_ns));
+      metrics[V("device_clock_candidate_age_ns")]=V(int64_t(candidate.age_ns));
+    }
+    if(clock_available){
+      metrics[V("device_clock_ticks")]=V(int64_t(clock_snapshot[0]));
+      metrics[V("device_clock_frequency")]=V(int64_t(clock_snapshot[1]));
+      metrics[V("device_clock_qpc_100ns")]=V(int64_t(clock_snapshot[2]));
+      metrics[V("device_clock_query_begin_ns")]=V(int64_t(clock_snapshot[3]));
+      metrics[V("device_clock_query_end_ns")]=V(int64_t(clock_snapshot[4]));
+      metrics[V("device_clock_hresult")]=V(clock_status);
+      metrics[V("device_clock_accurate_readings")]=V(int64_t(clock_snapshot[5]));
+      metrics[V("device_clock_inaccurate_readings")]=V(int64_t(clock_snapshot[6]));
+      metrics[V("device_clock_regressions")]=V(int64_t(clock_snapshot[7]));
+      metrics[V("device_clock_frequency_changes")]=V(int64_t(clock_snapshot[8]));
+      metrics[V("device_clock_max_query_ns")]=V(int64_t(clock_snapshot[9]));
+      shipglows::audio::a0::ClockReview review;
+      review.accurate=clock_snapshot[5];review.regressions=clock_snapshot[7];review.frequency_changes=clock_snapshot[8];
+      review.first_ticks=clock_snapshot[10];review.first_qpc=clock_snapshot[11];review.last_ticks=clock_snapshot[12];review.last_qpc=clock_snapshot[13];review.frequency=clock_snapshot[14];
+      review.after_startup_first_ticks=clock_snapshot[15];review.after_startup_first_qpc=clock_snapshot[16];review.after_startup_count=clock_snapshot[17];
+      metrics[V("device_clock_first_ticks")]=V(int64_t(review.first_ticks));
+      metrics[V("device_clock_first_qpc_100ns")]=V(int64_t(review.first_qpc));
+      metrics[V("device_clock_last_accurate_ticks")]=V(int64_t(review.last_ticks));
+      metrics[V("device_clock_last_accurate_qpc_100ns")]=V(int64_t(review.last_qpc));
+      metrics[V("device_clock_after_startup_first_ticks")]=V(int64_t(review.after_startup_first_ticks));
+      metrics[V("device_clock_after_startup_first_qpc_100ns")]=V(int64_t(review.after_startup_first_qpc));
+      metrics[V("device_clock_after_startup_count")]=V(int64_t(review.after_startup_count));
+      metrics[V("device_clock_after_startup_max_nominal_residual_ns")]=V(clock_residual_ns);
+      metrics[V("device_clock_local_completed_windows")]=V(int64_t(clock_snapshot[18]));
+      metrics[V("device_clock_local_max_nominal_residual_ns")]=V(clock_local_residual_ns);
+      metrics[V("device_clock_after_startup_rate_available")]=V(review.after_startup_rate_available());
+      if(review.after_startup_rate_available())metrics[V("device_clock_after_startup_relative_rate_ppm")]=V(review.after_startup_relative_rate_ppm());
+      metrics[V("device_clock_relative_rate_available")]=V(review.rate_available());
+      if(review.rate_available())metrics[V("device_clock_observed_relative_rate_ppm")]=V(review.relative_rate_ppm());
+    }
     metrics[V("encoded_response_bytes")]=V(int64_t(0));
     metrics[V("max_encoded_response_bytes")]=V(int64_t(max_encoded_response_bytes_));
     metrics[V("encoded_response_bytes_total")]=V(int64_t(encoded_response_bytes_total_));
     metrics[V("serialization_probe_ns")]=V(int64_t(serialization_probe_ns_));
-    root[V("metrics")]=V(std::move(metrics));
-    V response(std::move(root));
+    root[V("metrics")]=std::move(metrics);
+    V response;response=std::move(root);
     // Deliberate extra bounded encoding to measure real codec size. Its cost is
     // reported, included in RTT, and is not production transport overhead.
     const auto encode_begin=std::chrono::steady_clock::now();
@@ -173,8 +229,16 @@ class A0WindowsProbe {
     return response;
   }
  private:
-  template<size_t N> static V Floats(const std::array<float,N>& input) {
-    return V(std::vector<float>(input.begin(),input.end()));
+  static void Clock(uint64_t ticks,uint64_t frequency,uint64_t qpc,uint64_t begin,uint64_t end,long status,void* context) noexcept {
+    auto* self=static_cast<A0WindowsProbe*>(context);
+    self->clock_review_.observe(ticks,frequency,qpc,begin,end,status);
+    const auto& r=self->clock_review_;
+    self->clock_version_.fetch_add(1);
+    const std::array<uint64_t,19> values{ticks,frequency,qpc,begin,end,r.accurate,r.inaccurate,r.regressions,r.frequency_changes,r.max_query_ns,r.first_ticks,r.first_qpc,r.last_ticks,r.last_qpc,r.frequency,r.after_startup_first_ticks,r.after_startup_first_qpc,r.after_startup_count,r.local_completed_windows};
+    for(size_t i=0;i<values.size();++i)self->clock_values_[i].store(values[i]);
+    self->clock_residual_ns_.store(r.after_startup_max_nominal_residual_ns);
+    self->clock_local_residual_ns_.store(r.local_max_nominal_residual_ns);
+    self->clock_status_.store(status);self->clock_version_.fetch_add(1);
   }
   static uint64_t Ticks(FILETIME t){return (uint64_t(t.dwHighDateTime)<<32)|t.dwLowDateTime;}
   static bool Admit(uint32_t frames,void* context) {
@@ -191,7 +255,8 @@ class A0WindowsProbe {
   static bool Render(float* pcm,uint32_t frames,uint32_t channels,void* context) noexcept {
     auto* self=static_cast<A0WindowsProbe*>(context);if(channels!=2)return false;
     for(uint32_t i=0;i<frames;++i){auto f=self->source_position_++%48000;
-      pcm[i*2]=self->source_[f*2];pcm[i*2+1]=self->source_[f*2+1];}
+      const bool pulse_on=!self->physical_stimulus_ || f<12000;
+      pcm[i*2]=pulse_on?self->source_[f*2]:0.0f;pcm[i*2+1]=pulse_on?self->source_[f*2+1]:0.0f;}
     self->dsp_.process(pcm,frames);
     if(self->silent_output_)std::fill_n(pcm,size_t(frames)*channels,0.0f);
     return true;
@@ -237,7 +302,7 @@ class A0WindowsProbe {
     // A dropped final block is missing PCM, never clean EOF padding.
     if(!pending_gap_)processor_->finish();
   }
-  unsigned mask_;bool enabled_,silent_output_;std::unique_ptr<Processor> processor_;std::unique_ptr<Queue> queue_;
+  unsigned mask_;bool enabled_,silent_output_,physical_stimulus_;std::unique_ptr<Processor> processor_;std::unique_ptr<Queue> queue_;
   std::unique_ptr<WindowsWasapiPlayback> output_;std::vector<float> source_,scratch_,zeros_;
   shipglows::audio::DspChain dsp_;std::thread worker_;std::mutex mutex_;
   std::atomic<bool> stopping_{false},worker_failed_{false},stop_failed_{false};bool pending_gap_=false;
@@ -250,6 +315,13 @@ class A0WindowsProbe {
   uint64_t worker_mutex_wait_ns_=0,worker_mutex_wait_max_ns_=0,poll_lock_wait_ns_=0;
   uint64_t worker_processor_push_ns_=0,worker_processor_push_max_ns_=0,poll_snapshot_lock_ns_=0;
   std::atomic<uint64_t> last_drop_position_{0},last_drop_elapsed_ns_{0};
+  shipglows::audio::a0::ClockReview clock_review_{};
+  std::atomic<uint64_t> clock_version_{0};std::array<std::atomic<uint64_t>,19> clock_values_{};
+  std::atomic<int64_t> clock_status_{0};
+  static_assert(std::atomic<double>::is_always_lock_free,"A0 clock residual publication must not lock");
+  std::atomic<double> clock_residual_ns_{0};
+  std::atomic<double> clock_local_residual_ns_{0};
+  uint64_t clock_candidate_valid_polls_=0,clock_candidate_unavailable_polls_=0;
   FILETIME creation_{},exit_{},kernel_start_{},user_start_{};
   std::chrono::steady_clock::time_point started_;
 };

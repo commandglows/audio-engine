@@ -148,12 +148,18 @@ void main() {
       'nativeErrorHresult': -2004287484,
       'underruns': 2,
       'p99CallbackMicroseconds': 128,
+      'sampleRate': 48000,
+      'bufferFrames': 480,
+      'endpointPeriod100ns': 100000,
     });
     expect(status.state, 'error');
     expect(status.errorCode, 'wasapi_device_unavailable');
     expect(status.nativeErrorHresult, -2004287484);
     expect(status.underruns, 2);
     expect(status.p99CallbackMicroseconds, 128);
+    expect(status.sampleRate, 48000);
+    expect(status.bufferFrames, 480);
+    expect(status.endpointPeriod100ns, 100000);
     expect(ShipglowsAudioPlaybackStatus.fromMap({}).nativeErrorHresult, 0);
   });
 

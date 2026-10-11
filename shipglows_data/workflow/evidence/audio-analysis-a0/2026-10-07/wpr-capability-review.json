@@ -1,0 +1,14 @@
+﻿{
+    "kind":  "private_a0_wpr_capability_review",
+    "observed_utc":  "2026-10-07T07:34:37.2161592Z",
+    "wpr_version":  "10.0.26100",
+    "session_is_administrator":  false,
+    "recording_active":  false,
+    "diagnostic_heap_tracing_enabled":  false,
+    "built_in_heap_system_buffers_bytes":  1550843904,
+    "built_in_heap_event_buffers_bytes":  20971520,
+    "built_in_heap_internal_buffers_bytes":  67108864,
+    "local_schema":  "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/WPRControlProfiles.xsd",
+    "disposition":  "Built-in Heap profile not started; inspect PID-scoped custom heap profile and privilege requirements first.",
+    "limits":  "Read-only local capability checks. No heap trace or allocation result obtained; no registry configuration changed."
+}

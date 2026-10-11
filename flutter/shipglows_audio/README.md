@@ -29,6 +29,32 @@ Hardware timestamp queries are performed outside Oboe's data callback. The
 callback only copies PCM into the preallocated SPSC buffer and updates lock-free
 counters.
 
+### Shared playback visualization
+
+The private `shipglows_visualization` package consumes bounded batches tapped
+from Windows playback after the shared transform. Its Stage A integration test
+uses a silent WAV and verifies the native lease, decoded records, live
+controller state, and mounted `SharedSceneView` semantics:
+
+```powershell
+cd example
+flutter test integration_test/shared_visualization_integration_test.dart -d windows
+```
+
+The opt-in A0 diagnostic channel is retained on the Windows plugin instance.
+To build and exercise its `start`, `poll`, and `stop` methods, configure the
+example's Windows CMake cache with `SHIPGLOWS_AUDIO_A0=ON` and
+`SHIPGLOWS_AUDIO_A0_ENGINE_ROOT=<engine checkout>`, then run:
+
+```powershell
+flutter test integration_test/windows_a0_diagnostic_integration_test.dart -d windows `
+  --dart-define=SHIPGLOWS_AUDIO_A0_ENABLED=true
+```
+
+This A0-only check runs with analysis disabled and silent output. It proves the
+private handler remains callable; it does not pass physical timing or
+allocation calibration.
+
 ## Validation boundary
 
 Automated and available runtime evidence is recorded in

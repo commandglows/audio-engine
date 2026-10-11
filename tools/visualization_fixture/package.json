@@ -1,0 +1,12 @@
+{
+  "name": "shipglows-private-visualization-fixture",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test scene.test.ts",
+    "render": "node --experimental-strip-types render_fixture.ts"
+  }
+}

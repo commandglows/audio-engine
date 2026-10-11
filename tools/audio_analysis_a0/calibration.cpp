@@ -1,4 +1,6 @@
 #include "analysis_a0.hpp"
+#include "clock_review.hpp"
+#include "clock_candidate.hpp"
 #include <chrono>
 #include <cstdlib>
 #include <iomanip>
@@ -11,6 +13,54 @@ static void require(bool value,const char* message){if(!value)throw std::runtime
 static std::vector<float> fixture(size_t n){std::vector<float>x(n*2);for(size_t i=0;i<n;++i){x[2*i]=float(.5*std::sin(2*pi*1000*i/48000));x[2*i+1]=-x[2*i];}return x;}
 static std::unique_ptr<Processor> process(unsigned mask,const std::vector<float>&x,size_t chunk){auto p=std::make_unique<Processor>(mask);for(size_t f=0;f<x.size()/2;f+=chunk){size_t n=std::min(chunk,x.size()/2-f);p->push(x.data()+2*f,n,96000+f);}p->finish();return p;}
 static void tests(){
+ {auto candidate=[](uint64_t ticks,uint64_t freq=384000,int64_t status=0,bool active=true,bool consistent=true){return clock_candidate(ticks,freq,10,900,1100,2000,100,status,active,consistent);};
+  auto c=candidate(81);require(c.available&&c.output_frame==10&&c.fractional_frame==.125&&c.age_ns==1000,"clock candidate units and fraction");
+  require(!candidate(0).available&&!candidate(81,384000,1).available&&!candidate(81,0).available,"startup and inaccurate clock rejected");
+  require(!candidate(81,384000,0,false).available&&!candidate(81,384000,0,true,false).available,"inactive or inconsistent source rejected");
+  require(!candidate(801).available&&!candidate(UINT64_MAX,1).available,"outside submitted domain and integer overflow rejected");
+  require(!clock_candidate(81,384000,10,1001,1100,2000,100,0,true,true).available,"QPC outside bracket rejected");
+  require(!clock_candidate(81,384000,10,900,1100,1000,100,0,true,true).available,"future query rejected");
+  require(!clock_candidate(81,384000,10,900,1100,250001001,100,0,true,true).available,"age limit rejected");
+  require(!clock_candidate(81,384000,UINT64_MAX,900,1100,2000,100,0,true,true).available,"QPC conversion overflow rejected");
+ }
+ {ClockReview c;require(!c.rate_available(),"clock startup unavailable");
+  c.observe(10,384000,100,1000,2000,0);c.observe(3843850,384000,100000100,3000,4500,0);
+  require(c.rate_available()&&std::abs(c.relative_rate_ppm()-1000)<1e-6,"clock units and observed rate");
+  c.observe(0,384000,0,5000,6000,1);require(c.inaccurate==1&&c.accurate==2&&c.max_query_ns==1500,"S_FALSE not accurate");
+  c.observe(3843860,48000,100000200,7000,8000,0);require(!c.rate_available()&&c.frequency_changes==1,"frequency change invalidates rate");
+  ClockReview r;r.observe(100,384000,100,0,1,0);r.observe(99,384000,99,0,1,0);
+  require(r.regressions==1&&!r.rate_available(),"clock regression invalidates rate");
+  r.observe(200,384000,200,2,1,0);require(r.inaccurate==1,"invalid query bracket");
+  ClockReview startup;startup.observe(0,384000,0,0,1,0);
+  startup.observe(383000,384000,10000000,0,1,0);
+  require(!startup.after_startup_rate_available(),"one after-startup sample unavailable");
+  startup.observe(11903000,384000,310000000,0,1,0);
+  require(startup.relative_rate_ppm() < -80&&startup.after_startup_rate_available()&&std::abs(startup.after_startup_relative_rate_ppm())<1e-6,"startup and subsequent interval remain distinct");
+  require(startup.after_startup_max_nominal_residual_ns==0,"constant offset excluded from subsequent residual");
+  startup.observe(12287000,384000,320000100,0,1,0);
+  require(std::abs(startup.after_startup_max_nominal_residual_ns-10000)<1e-6,"clock timestamp residual in ns");
+  ClockReview drift;
+  for(uint64_t second=0;second<=601;++second)
+   drift.observe(second*1000150,1000000,second*10000000,0,1,0);
+  require(drift.local_completed_windows==600&&std::abs(drift.local_max_nominal_residual_ns-150000)<1e-6,"local windows retain closing sample with 150 ppm drift");
+  require(std::abs(drift.after_startup_max_nominal_residual_ns-90000000)<1e-6,"global residual retains cumulative drift");
+  const auto windows=drift.local_completed_windows;
+  drift.observe(0,1000000,0,0,1,0);
+  drift.observe(603090450,1000000,6030000000,0,1,0);
+  require(drift.regressions==1&&drift.local_completed_windows==windows,"clock regression stops local calibration");
+ }
+ // Independent original full-bin band transform, including recurrence and EOF.
+ for(unsigned mask:{11u,13u}){
+  auto x=fixture(3001);auto p=process(mask,x,31);std::array<double,64> state{};
+  for(size_t j=0;j<p->history_count();++j){const auto& r=p->history(j);
+   for(size_t b=0;b<64;++b){double lo=20*std::pow(1000.,double(b)/64),hi=20*std::pow(1000.,double(b+1)/64),q=0;
+    for(size_t k=1;k<=1024;++k){double a=(k-.5)*48000/2048,d=std::min(24000.,(k+.5)*48000/2048);q+=std::max(0.,std::min(d,hi)-std::max(a,lo))/(d-a)*double(r.spectrum[k]);}
+    double target=q==0?0:std::pow(std::clamp((10*std::log10(2*q)+80)/80,0.,1.),.8);
+    double tau=(target>state[b]?.020:.180);state[b]+=(1-std::exp(-double(r.valid_frames)/48000/tau))*(target-state[b]);
+    require(r.bands[b]==float(state[b]),"sparse overlap equals original full-bin transform");
+   }
+  }
+ }
  for(unsigned mask:{3u,11u,5u,13u})for(size_t n:{1u,479u,480u,481u,1023u,1024u,2048u,3001u}){
   auto x=fixture(n);auto a=process(mask,x,1);auto b=process(mask,x,479);
   require(a->history_count()==(n+479)/480,"EOF count");require(a->stats().fft_calls==((mask&8)?2*a->stats().records:0),"FFT mask");

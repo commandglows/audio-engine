@@ -1,0 +1,119 @@
+{
+    "kind":  "a0_synthetic_transport_fixture_review",
+    "measured_utc":  "2026-10-07T12:14:17.3183943Z",
+    "mode":  "Windows Flutter Profile, silent parked synthetic StandardMethodCodec fixture",
+    "all_four_cases_complete":  true,
+    "cases":  [
+                  {
+                      "mask":  3,
+                      "encoded_wire_bytes":  36841,
+                      "prior_context_object_bytes":  14912,
+                      "incoming_union_object_bytes":  158608,
+                      "all_roots_union_object_bytes":  173504,
+                      "excluded_shared_metadata_bytes":  400,
+                      "external_bytes":  0,
+                      "complete":  true
+                  },
+                  {
+                      "mask":  5,
+                      "encoded_wire_bytes":  3305,
+                      "prior_context_object_bytes":  8736,
+                      "incoming_union_object_bytes":  20368,
+                      "all_roots_union_object_bytes":  29088,
+                      "excluded_shared_metadata_bytes":  400,
+                      "external_bytes":  0,
+                      "complete":  true
+                  },
+                  {
+                      "mask":  11,
+                      "encoded_wire_bytes":  107113,
+                      "prior_context_object_bytes":  16480,
+                      "incoming_union_object_bytes":  256784,
+                      "all_roots_union_object_bytes":  273248,
+                      "excluded_shared_metadata_bytes":  400,
+                      "external_bytes":  0,
+                      "complete":  true
+                  },
+                  {
+                      "mask":  13,
+                      "encoded_wire_bytes":  73577,
+                      "prior_context_object_bytes":  10304,
+                      "incoming_union_object_bytes":  121616,
+                      "all_roots_union_object_bytes":  131904,
+                      "excluded_shared_metadata_bytes":  400,
+                      "external_bytes":  0,
+                      "complete":  true
+                  }
+              ],
+    "graph_report":  "vm-transport-fixture-graph.json",
+    "rejected_previous_capture":  {
+                                      "path":  "build/audio_analysis_a0/transport-heap-v2.json",
+                                      "reason":  "AOT removed unused priorRecord and decodedPacket; missing roots, incomplete; not valid complete accounting"
+                                  },
+    "limits":  [
+                   "One prior record plus150 compact hops and16 parsed incoming records, not future production32 full records/166 hops",
+                   "Metadata is native-shaped subset; encoded lengths lower bound for full native responses",
+                   "Identity-deduplicated VM shallow object sizes plus reported external properties, not allocator capacity or process RSS",
+                   "All five roots are observably traversed by checksum; typed array views share encoded backing buffer",
+                   "Snapshot may perturb VM and trigger collection; parked graph is not actual channel handoff peak or allocation throughput",
+                   "Per-case shared VM/type metadata separately excluded; no summing native peak to independently sampled client graph",
+                   "No audible/filmed physical test or clock uncertainty proof; A0 unvalidated, protocol provisional, no A2-A7 admission"
+               ],
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0\\transport-heap-v2.json",
+                          "bytes":  24003,
+                          "sha256":  "FD24867AA6F10C07CAC7E299866BD5374FB1B36FD7FD34F0BE1C5C1BDAB2BBA2"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0\\transport-heap-v3.json",
+                          "bytes":  34844,
+                          "sha256":  "CC9CD1E798A8188BBD296168D0130099D8E222935957A99E111124569CAF5FFD"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0\\transport-heap-v3-wire.json",
+                          "bytes":  34977,
+                          "sha256":  "244C780BE79EB80DD3E6226AFFCF75899812FAD5B3A03C869B502C14C050AB74"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0\\transport-heap-v3-wire.json.dartheap",
+                          "bytes":  5240275,
+                          "sha256":  "59A6621D2F386E724B833E9E5BD7805D73560D5DB6A3ACB2447B874188FBDC55"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\lib\\transport_memory_fixture.dart",
+                          "bytes":  9255,
+                          "sha256":  "C9081AAE4216B6EE36257603481A68333B79DBE28B819491C9E30A4DF6484DEC"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\lib\\analysis_source.dart",
+                          "bytes":  12115,
+                          "sha256":  "D6850178FC58948CDC6254F8DB96F42F2EB5AE7C9A1E8CA9BD45FAE8B730A784"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\lib\\main.dart",
+                          "bytes":  14693,
+                          "sha256":  "59E2D261CE5CFF8C1E8CE34AA31A78C0757992F6C955737B5E519E7738CAB4BF"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\tool\\measure_transport_heap.dart",
+                          "bytes":  21564,
+                          "sha256":  "4F0F68C529CCF66162E6AD3A9375D9A1A6A6C18E9BCA0D914D2631AA6D6C6123"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\test\\transport_memory_fixture_test.dart",
+                          "bytes":  4945,
+                          "sha256":  "F90AAA2C389AD402BA3819E7CA8F45F24C5EA41F3F344E6EDABC22CC2AB5405B"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\build\\windows\\x64\\runner\\Profile\\audio_analysis_a0.exe",
+                          "bytes":  91648,
+                          "sha256":  "CB2BB78BC57C806F121312D759538794376027071EC12EFC379C9D7E1D2DAB45"
+                      },
+                      {
+                          "path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\build\\windows\\x64\\runner\\Profile\\data\\app.so",
+                          "bytes":  5505928,
+                          "sha256":  "065125759AC309FB35126B8CD8FF92740A773FF35002A4DF7086254A8781BC3C"
+                      }
+                  ]
+}

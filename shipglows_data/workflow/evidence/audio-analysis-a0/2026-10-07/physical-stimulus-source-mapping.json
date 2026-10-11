@@ -1,0 +1,56 @@
+{
+    "kind":  "a0_physical_stimulus_source_mapping_audit",
+    "utc":  "2026-10-07T12:22:27.1414589Z",
+    "proof":  "source inspection only",
+    "schedule":  {
+                     "sample_rate":  48000,
+                     "period_frames":  48000,
+                     "active_frames":  12000,
+                     "frequency_hz":  997,
+                     "stereo_phase":  "opposite",
+                     "gate_on_edge":  "48000*n",
+                     "gate_off_edge":  "48000*n+12000"
+                 },
+    "sample_mapping":  [
+                           "GetBuffer failure calls neither Render nor Submitted, so neither attempted-frame counter advances",
+                           "Normal admitted stereo callback calls Render then Submitted; both advance by the same attempted frame count",
+                           "ReleaseBuffer failure advances both counters but skips analysis admission and physical presentation is unknown",
+                           "Queue drop or failed submission marks next admitted block discontinuous; absolute submitted positions remain"
+                       ],
+    "record_window":  "center_frame is first frame of physical RMS interval [center_frame,center_frame+valid_frames), not geometric center or displayed edge",
+    "dsp":  {
+                "limiter_delay_frames":  32,
+                "nominal_delay_ms":  0.66666666666666663,
+                "initial_frames_silent":  32,
+                "timing":  "fixed processing sample offset, not device or acoustic latency"
+            },
+    "limits":  [
+                   "RMS spans up to480 frames/10ms; threshold transition does not identify exact waveform onset",
+                   "Mask11 spectrum adds publication lookahead; Flutter polling/paint further delay display",
+                   "Generated gate edge may begin with a zero-valued sine sample; no assertion of acoustic onset at gate edge",
+                   "Source/Submitted equality is source invariant under admitted stereo path, not separately observed physical-clock correlation",
+                   "No physical recording/calibrated phone A/V offset/source-to-photon proof"
+               ],
+    "source_hashes":  [
+                          {
+                              "path":  "flutter\\shipglows_audio\\windows\\a0_windows_probe.h",
+                              "sha256":  "925886B51A52B0FEF83C57BFB918CAF8BCA40531B9C9FFD63A21743A6451BA25"
+                          },
+                          {
+                              "path":  "flutter\\shipglows_audio\\windows\\windows_wasapi_playback.cpp",
+                              "sha256":  "EE94D5CE389ACB288F86E8EDE493D2EB5381669BCFB20EA8BA4994D01F098251"
+                          },
+                          {
+                              "path":  "tools\\audio_analysis_a0\\analysis_a0.hpp",
+                              "sha256":  "0BA5CEFA98F54D9D27CEAB1DB37E61EDCE67AEDD9AC4BCE5A49B782D748B0263"
+                          },
+                          {
+                              "path":  "flutter\\shipglows_audio\\native\\engine\\src\\dsp_chain.cpp",
+                              "sha256":  "2B9E38CA58A36E3E4EE3E5B6B2390D59BCF8D19AF780F73A4FDFC2465CCCF74F"
+                          },
+                          {
+                              "path":  "flutter\\shipglows_audio\\native\\engine\\include\\shipglows\\audio\\dsp_chain.hpp",
+                              "sha256":  "E1224EC63D9D31F3C3142F7FA8858FB01FEB99C24EA8BC46431CDA1CD2FFE0BD"
+                          }
+                      ]
+}

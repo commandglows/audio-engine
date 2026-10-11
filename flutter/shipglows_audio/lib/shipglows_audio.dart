@@ -145,6 +145,9 @@ class ShipglowsAudioPlaybackStatus {
     this.nativeErrorHresult = 0,
     this.underruns = 0,
     this.p99CallbackMicroseconds = 0,
+    this.sampleRate = 0,
+    this.bufferFrames = 0,
+    this.endpointPeriod100ns = 0,
   });
 
   factory ShipglowsAudioPlaybackStatus.fromMap(Map<Object?, Object?> map) =>
@@ -159,6 +162,10 @@ class ShipglowsAudioPlaybackStatus {
         underruns: (map['underruns'] as num?)?.toInt() ?? 0,
         p99CallbackMicroseconds:
             (map['p99CallbackMicroseconds'] as num?)?.toInt() ?? 0,
+        sampleRate: (map['sampleRate'] as num?)?.toInt() ?? 0,
+        bufferFrames: (map['bufferFrames'] as num?)?.toInt() ?? 0,
+        endpointPeriod100ns:
+            (map['endpointPeriod100ns'] as num?)?.toInt() ?? 0,
       );
 
   final int generation;
@@ -172,6 +179,9 @@ class ShipglowsAudioPlaybackStatus {
   final int nativeErrorHresult;
   final int underruns;
   final int p99CallbackMicroseconds;
+  final int sampleRate;
+  final int bufferFrames;
+  final int endpointPeriod100ns;
 }
 
 /// Bounded, optional DSP controls for the playback host API v1.

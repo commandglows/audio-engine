@@ -1,10 +1,10 @@
 ---
 artifact: technical_decision_record
 metadata_schema_version: "1.0"
-artifact_version: "1.0.0"
+artifact_version: "1.0.1"
 project: ShipGlows Audio Engine
 created: "2026-08-30"
-updated: "2026-08-31"
+updated: "2026-10-01"
 status: reviewed
 source_skill: sg-docs
 scope: juce-decision-matrix
@@ -19,15 +19,23 @@ depends_on: []
 supersedes: []
 evidence:
   - "Preserved during the 2026-08-31 documentation migration."
+  - "Operator decision, 2026-10-01: build the shared engine in-house; JUCE remains a historical architecture study only."
 next_review: "2026-11-30"
 next_step: "Review only when JUCE adoption is reconsidered."
 ---
 
-# JUCE-to-ShipGlows Decision Matrix
+# Historical JUCE Architecture Study
 
 This document records architectural inspiration, not source-code derivation.
 ShipGlows Audio Engine is independently implemented against operating-system
 APIs and does not incorporate JUCE framework code.
+
+## Current ownership decision
+
+On 2026-10-01, the operator selected a ShipGlows-owned C++ engine and declined
+a JUCE-versus-custom comparison. This document remains a historical record of
+design ideas observed in JUCE; it does not authorize JUCE adoption or a new
+comparison. See [engine ownership decision](engine-ownership-decision.md).
 
 | JUCE public design | ShipGlows decision | Rationale |
 | --- | --- | --- |

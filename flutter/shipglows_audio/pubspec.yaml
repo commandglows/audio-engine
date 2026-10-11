@@ -2,7 +2,7 @@ name: shipglows_audio
 description: Private Flutter bridge for the ShipGlows native audio engine.
 version: 0.1.0
 publish_to: none
-repository: https://github.com/commandglows/shipglows-audio-engine
+repository: https://github.com/commandglows/audio-engine
 
 environment:
   sdk: ^3.13.1

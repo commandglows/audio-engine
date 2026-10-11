@@ -1,10 +1,10 @@
 ---
 artifact: project_governance
 metadata_schema_version: "1.0"
-artifact_version: "1.0.0"
+artifact_version: "1.0.2"
 project: ShipGlows Audio Engine
 created: "2026-08-31"
-updated: "2026-08-31"
+updated: "2026-10-01"
 status: reviewed
 source_skill: sg-docs
 scope: project-governance
@@ -22,11 +22,12 @@ depends_on: []
 supersedes: []
 evidence:
   - "Repository audit on 2026-08-31 found an established technical docs set but no canonical ShipGlows governance corpus."
+  - "2026-10-01: recorded the operator's decision to build and maintain the shared audio engine in-house."
 next_review: "2026-11-30"
 next_step: "Maintain the technical map when a mapped subsystem or validation route changes."
 ---
 
-# ShipGlows Audio Engine Governance
+# Audio Engine Governance
 
 This directory is the canonical internal navigation and governance corpus for
 this repository. Its `technical/contracts/` documents are the human-readable
@@ -34,7 +35,10 @@ technical contracts migrated from the former root documentation directory.
 
 ## Canonical Entry Points
 
+- `workflow/specs/shared-multi-app-audio-engine.md`: shared capability contract and consumer boundary.
 - `technical/code-docs-map.md`: path-to-document and validation routing.
+- `technical/audio-engine-research.md`: architecture patterns, real-time rules, platform strategy, open-source study candidates, licenses, and prototype gates for the shared DAW-capable engine.
+- `technical/contracts/engine-ownership-decision.md`: selected direction to build and maintain the shared engine in-house.
 - `technical/context.md`: operational system overview.
 - `technical/context-function-tree.md`: structural entrypoint map.
 - `technical/`: subsystem context and behavior-recovery documents.
