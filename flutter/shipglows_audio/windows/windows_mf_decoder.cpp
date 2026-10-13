@@ -45,6 +45,32 @@ bool IsAacLcIndication(UINT32 value) {
     default: return false;
   }
 }
+
+// MF leaves MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION at 0 for MP4-contained AAC
+// (observed on Windows 11 with MF-encoded AAC-LC), so the profile is confirmed
+// from MF_MT_USER_DATA instead: a 12-byte MF header followed by the MPEG-4
+// AudioSpecificConfig, whose first five bits (escape 31 + 6 bits) are the
+// audioObjectType. Only audioObjectType 2 (AAC-LC) is admitted. The
+// indication is a fallback when the config is absent or of unknown shape.
+bool IsAacLcConfirmed(IMFMediaType* type) {
+  if (!type) return false;
+  UINT32 indication = 0;
+  const bool indication_is_lc =
+      AttributeUInt32(type, MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION, indication) &&
+      IsAacLcIndication(indication);
+  UINT32 size = 0;
+  if (FAILED(type->GetBlobSize(MF_MT_USER_DATA, &size)) || size < 14)
+    return indication_is_lc;
+  std::vector<UINT8> blob(size);
+  if (FAILED(type->GetBlob(MF_MT_USER_DATA, blob.data(), size, &size)))
+    return indication_is_lc;
+  const UINT8* asc = blob.data() + 12;
+  const std::size_t asc_size = size - 12;
+  if (asc_size < 2) return indication_is_lc;
+  UINT32 object_type = asc[0] >> 3;
+  if (object_type == 31) object_type = 32 + (((asc[0] & 7u) << 3) | (asc[1] >> 5));
+  return object_type == 2;
+}
 }  // namespace
 
 struct WindowsMfDecoder::Impl final {
@@ -73,6 +99,13 @@ MfDecodeResult WindowsMfDecoder::Open(const std::filesystem::path& path) {
   impl_->eof = false;
   impl_->pending.clear();
   impl_->pending_offset = 0;
+  // Release the reader on every failure path so is_open() cannot report a
+  // rejected source as open (a later ReadFrames would decode an unvetted stream).
+  struct ReaderGuard final {
+    ComPtr<IMFSourceReader>& reader;
+    bool keep = false;
+    ~ReaderGuard() { if (!keep) reader.Reset(); }
+  } reader_guard{impl_->reader};
   if (path.empty()) return Error(MfDecodeError::invalid_argument, "empty_path");
   const auto extension = LowerExtension(path);
   if (extension != L".mp3" && extension != L".m4a" && extension != L".wav")
@@ -152,9 +185,7 @@ MfDecodeResult WindowsMfDecoder::Open(const std::filesystem::path& path) {
       return Error(MfDecodeError::unsupported_profile, "m4a_container_unconfirmed");
     if (subtype != MFAudioFormat_AAC)
       return Error(MfDecodeError::unsupported_profile, "m4a_aac_required_alac_deferred");
-    UINT32 profile = 0;
-    if (!AttributeUInt32(source_type.Get(), MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION,
-                         profile) || !IsAacLcIndication(profile))
+    if (!IsAacLcConfirmed(source_type.Get()))
       return Error(MfDecodeError::unsupported_profile, "aac_lc_profile_unconfirmed");
   } else {
     if (subtype != MFAudioFormat_PCM && subtype != MFAudioFormat_Float)
@@ -191,6 +222,7 @@ MfDecodeResult WindowsMfDecoder::Open(const std::filesystem::path& path) {
     impl_->duration = static_cast<double>(duration.uhVal.QuadPart) / 10000000.0;
   }
   PropVariantClear(&duration);
+  reader_guard.keep = true;
   return {};
 }
 

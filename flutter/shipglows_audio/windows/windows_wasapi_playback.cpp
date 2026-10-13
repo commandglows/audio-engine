@@ -9,6 +9,9 @@
 #include <audioclient.h>
 #include <mmdeviceapi.h>
 #include <ksmedia.h>
+#include <propkeydef.h>
+#include <functiondiscoverykeys_devpkey.h>
+#include <propvarutil.h>
 #include <wrl/client.h>
 
 namespace shipglows_audio {
@@ -122,12 +125,19 @@ WasapiPlaybackMetrics WindowsWasapiPlayback::Metrics() const noexcept {
   m.sample_rate = sample_rate_.load(std::memory_order_relaxed);
   m.channels = channels_.load(std::memory_order_relaxed);
   m.buffer_frames = buffer_frames_.load(std::memory_order_relaxed);
+  m.default_period_100ns = default_period_100ns_.load(std::memory_order_relaxed);
+  m.minimum_period_100ns = minimum_period_100ns_.load(std::memory_order_relaxed);
   return m;
 }
 
 WasapiPlaybackResult WindowsWasapiPlayback::Status() const noexcept {
   std::lock_guard<std::mutex> lock(mutex_);
   return result_;
+}
+
+std::wstring WindowsWasapiPlayback::EndpointName() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return endpoint_name_;
 }
 
 void WindowsWasapiPlayback::Worker() {
@@ -179,6 +189,18 @@ void WindowsWasapiPlayback::Worker() {
   bool active = false;
   bool paused = false;
   bool quit = false;
+  // Stream failures stop the client on this thread and keep the typed result
+  // for Status(). No caller waits for them, so they must not post a command.
+  const auto fail_stream = [&](WasapiPlaybackFailure kind, HRESULT hr) {
+    if (client) client->Stop();
+    active = false;
+    paused = false;
+    render_client.Reset();
+    client.Reset();
+    sample_rate_.store(0, std::memory_order_relaxed);
+    std::lock_guard<std::mutex> lock(mutex_);
+    result_ = Failure(kind, hr);
+  };
 
   while (!quit) {
     HANDLE waits[] = {control_event, audio_event};
@@ -195,11 +217,8 @@ void WindowsWasapiPlayback::Worker() {
         if (SUCCEEDED(hr)) frames = total > padding ? total - padding : 0;
       }
       if (FAILED(hr)) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        result_ = Failure(WasapiPlaybackFailure::stream_failed, hr);
-        command_ = Command::stop;
-        ++request_id_;
-        SetEvent(control_event);
+        fail_stream(IsDeviceInvalidated(hr) ? WasapiPlaybackFailure::device_unavailable
+                                            : WasapiPlaybackFailure::stream_failed, hr);
         continue;
       }
       if (frames == 0) continue;
@@ -207,11 +226,7 @@ void WindowsWasapiPlayback::Worker() {
       hr = render_client->GetBuffer(frames, &bytes);
       if (FAILED(hr)) {
         if (IsDeviceInvalidated(hr)) {
-          std::lock_guard<std::mutex> lock(mutex_);
-          result_ = Failure(WasapiPlaybackFailure::device_unavailable, hr);
-          command_ = Command::stop;
-          ++request_id_;
-          SetEvent(control_event);
+          fail_stream(WasapiPlaybackFailure::device_unavailable, hr);
           continue;
         }
         underruns_.fetch_add(1, std::memory_order_relaxed);
@@ -234,11 +249,7 @@ void WindowsWasapiPlayback::Worker() {
       hr = render_client->ReleaseBuffer(frames, rendered ? 0 : AUDCLNT_BUFFERFLAGS_SILENT);
       if (FAILED(hr)) {
         if (IsDeviceInvalidated(hr)) {
-          std::lock_guard<std::mutex> lock(mutex_);
-          result_ = Failure(WasapiPlaybackFailure::device_unavailable, hr);
-          command_ = Command::stop;
-          ++request_id_;
-          SetEvent(control_event);
+          fail_stream(WasapiPlaybackFailure::device_unavailable, hr);
         } else {
           underruns_.fetch_add(1, std::memory_order_relaxed);
         }
@@ -266,6 +277,14 @@ void WindowsWasapiPlayback::Worker() {
       client.Reset();
       sample_rate_.store(0, std::memory_order_relaxed);
       if (quit) break;
+      {
+        // An explicit stop quiesces the callback; it also clears a stream
+        // failure so the next Start can reopen the endpoint.
+        std::lock_guard<std::mutex> lock(mutex_);
+        result_ = {};
+        completed_id_ = id;
+      }
+      completion_cv_.notify_all();
     } else if (command == Command::start) {
       WasapiPlaybackResult result{};
       ComPtr<IMMDeviceEnumerator> enumerator;
@@ -296,6 +315,24 @@ void WindowsWasapiPlayback::Worker() {
       UINT32 buffer_frames = 0;
       if (result) hr = client->GetBufferSize(&buffer_frames);
       if (result && FAILED(hr)) result = Failure(WasapiPlaybackFailure::initialization_failed, hr);
+      REFERENCE_TIME default_period = 0;
+      REFERENCE_TIME minimum_period = 0;
+      // Diagnostic only: a failed query leaves the periods at zero.
+      if (result && FAILED(client->GetDevicePeriod(&default_period, &minimum_period))) {
+        default_period = 0;
+        minimum_period = 0;
+      }
+      std::wstring endpoint_name;
+      ComPtr<IPropertyStore> properties;
+      if (result && SUCCEEDED(device->OpenPropertyStore(STGM_READ, &properties))) {
+        PROPVARIANT name;
+        PropVariantInit(&name);
+        if (SUCCEEDED(properties->GetValue(PKEY_Device_FriendlyName, &name)) &&
+            name.vt == VT_LPWSTR && name.pwszVal != nullptr) {
+          endpoint_name = name.pwszVal;
+        }
+        PropVariantClear(&name);
+      }
       if (result) {
         float_buffer.resize(static_cast<std::size_t>(buffer_frames) * channels);
         BYTE* initial = nullptr;
@@ -311,12 +348,15 @@ void WindowsWasapiPlayback::Worker() {
         sample_rate_.store(48000, std::memory_order_relaxed);
         channels_.store(channels, std::memory_order_relaxed);
         buffer_frames_.store(buffer_frames, std::memory_order_relaxed);
+        default_period_100ns_.store(default_period, std::memory_order_relaxed);
+        minimum_period_100ns_.store(minimum_period, std::memory_order_relaxed);
       } else {
         client.Reset(); render_client.Reset();
       }
       {
         std::lock_guard<std::mutex> lock(mutex_);
         result_ = result;
+        if (result) endpoint_name_ = std::move(endpoint_name);
         completed_id_ = id;
       }
       completion_cv_.notify_all();

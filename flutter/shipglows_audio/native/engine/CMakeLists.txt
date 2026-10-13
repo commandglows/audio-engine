@@ -18,7 +18,8 @@ target_include_directories(shipglows_audio_engine PUBLIC
 )
 
 if(MSVC)
-  target_compile_options(shipglows_audio_engine PRIVATE /W4 /permissive-)
+  # C4324: intentional padding from alignas(64) on queue atomics (false-sharing guard).
+  target_compile_options(shipglows_audio_engine PRIVATE /W4 /permissive- /wd4324)
 else()
   target_compile_options(shipglows_audio_engine PRIVATE -Wall -Wextra -Wpedantic)
 endif()

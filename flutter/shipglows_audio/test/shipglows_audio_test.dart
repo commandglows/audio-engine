@@ -148,13 +148,28 @@ void main() {
       'nativeErrorHresult': -2004287484,
       'underruns': 2,
       'p99CallbackMicroseconds': 128,
+      'callbacks': 60000,
+      'maxCallbackMicroseconds': 900,
+      'bufferFrames': 1056,
+      'devicePeriodMicroseconds': 10000,
+      'minimumDevicePeriodMicroseconds': 2666,
+      'outputEndpointName': 'Headphones',
     });
     expect(status.state, 'error');
     expect(status.errorCode, 'wasapi_device_unavailable');
     expect(status.nativeErrorHresult, -2004287484);
     expect(status.underruns, 2);
     expect(status.p99CallbackMicroseconds, 128);
-    expect(ShipglowsAudioPlaybackStatus.fromMap({}).nativeErrorHresult, 0);
+    expect(status.callbacks, 60000);
+    expect(status.maxCallbackMicroseconds, 900);
+    expect(status.bufferFrames, 1056);
+    expect(status.devicePeriodMicroseconds, 10000);
+    expect(status.minimumDevicePeriodMicroseconds, 2666);
+    expect(status.outputEndpointName, 'Headphones');
+    final empty = ShipglowsAudioPlaybackStatus.fromMap({});
+    expect(empty.nativeErrorHresult, 0);
+    expect(empty.devicePeriodMicroseconds, 0);
+    expect(empty.outputEndpointName, '');
   });
 
   test('output activity is optional and decoded independently of mixed levels', () {

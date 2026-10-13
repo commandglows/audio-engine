@@ -580,6 +580,19 @@ flutter::EncodableValue PlaybackStatusValue(int64_t generation,
       flutter::EncodableValue(static_cast<int64_t>(metrics.underruns));
   value[flutter::EncodableValue("p99CallbackMicroseconds")] =
       flutter::EncodableValue(static_cast<int64_t>(metrics.p99_callback_microseconds));
+  value[flutter::EncodableValue("callbacks")] =
+      flutter::EncodableValue(static_cast<int64_t>(metrics.callbacks));
+  value[flutter::EncodableValue("maxCallbackMicroseconds")] =
+      flutter::EncodableValue(static_cast<int64_t>(metrics.max_callback_microseconds));
+  value[flutter::EncodableValue("bufferFrames")] =
+      flutter::EncodableValue(static_cast<int64_t>(metrics.buffer_frames));
+  // REFERENCE_TIME is 100 ns; Dart receives whole microseconds.
+  value[flutter::EncodableValue("devicePeriodMicroseconds")] =
+      flutter::EncodableValue(static_cast<int64_t>(metrics.default_period_100ns / 10));
+  value[flutter::EncodableValue("minimumDevicePeriodMicroseconds")] =
+      flutter::EncodableValue(static_cast<int64_t>(metrics.minimum_period_100ns / 10));
+  value[flutter::EncodableValue("outputEndpointName")] =
+      flutter::EncodableValue(output ? Utf8String(output->EndpointName()) : std::string{});
   return flutter::EncodableValue(value);
 }
 

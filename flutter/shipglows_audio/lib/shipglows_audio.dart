@@ -145,6 +145,12 @@ class ShipglowsAudioPlaybackStatus {
     this.nativeErrorHresult = 0,
     this.underruns = 0,
     this.p99CallbackMicroseconds = 0,
+    this.callbacks = 0,
+    this.maxCallbackMicroseconds = 0,
+    this.bufferFrames = 0,
+    this.devicePeriodMicroseconds = 0,
+    this.minimumDevicePeriodMicroseconds = 0,
+    this.outputEndpointName = '',
   });
 
   factory ShipglowsAudioPlaybackStatus.fromMap(Map<Object?, Object?> map) =>
@@ -159,6 +165,15 @@ class ShipglowsAudioPlaybackStatus {
         underruns: (map['underruns'] as num?)?.toInt() ?? 0,
         p99CallbackMicroseconds:
             (map['p99CallbackMicroseconds'] as num?)?.toInt() ?? 0,
+        callbacks: (map['callbacks'] as num?)?.toInt() ?? 0,
+        maxCallbackMicroseconds:
+            (map['maxCallbackMicroseconds'] as num?)?.toInt() ?? 0,
+        bufferFrames: (map['bufferFrames'] as num?)?.toInt() ?? 0,
+        devicePeriodMicroseconds:
+            (map['devicePeriodMicroseconds'] as num?)?.toInt() ?? 0,
+        minimumDevicePeriodMicroseconds:
+            (map['minimumDevicePeriodMicroseconds'] as num?)?.toInt() ?? 0,
+        outputEndpointName: map['outputEndpointName'] as String? ?? '',
       );
 
   final int generation;
@@ -171,7 +186,23 @@ class ShipglowsAudioPlaybackStatus {
   /// Signed HRESULT for a native output failure, or zero when none occurred.
   final int nativeErrorHresult;
   final int underruns;
+
+  /// Upper bound of the power-of-two bucket holding the 99th percentile
+  /// render-callback time (ring read plus DSP).
   final int p99CallbackMicroseconds;
+  final int callbacks;
+  final int maxCallbackMicroseconds;
+
+  /// WASAPI shared-mode buffer size of the opened endpoint, in frames.
+  final int bufferFrames;
+
+  /// Default and minimum WASAPI device periods of the opened endpoint, or zero
+  /// before output starts.
+  final int devicePeriodMicroseconds;
+  final int minimumDevicePeriodMicroseconds;
+
+  /// Friendly name of the endpoint opened by the last successful start.
+  final String outputEndpointName;
 }
 
 /// Bounded, optional DSP controls for the playback host API v1.

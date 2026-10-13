@@ -8,3 +8,10 @@
 **/*.user
 **/*.suo
 *.log
+
+# Decoder trial fixtures are generated locally by tests/decoder_trials (never commit).
+/tests/decoder_trials/fixtures/
+/tests/decoder_trials/**/*.wav
+/tests/decoder_trials/**/*.mp3
+/tests/decoder_trials/**/*.m4a
+/tests/decoder_trials/**/*.flac

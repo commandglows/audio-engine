@@ -1,10 +1,10 @@
 ---
 artifact: technical_module_context
 metadata_schema_version: "1.0"
-artifact_version: "0.2.0"
+artifact_version: "0.3.0"
 project: ShipGlows Audio Engine
 created: "2026-10-06"
-updated: "2026-10-06"
+updated: "2026-10-13"
 status: draft
 source_skill: 300-sg-docs
 scope: windows-local-playback
@@ -26,8 +26,14 @@ evidence:
   - "2026-10-06 BeatGlows run: a generated WAV completed ten minutes on the named system-default render endpoint; the product UI reported zero underruns and p99 callback time 127 microseconds. Process-loopback limits are recorded in the BeatGlows feasibility report."
   - "2026-10-06 engine DSP verification: deterministic limiter fixtures passed an independent 64x windowed-sinc meter for high-frequency sine, start/end impulses, Nyquist alternation, multisine, and fixed-seed noise across varied block sizes."
   - "2026-10-06 portable DSP timing probe: optimized GNU C++ measured 3,638 microseconds p99 and 7,437 microseconds maximum per 480-frame block over 5,000 calls. This is DSP-only on a synthetic block, not a WASAPI callback measurement or comparison against a device period."
+  - "Engine fixes, 2026-10-13: WASAPI playback now records GetDevicePeriod and the opened endpoint name and reports them with callbacks, maximum callback time and buffer frames; an explicit Stop() never signalled completion, so seek-while-playing and stop would block the platform thread (fixed); a device invalidation now stops the stream on the render thread and keeps the typed failure, and the next play reopens the default endpoint without an implicit switch."
+  - "BeatGlows ten-minute post-limiter run, 2026-10-13: Doppler-wrapped `flutter drive --profile` of `app_flutter/integration_test/windows_endpoint_soak_test.dart` played a generated 600 s, 440 Hz stereo PCM16 48 kHz WAV at 0.99 full scale through the real shipglows_audio host to completion on the default endpoint `Headphones (Mon Bose QC35 II tupeupatest)`: 0 underruns, 60,079 callbacks, callback p99 at most 1,023 microseconds (power-of-two bucket bound), maximum 1,171 microseconds, WASAPI device period 10,000 microseconds (minimum 3,000), buffer 1,056 frames. Three 30 s process-loopback captures at 1, 5 and 9 minutes had 0 discontinuities, silent packets and timestamp errors, only the 30-40 ms capture-cutoff tail, RMS 0.594, peak 0.843 (the 0.99 input held at the -1.5 dBTP internal guard) and a 440 Hz estimate. Seek while playing returned in 58 ms and stop in 26 ms. The underrun counter counts ring starvation, not missed WASAPI deadlines; this is process-scoped evidence, not human listening."
+  - "Earlier 2026-10-13 run with the unoptimized limiter: also 0 underruns and p99 bound 8,191 microseconds below the 10,000 microsecond period, but maximum callback 73,686 microseconds; the 1-minute capture showed nine inserted 10-40 ms gaps. The limiter detector was then restructured (tap-major coefficients, same per-phase summation order): MSVC Release cost per 1,056-frame block fell from about 7.0 ms to 0.93 ms with byte-identical output over 2,000 blocks, and the DSP CTest still passes."
+  - "Decoder trials, 2026-10-13: `tests/decoder_trials` generates original synthetic fixtures with Media Foundation encoders and checks 24 cases (WAV PCM16/24/32/float 8-192 kHz, MP3 44.1/48 kHz, AAC-LC M4A 44.1/48 kHz, and ALAC, 6-channel, 8-bit, out-of-range rate, corrupt, empty and mismatched-extension rejections): 23 pass and the truncated WAV decodes its 0.8 s of valid data. Two decoder bugs were fixed: a rejected Open() left the reader open, and MF-encoded AAC-LC M4A was rejected because MF reports profile indication 0 (now confirmed from the AudioSpecificConfig). FLAC cannot be generated with MF and HE-AAC has no fixture."
+  - "Physical device-interruption trial, 2026-10-13: the operator disconnected the Bluetooth `Headphones (Mon Bose QC35 II tupeupatest)` endpoint during BeatGlows playback. Output stopped and the app left the playing state (typed device failure surfaced), but Play restarted the track from 0:00. BeatGlows now keeps the last native position on an output failure and Play reloads at that position on the current default endpoint (decoder failures still restart); unit-tested, operator retest pending."
+  - "Operator retest, 2026-10-13: after the resume fix, disconnecting the Bose endpoint mid-track and pressing Play resumed at the stopped position; reported as pass."
 next_review: "2026-10-16"
-next_step: "Build and exercise the updated Windows plugin and WASAPI failure paths; measure callback p99 and endpoint period with the limiter enabled. Run decoder fixtures and ContentGlows Windows playback proof."
+next_step: "Run ContentGlows Windows playback of an authorized asset, and human listening on the named endpoint."
 ---
 
 # Windows Local Playback
@@ -77,7 +83,9 @@ product adapter
 ## Failure Modes
 
 - Unsupported local media and decode errors return typed playback errors.
-- WASAPI device invalidation is surfaced distinctly from source decode failure. This status/error change and the limiter have not yet been checked in a full Flutter Windows plugin build.
+- WASAPI device invalidation is surfaced distinctly from source decode failure. The render thread stops the stream and keeps `wasapi_device_unavailable`; the next play reopens the system default endpoint; BeatGlows reloads at the last reported position. No implicit switch happens while playing. The 2026-10-13 Bluetooth disconnect trial confirmed the typed stop; the operator retest confirmed resume at the stopped position.
+- An explicit stop completes and clears a previous stream failure; seek while playing and stop return without blocking the platform thread.
+- Status reports `devicePeriodMicroseconds`, `minimumDevicePeriodMicroseconds`, `bufferFrames`, `callbacks`, `maxCallbackMicroseconds` and `outputEndpointName`. `underruns` counts ring starvation only, not missed WASAPI deadlines; compare the callback maximum with the buffer duration too.
 - An invalid effect update or full bounded update queue returns an error rather than silently accepting the command.
 
 ## Validation

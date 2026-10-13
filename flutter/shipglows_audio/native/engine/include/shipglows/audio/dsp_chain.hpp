@@ -70,7 +70,10 @@ class DspChain final {
   static constexpr std::uint32_t kLimiterTaps = 32;
   static constexpr std::uint32_t kLimiterPeakWindowFrames = 18;
   float limiter_ring_[kLimiterRingFrames][2]{};
-  float limiter_coefficients_[kLimiterPhases - 1][kLimiterTaps]{};
+  // Tap-major so each tap updates all phases contiguously (vectorizable) while
+  // every phase keeps its tap-ascending summation order. Column
+  // kLimiterPhases - 1 stays zero; phase 0 is the sample itself.
+  alignas(64) float limiter_coefficients_[kLimiterTaps][kLimiterPhases]{};
   float limiter_peak_ring_[kLimiterRingFrames]{};
   std::uint64_t limiter_frame_count_ = 0;
   float limiter_gain_ = 1.0F;

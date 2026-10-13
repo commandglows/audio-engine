@@ -56,6 +56,9 @@ struct WasapiPlaybackMetrics final {
   std::uint32_t sample_rate = 0;
   std::uint32_t channels = 0;
   std::uint32_t buffer_frames = 0;
+  // IAudioClient::GetDevicePeriod for the opened endpoint, in 100 ns units.
+  std::int64_t default_period_100ns = 0;
+  std::int64_t minimum_period_100ns = 0;
 };
 
 // Fills `frames` interleaved float frames and returns true on success. False
@@ -80,6 +83,8 @@ class WindowsWasapiPlayback final {
   WasapiPlaybackResult Stop();
   [[nodiscard]] WasapiPlaybackMetrics Metrics() const noexcept;
   [[nodiscard]] WasapiPlaybackResult Status() const noexcept;
+  // Friendly name of the endpoint opened by the last successful Start.
+  [[nodiscard]] std::wstring EndpointName() const;
 
  private:
   enum class Command : std::uint8_t { none, start, pause, resume, stop };
@@ -93,6 +98,7 @@ class WindowsWasapiPlayback final {
   std::thread worker_;
   Command command_ = Command::none;
   std::wstring endpoint_id_;
+  std::wstring endpoint_name_;
   WasapiPlaybackResult result_{};
   std::uint64_t request_id_ = 0;
   std::uint64_t completed_id_ = 0;
@@ -106,6 +112,8 @@ class WindowsWasapiPlayback final {
   std::atomic<std::uint32_t> sample_rate_{0};
   std::atomic<std::uint32_t> channels_{0};
   std::atomic<std::uint32_t> buffer_frames_{0};
+  std::atomic<std::int64_t> default_period_100ns_{0};
+  std::atomic<std::int64_t> minimum_period_100ns_{0};
   std::atomic<void*> control_event_{nullptr};
 };
 

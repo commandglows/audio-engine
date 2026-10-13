@@ -75,12 +75,12 @@ DspChain::DspChain(std::uint32_t sample_rate) noexcept
                            0.08F * std::cos(2.0F * kPi * distance / 16.0F);
       const float coefficient = std::abs(distance) < 16.0F
           ? sinc(distance) * window : 0.0F;
-      limiter_coefficients_[phase - 1][tap] = coefficient;
+      limiter_coefficients_[tap][phase - 1] = coefficient;
       sum += coefficient;
     }
     if (std::abs(sum) > 1.0e-7F) {
       for (std::uint32_t tap = 0; tap < kLimiterTaps; ++tap) {
-        limiter_coefficients_[phase - 1][tap] /= sum;
+        limiter_coefficients_[tap][phase - 1] /= sum;
       }
     }
   }
@@ -220,14 +220,17 @@ void DspChain::process(float* samples, std::size_t frames) noexcept {
         peak = std::max(peak, std::abs(sample_at(interval, ch)));
         peak = std::max(peak, std::abs(sample_at(interval + 1, ch)));
       }
-      for (std::uint32_t phase = 1; phase < kLimiterPhases; ++phase) {
-        for (int ch = 0; ch < 2; ++ch) {
-          float interpolated = 0.0F;
-          for (std::uint32_t tap = 0; tap < kLimiterTaps; ++tap) {
-            interpolated += sample_at(interval + static_cast<int>(tap) - 15, ch) *
-                            limiter_coefficients_[phase - 1][tap];
+      for (int ch = 0; ch < 2; ++ch) {
+        alignas(64) float interpolated[kLimiterPhases]{};
+        for (std::uint32_t tap = 0; tap < kLimiterTaps; ++tap) {
+          const float x = sample_at(interval + static_cast<int>(tap) - 15, ch);
+          const float* coefficients = limiter_coefficients_[tap];
+          for (std::uint32_t phase = 0; phase < kLimiterPhases; ++phase) {
+            interpolated[phase] += x * coefficients[phase];
           }
-          peak = std::max(peak, std::abs(interpolated));
+        }
+        for (std::uint32_t phase = 0; phase + 1 < kLimiterPhases; ++phase) {
+          peak = std::max(peak, std::abs(interpolated[phase]));
         }
       }
       const auto peak_slot = (interval + kLimiterRingFrames) % kLimiterRingFrames;
