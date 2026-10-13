@@ -90,7 +90,8 @@ product adapter
 
 ## Validation
 
-- Run the focused Flutter API/channel and native DSP tests listed in `code-docs-map.md` after source changes. The standalone DSP test is configured from `flutter/shipglows_audio/native/engine/tests`; its current Release CTest passes 1/1 on GNU C++ 13.2 with Ninja.
+- Run the focused Flutter API/channel and native DSP tests listed in `code-docs-map.md` after source changes. The standalone DSP test is configured from `flutter/shipglows_audio/native/engine/tests`; its Release CTest passes 1/1 on GNU C++ 13.2 with Ninja and on MSVC 2022.
+- Decoder changes: run `tests/decoder_trials` (generated MP3/AAC-LC/WAV fixtures and rejections) through CTest; see its README.
 - Build and run the Windows host with a licensed/generated fixture on the named render endpoint.
 - Record app-reported underruns, callback p99, endpoint identity, device period, and bounded process-loopback results. Keep physical listening claims separate from process capture.
 

@@ -1,5 +1,10 @@
 ## Unreleased
 
+* Report the WASAPI device period, opened endpoint name, callback count, maximum callback time and buffer frames in playback status.
+* Fix explicit playback stop never completing, which blocked seek-while-playing and stop.
+* Stop the stream on device invalidation and reopen the default endpoint on the next start.
+* Make the true-peak limiter detector about 7.6x faster with identical output.
+* Decoder: release rejected sources; confirm AAC-LC M4A from its AudioSpecificConfig.
 * Add stable Windows endpoint IDs and independent microphone/render-loopback source selection.
 * Align and mix selected sources into one segmented WAV; lock sources throughout each take and preserve audio on source interruption.
 

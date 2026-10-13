@@ -4,7 +4,7 @@ metadata_schema_version: "1.0"
 artifact_version: "1.4.0"
 project: ShipGlows Audio Engine
 created: "2026-08-31"
-updated: "2026-10-06"
+updated: "2026-10-13"
 status: reviewed
 source_skill: sg-docs
 scope: path-to-document-routing
@@ -42,7 +42,8 @@ next_step: "Update this map with every new subsystem or validation route."
 | `lib/`, platform bridges | `platform-adapters.md` | `flutter/shipglows_audio/README.md`, `../workflow/specs/shared-multi-app-audio-engine.md` | `flutter analyze`, `flutter test` |
 | `tests/` | `recording-recovery-index.md` | `contracts/verification.md` | native CTest suite |
 | Shared DSP, offline render worker, DAW playback, and engine ownership | `audio-engine-research.md` | `../workflow/specs/shared-multi-app-audio-engine.md`, `contracts/engine-ownership-decision.md`, ContentGlows worker architecture/render contract | Prove offline processing in the Linux worker, then shared DSP equivalence and Windows/Android realtime gates |
-| `flutter/shipglows_audio/windows/windows_wasapi_playback.cpp`, `windows/shipglows_audio_plugin.cpp`, `native/engine/src/dsp_chain.cpp` | `windows-playback.md` | `../workflow/specs/shared-multi-app-audio-engine.md`, Flutter package README | Configure `flutter/shipglows_audio/native/engine/tests` with CMake/Ninja in a temporary build directory, then run CTest; also run focused Flutter/channel tests and the Windows plugin build. Endpoint evidence records errors, underruns, callback p99, and device period |
+| `flutter/shipglows_audio/windows/windows_wasapi_playback.cpp`, `windows/shipglows_audio_plugin.cpp`, `native/engine/src/dsp_chain.cpp` | `windows-playback.md` | `../workflow/specs/shared-multi-app-audio-engine.md`, Flutter package README | Configure `flutter/shipglows_audio/native/engine/tests` with CMake in a temporary build directory, then run CTest; also run focused Flutter/channel tests and the Windows plugin build. Endpoint evidence records errors, underruns, callback p99 and maximum, endpoint name, and device period |
+| `flutter/shipglows_audio/windows/windows_mf_decoder.cpp`, `tests/decoder_trials/` | `windows-playback.md` | `tests/decoder_trials/README.md`, `../workflow/specs/shared-multi-app-audio-engine.md` | `cmake -S tests/decoder_trials -B build/decoder-trials -G "Visual Studio 17 2022" -A x64`, build Release, then `ctest --test-dir build/decoder-trials -C Release` |
 | `example/integration_test/` | `platform-adapters.md` | `contracts/verification.md` | `flutter test integration_test/plugin_integration_test.dart -d <device>` |
 
 ## Documentation Update Plan
