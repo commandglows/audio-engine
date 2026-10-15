@@ -15,7 +15,7 @@ security_impact: medium
 docs_impact: yes
 target_audience: "ShipGlows product teams that need dependable native recording infrastructure."
 value_proposition: "Provide one bounded native audio contract that ShipGlows products can reuse across supported platforms."
-business_model: "Private shared product infrastructure; value is realized through the ShipGlows products that consume it."
+business_model: "Shared product infrastructure in a public repository; value is realized through the ShipGlows products that consume it."
 market: "Internal cross-platform audio capture infrastructure."
 delivery_posture: development
 evidence:
@@ -36,7 +36,7 @@ next_step: "/sg-docs audit"
 
 ## Business Identity
 
-ShipGlows Audio Engine is private shared infrastructure for native recording capabilities used by ShipGlows products. Its durable role is to isolate real-time audio concerns behind a bounded product-facing contract.
+ShipGlows Audio Engine is shared infrastructure, kept in a public repository, for native recording capabilities used by ShipGlows products. Its durable role is to isolate real-time audio concerns behind a bounded product-facing contract.
 
 ## Primary Customer
 
