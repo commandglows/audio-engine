@@ -1,8 +1,8 @@
 # Audio Engine — Pitch
 
-> Pitch reviewed: 2026-09-02 · Project state: see canonical sources below
+> Pitch reviewed: 2026-10-15 · Project state: see canonical sources below
 
-ShipGlows Audio Engine is private native audio infrastructure shared by ShipGlows products. It separates a real-time C++ recording engine from Flutter product interfaces so capture, buffering, recovery, and diagnostics can evolve behind one bounded plugin contract.
+ShipGlows Audio Engine is native audio infrastructure, published in a public repository and shared by ShipGlows products. It separates a real-time C++ recording engine from Flutter product interfaces so capture, buffering, recovery, and diagnostics can evolve behind one bounded plugin contract.
 
 ## Current state
 
