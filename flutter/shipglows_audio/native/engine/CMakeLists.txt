@@ -12,6 +12,7 @@ add_library(shipglows_audio_engine STATIC
   src/segmented_pcm_store.cpp
   src/segmented_wav_store.cpp
   src/sha256.cpp
+  src/synth_engine.cpp
 )
 
 add_library(shipglows::audio_engine ALIAS shipglows_audio_engine)

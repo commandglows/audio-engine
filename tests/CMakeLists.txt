@@ -13,6 +13,12 @@ target_compile_features(shipglows_visual_analysis_tests PRIVATE cxx_std_20)
 target_link_libraries(shipglows_visual_analysis_tests PRIVATE shipglows::audio_engine)
 add_test(NAME shipglows_visual_analysis_tests COMMAND shipglows_visual_analysis_tests)
 
+add_executable(shipglows_synth_engine_tests
+  ../flutter/shipglows_audio/native/engine/tests/synth_engine_test.cpp)
+target_compile_features(shipglows_synth_engine_tests PRIVATE cxx_std_20)
+target_link_libraries(shipglows_synth_engine_tests PRIVATE shipglows::audio_engine)
+add_test(NAME shipglows_synth_engine_tests COMMAND shipglows_synth_engine_tests)
+
 add_executable(shipglows_offline_wav_tests
   ../flutter/shipglows_audio/native/engine/tests/offline_wav_analysis_test.cpp)
 target_compile_features(shipglows_offline_wav_tests PRIVATE cxx_std_20)

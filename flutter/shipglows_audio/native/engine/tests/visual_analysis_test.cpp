@@ -107,7 +107,9 @@ void test_discontinuity_and_queue() {
 
 void test_analysis_stream_eof_and_cursor() {
   using namespace shipglows::audio;
-  AnalysisStream stream(3, VisualAnalysisConfig{}, 480);
+  // Each stream embeds ~1 MiB of processor history: keep it off the stack.
+  auto owned_stream = std::make_unique<AnalysisStream>(3, VisualAnalysisConfig{}, 480);
+  auto& stream = *owned_stream;
   expect(stream.bytes() <= 4 * 1024 * 1024,
          "stream allocation stays within the advertised native budget");
   const std::array<float, 960> block{};
@@ -128,7 +130,8 @@ void test_analysis_stream_eof_and_cursor() {
   }
   expect(rejected_future_cursor, "stream rejects a cursor ahead of committed records");
 
-  AnalysisStream positioned(5, VisualAnalysisConfig{}, 480);
+  auto owned_positioned = std::make_unique<AnalysisStream>(5, VisualAnalysisConfig{}, 480);
+  auto& positioned = *owned_positioned;
   expect(positioned.submit(block.data(), 480, 24000, false, true),
          "stream admits a nonzero source origin");
   positioned.stop(true);
