@@ -143,6 +143,14 @@ void SynthEngine::render_add(float* interleaved_stereo, std::uint32_t frames,
   active_.store(active, std::memory_order_relaxed);
 }
 
+void SynthEngine::reset() noexcept {
+  SynthEvent discarded;
+  while (queue_.try_pop(discarded)) {
+  }
+  for (auto& voice : voices_) voice.active = false;
+  active_.store(0, std::memory_order_relaxed);
+}
+
 SynthCounters SynthEngine::counters() const noexcept {
   SynthCounters counters;
   counters.posted = posted_.load(std::memory_order_relaxed);

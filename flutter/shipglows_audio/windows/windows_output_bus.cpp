@@ -124,6 +124,8 @@ WasapiPlaybackResult WindowsOutputBus::EnsureRunning() {
   // The callback is stopped: the worker's command handshake publishes these
   // writes before the new stream renders its first block.
   master_.reset();
+  // Events queued while the device was down would otherwise play as a burst.
+  synth_->reset();
   reset_written_ = true;
   clock_valid_ = false;
   timing_valid_.store(false, std::memory_order_release);

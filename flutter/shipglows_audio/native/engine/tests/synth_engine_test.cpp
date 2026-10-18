@@ -286,6 +286,18 @@ void RenderAddsWithoutAllocating() {
          "render_add mixes onto existing content");
 }
 
+void ResetDiscardsQueuedEventsAndVoices() {
+  SynthEngine engine;
+  expect(engine.post(NoteOn(60, 1.0F, SynthInstrument::piano)), "post held key");
+  (void)Render(engine, 0.05);
+  for (int i = 0; i < 8; ++i) expect(engine.post(NoteOn(36, 1.0F, SynthInstrument::drums)), "post");
+  engine.reset();
+  const auto samples = Render(engine, 0.1);
+  expect(Peak(samples) == 0.0F, "reset silences voices and drops queued notes");
+  expect(engine.counters().active_voices == 0, "no voice survives reset");
+  expect(engine.counters().applied == 1, "queued events were not applied");
+}
+
 void LatencyIsMeasuredFromPostTime() {
   SynthEngine engine;
   auto event = NoteOn(36, 1.0F, SynthInstrument::drums);
@@ -317,6 +329,7 @@ int main() {
   AllNotesOffFades();
   RenderAddsWithoutAllocating();
   LatencyIsMeasuredFromPostTime();
+  ResetDiscardsQueuedEventsAndVoices();
   std::cout << "synth engine tests passed\n";
   return 0;
 }

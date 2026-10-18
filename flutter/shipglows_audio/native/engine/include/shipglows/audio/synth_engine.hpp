@@ -120,6 +120,10 @@ class SynthEngine final {
   void render_add(float* interleaved_stereo, std::uint32_t frames,
                   std::uint64_t now_ns, std::uint64_t presentation_ns) noexcept;
 
+  // Silences every voice and discards queued events. Consumer-side: call only
+  // while render_add() cannot run, for example before an output (re)starts.
+  void reset() noexcept;
+
   [[nodiscard]] SynthCounters counters() const noexcept;
   [[nodiscard]] SynthInstrument instrument() const noexcept;
   // Time from post() to the start of the block that applied the event.
