@@ -1,12 +1,12 @@
 ---
 artifact: spec
 metadata_schema_version: '1.0'
-artifact_version: '1.1.0'
+artifact_version: '1.2.0'
 project: ShipGlows Audio Engine
 created: '2026-10-06'
-updated: '2026-10-08'
+updated: '2026-10-18'
 created_at: '2026-10-06T20:42:49Z'
-updated_at: '2026-10-07T23:30:30Z'
+updated_at: '2026-10-18T16:00:00Z'
 source_model: 'Parent GPT-6.1-Sol; coordinated investigations, delegated model identity unasserted'
 authoring_provenance: 'Parent GPT-6.1-Sol coordinated agent investigations; delegated runtime model identities not asserted.'
 source_skill: 100-sg-spec
@@ -30,6 +30,10 @@ linked_systems:
   - flutter/shipglows_audio/lib/shipglows_audio_platform_interface.dart
   - flutter/shipglows_audio/windows/shipglows_audio_plugin.cpp
   - flutter/shipglows_audio/windows/windows_wasapi_playback.cpp
+  - flutter/shipglows_audio/windows/windows_output_bus.cpp
+  - flutter/shipglows_audio/lib/src/output_analysis.dart
+  - flutter/shipglows_visualization/lib/src/method_channel_analysis_source.dart
+  - shipglows_data/workflow/evidence/synth-latency/2026-10-18/README.md
   - flutter/shipglows_audio/native/engine/include/shipglows/audio/pcm_analysis.hpp
   - flutter/shipglows_audio/native/engine/include/shipglows/audio/dsp_chain.hpp
   - flutter/shipglows_audio/native/engine/include/shipglows/audio/spsc_audio_ring_buffer.hpp
@@ -51,6 +55,8 @@ evidence:
   - 'v0 evidence: previously consulted public page descriptions, applications not executed.'
   - 'ContentGlows source locations/limits/discrepancies supplied by other reviewer; not inspected in this run.'
   - 'Architecture/staged direction approved; exact numerical/protocol defaults/calibration targets remain draft selections, not runtime measurements.'
+  - 'Operator 2026-10-18: BeatGlows needs live analysis of the real output (synth plus playback); implemented as the windows_output_mix_v1 source on the shared Windows output bus with a pollable Dart stream.'
+  - 'Engine 2026-10-18 (commit 4002901): plugin gtest SynthSessionPlaysAndFeedsMixAnalysis and integration test synth_integration_test.dart observe synthesized drums in mix records (248 records, peak 0.841, no resync); shared_visualization_integration_test still passes on the playback source.'
 depends_on:
   - artifact: shipglows_data/workflow/specs/shared-multi-app-audio-engine.md
     artifact_version: '1.12.0'
@@ -69,7 +75,7 @@ Shared optional audio analysis and original visualization
 
 ## Status
 
-**Draft 1.1.0, not ready.** Operator approval ('validé') covers source-neutral streaming/chunked analysis, bounded recent-feature batches, optional spectrum/two profiles, one shared sequential visual transform and independent Stage A/Stage B. Do not ask again for these decisions. Approved direction is not implementation authority in this document-editing run, runtime proof or public schema freeze.
+**Draft 1.2.0, not ready.** Operator approval ('validé') covers source-neutral streaming/chunked analysis, bounded recent-feature batches, optional spectrum/two profiles, one shared sequential visual transform and independent Stage A/Stage B. Do not ask again for these decisions. Approved direction is not implementation authority in this document-editing run, runtime proof or public schema freeze.
 
 Stage A: shared analysis/transform/bridge/streaming offline, bars and readable waveform/envelope, fixture video render. Stage B: radial/immersive, deterministic particles, presets and calibrated quality tiers. All four inspirations remain; Stage A acceptance cannot require Stage B. Current ContentGlows production adapter stays180s/30fps pending separate approval/deferred final-mix proof. Engine structure supports longer streams/hour-long fixtures without approving production costs/platforms/sources.
 
@@ -160,6 +166,17 @@ Methods closed arguments: getAnalysisCapabilities({analysisApiVersion:2});startA
 History: at most128 records,1MiB bytes,1.28s contiguous center span,evict oldest on any bound; clear on core continuity change,sequence stays monotonic. Native publication off callback,never blocks playback. Max16 records/response. afterSequence is an integer0..latest published sequence, from this lease's previously accepted cursor (initial0); caller cannot advance beyond latest. Older admitted cursors may resync,not replay unbounded backlog. If all newer records fit16 and are retained in the current continuity, return all ordered records. Otherwise newest<=8 current-continuity records whose sequence>afterSequence,delivery_resync=true. Reason closed enum none/initial_window/pcm_discontinuity/history_overwrite/lag_window; pcm_discontinuity takes priority over history_overwrite over lag_window; initial_window applies only first request when none of those conditions applies and a window is needed. A continuity reset occurring since this cursor is always reported even with no new record; plugin tracks reset sequence watermark and reported continuity per lease; do not repeatedly resync an unchanged already reported continuity on empty polls. First nonempty in a new continuity must still declare resync if its records have not yet been installed,even after an empty reset notification. skipped_delivery_records=max(0,first_sequence-afterSequence-1) for nonempty batch,0 for empty. This counts skipped record sequences,not unmeasured PCM frames. PCM loss independently reported pcm_gap/dropped_pcm_frames/continuity reset. Delivery resync never resets transform or fabricates silence.
 
 Response exact keys analysis_api_version,generation,lease_id,stream_id,source_identity,profile,feature_mask,transform_digest,state,continuity_id,run_origin_frame,record_layout,first_sequence,last_sequence,next_sequence_cursor,delivery_resync,resync_reason,skipped_delivery_records,pcm_gap,dropped_pcm_frames,native_observation_ns,timing,record_bytes,record_count,records. Zero records byte payload empty;metadata still truthful. run_origin_frame is null only in warming_up before any PCM position is admitted; once admitted it is uint64 including on empty reset responses. Nonempty requires nonnull origin. All integer conversions checked uint64/<=2^53-1 before JS/Dart serializations;binary native validators before allocation. No private source path. Unsupported codes/version/schema/feature/stale/busy/limit typed. Max raw record6492bytes,16 records103872bytes +4096 fits128KiB. Client retained-context aggregate<=256KiB: at most32 full records plus a compact166-hop speech ring (150 view hops plus max16-record batch/timing margin), each slot32bytes: uint64 sequence,center_frame and four float32 physical RMS/peak,visual RMS/peak. Identity/continuity/config shared outside slots. Never retain151 full spectral records. Max32*6492+166*32=213056bytes before bounded metadata, fits cap; admission counts actual allocations/overhead, two projected4*150-float views and bounded metadata. One incoming encoded response separately<=128KiB,zero-copy validation before installation; total context+incoming transient<=384KiB,no unbounded decoded duplicate. Clear full records and compact ring on resync/continuity/lease changes,not native transform. Use batches not FIFO backlog.
+
+### Windows shared output bus and output-mix source (implemented 2026-10-18)
+
+Supersedes the per-session tap described in the ownership bullets above. One process-wide WindowsOutputBus owns the only WASAPI render stream: callback = attached file-playback source (post-varispeed/DSP) + synth voices -> one master true-peak limiter (-1.5 dBTP) -> submission; the analysis tap receives the exact submitted mix through the same bounded whole-block queue (fenced pointer + in-flight counter, never a lock). Playback play/pause/seek/stop attach or detach the source with the same fence, so seek keeps its quiesced-callback guarantee; the device runs while playback is attached or a synth session is open, otherwise it stops.
+
+Sources, one lease at a time per plugin:
+- windows_playback_output_v1: unchanged request (five keys) and generation fence (playback generation); cleared on loadPlayback/stopPlayback/replay after completion; seek marks a PCM discontinuity. Now observes the mixed output, so while a synth session keeps the device running a paused playback lease still receives (synth or silent) records labelled state paused.
+- windows_output_mix_v1: startAnalysis adds the closed key source='windows_output_mix_v1'; generation = synth generation and requires a running synth session; stream_id windows-output-mix-<generation>-<serial>, source_identity windows-output-mix-v1-<generation>. Cleared by stopSynth or a newer startSynth generation, never by playback commands; playback seeks do not reset it because the submitted output stays contiguous. Device failure reports state failed.
+- Unknown source values fail unsupported_analysis_source. Capabilities list both sources available plus wav_host_v1 unavailable.
+
+Dart: shipglows_audio exposes ShipglowsOutputAnalysis (and ShipglowsSynth.startAnalysis): one native request in flight (poll returns the pending future), batches() periodic stream that skips busy ticks, exhaustive key/identity/size/contiguity/cursor validation, record decoding (six physical and visual levels, music envelope, 1025-bin spectrum, 64 visual log bands). A malformed batch leaves the cursor unchanged, marks failed and releases the lease; audio continues. shipglows_visualization MethodChannelAnalysisSource accepts source: outputMixSource and sends the key only for that source.
 
 ### Exhaustive batch validation and cursor closure
 

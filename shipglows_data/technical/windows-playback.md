@@ -1,10 +1,10 @@
 ---
 artifact: technical_module_context
 metadata_schema_version: "1.0"
-artifact_version: "0.3.0"
+artifact_version: "0.4.0"
 project: ShipGlows Audio Engine
 created: "2026-10-06"
-updated: "2026-10-13"
+updated: "2026-10-18"
 status: draft
 source_skill: 300-sg-docs
 scope: windows-local-playback
@@ -15,7 +15,9 @@ security_impact: none
 docs_impact: yes
 linked_systems:
   - flutter/shipglows_audio/windows/windows_wasapi_playback.cpp
+  - flutter/shipglows_audio/windows/windows_output_bus.cpp
   - flutter/shipglows_audio/windows/shipglows_audio_plugin.cpp
+  - flutter/shipglows_audio/native/engine/src/synth_engine.cpp
   - flutter/shipglows_audio/native/engine/src/dsp_chain.cpp
   - ../workflow/specs/shared-multi-app-audio-engine.md
   - ../../../beatglows/shipglows_data/technical/audio-playback-model.md
@@ -32,6 +34,7 @@ evidence:
   - "Decoder trials, 2026-10-13: `tests/decoder_trials` generates original synthetic fixtures with Media Foundation encoders and checks 24 cases (WAV PCM16/24/32/float 8-192 kHz, MP3 44.1/48 kHz, AAC-LC M4A 44.1/48 kHz, and ALAC, 6-channel, 8-bit, out-of-range rate, corrupt, empty and mismatched-extension rejections): 23 pass and the truncated WAV decodes its 0.8 s of valid data. Two decoder bugs were fixed: a rejected Open() left the reader open, and MF-encoded AAC-LC M4A was rejected because MF reports profile indication 0 (now confirmed from the AudioSpecificConfig). FLAC cannot be generated with MF and HE-AAC has no fixture."
   - "Physical device-interruption trial, 2026-10-13: the operator disconnected the Bluetooth `Headphones (Mon Bose QC35 II tupeupatest)` endpoint during BeatGlows playback. Output stopped and the app left the playing state (typed device failure surfaced), but Play restarted the track from 0:00. BeatGlows now keeps the last native position on an output failure and Play reloads at that position on the current default endpoint (decoder failures still restart); unit-tested, operator retest pending."
   - "Operator retest, 2026-10-13: after the resume fix, disconnecting the Bose endpoint mid-track and pressing Play resumed at the stopped position; reported as pass."
+  - "Shared output bus, 2026-10-18: playback and the real-time synth now share one WASAPI stream with a master limiter. Probe and gtest evidence (zero underruns, no loopback gap while the synth starts and stops during playback, post-to-mix latency p50 15-21 ms / p95 26 ms on the Bose endpoint) is in `../workflow/evidence/synth-latency/2026-10-18/README.md`. The engine library is now optimized in Debug: unoptimized, the limiter cost about 6.4 ms per 10 ms block, enough to starve debug sessions once playback and the master limiter both run."
 next_review: "2026-10-16"
 next_step: "Run ContentGlows Windows playback of an authorized asset, and human listening on the named endpoint."
 ---
@@ -50,7 +53,9 @@ owning the audio clock or callback.
 | Path | Role | Edit notes |
 | --- | --- | --- |
 | `flutter/shipglows_audio/windows/shipglows_audio_plugin.cpp` | Flutter channel, local source session, effect commands, status serialization | Keep source paths local to the host; return typed non-sensitive errors and numeric native HRESULT separately. |
-| `flutter/shipglows_audio/windows/windows_wasapi_playback.cpp` | Event-driven WASAPI render worker | Keep callback work bounded; device invalidation must surface as a device error rather than a decode failure. |
+| `flutter/shipglows_audio/windows/windows_output_bus.cpp` | Process-wide output bus: playback input + synth -> master limiter -> WASAPI, analysis tap, synth latency timing | Inputs and the analysis tap are published by atomic pointer and detached with an in-flight fence; never lock or allocate in `Render`. |
+| `flutter/shipglows_audio/windows/windows_wasapi_playback.cpp` | Event-driven WASAPI render worker (MMCSS Pro Audio); optional IAudioClient3 period and capped queued fill | Keep callback work bounded; device invalidation must surface as a device error rather than a decode failure. |
+| `flutter/shipglows_audio/native/engine/src/synth_engine.cpp` | Portable real-time synth: GM drums, FM piano, click, SPSC event queue, latency histograms | Allocation-free render; timbres track BeatGlows `core/synth/voices.dart`. |
 | `flutter/shipglows_audio/native/engine/src/dsp_chain.cpp` | Stateful stereo EQ, gate, compressor, and always-on true-peak limiter | Parameter updates are bounded and applied at a processing-block boundary. The limiter uses 64-phase, 32-tap windowed-sinc peak detection, a -1.5 dBTP internal guard for the -1.0 dBTP contract, and 32 frames of lookahead. |
 | `flutter/shipglows_audio/lib/shipglows_audio.dart` | Flutter method/status API | Treat missing status fields as defaults for compatibility. |
 | `../beatglows/app_flutter/lib/core/audio_engine/windows_playback_adapter.dart` | BeatGlows transport adapter | Keep the queue and clock in BeatGlows; pass generation-tagged commands to the host. |
@@ -58,6 +63,7 @@ owning the audio clock or callback.
 ## Entrypoints
 
 - `loadPlayback`, `playPlayback`, `pausePlayback`, `seekPlayback`, `setPlaybackSpeed`, `setPlaybackEffects`, `stopPlayback`, and `getPlaybackStatus` are the Flutter channel methods.
+- `startSynth`, `noteOn`, `noteOff`, `click`, `setVoice`, `getSynthStatus` and `stopSynth` (`synthApiVersion: 1`) drive the synth on the same output.
 - WASAPI playback opens `eRender/eConsole` when no explicit endpoint ID is supplied.
 - Device invalidation maps to a typed `wasapi_device_unavailable` error; the status API also reports `nativeErrorHresult`, `underruns`, and `p99CallbackMicroseconds`.
 
@@ -66,14 +72,17 @@ owning the audio clock or callback.
 ```text
 product adapter
   -> generation-tagged Flutter method channel
-  -> Media Foundation decode producer and bounded PCM ring
-  -> WASAPI render worker using the selected/default render endpoint
-  -> host status and callback metrics back to Flutter
+  -> Media Foundation decode producer and bounded PCM ring   synth events -> SPSC queue
+  -> WindowsOutputBus::Render: playback source (varispeed + DSP) + synth voices
+  -> master true-peak limiter -> WASAPI render worker on the default endpoint
+  -> analysis tap of the submitted mix; host status and metrics back to Flutter
 ```
 
 ## Invariants
 
 - Flutter is not in the native render callback and does not estimate playback position.
+- One WASAPI render stream serves the process. It runs while a playback session is attached (playing) or a synth session is open, and stops otherwise. Play/resume attach the playback source, pause/stop/seek detach it behind a callback fence, so a seek still never races the render thread. While the synth keeps the device running, pause and seek do not restart the device; when nothing else plays, resume opens the device again on the current default endpoint.
+- The bus requests the IAudioClient3 minimum shared period and caps the queued fill at one period plus a quarter (600 frames for a 480-frame period); when IAudioClient3 is unavailable it falls back to the legacy shared initialization. The render thread runs under MMCSS "Pro Audio".
 - Playback speed is finite and bounded to 0.5x–2.0x; the host applies it to source-frame consumption.
 - Effect parameter updates enter a bounded queue and are applied by the DSP consumer between blocks.
 - Current DSP source contains EQ, gate, compressor, and an always-on limiter. Its internal target is -1.5 dBTP; the deterministic independent 64x reference test verifies output at or below the contracted -1.0 dBTP ceiling for its sine, impulse, Nyquist-alternating, multisine, and fixed-noise fixtures. This test does not establish compliance for every possible signal or the normative BS.1770 measurement procedure.
@@ -85,13 +94,14 @@ product adapter
 - Unsupported local media and decode errors return typed playback errors.
 - WASAPI device invalidation is surfaced distinctly from source decode failure. The render thread stops the stream and keeps `wasapi_device_unavailable`; the next play reopens the system default endpoint; BeatGlows reloads at the last reported position. No implicit switch happens while playing. The 2026-10-13 Bluetooth disconnect trial confirmed the typed stop; the operator retest confirmed resume at the stopped position.
 - An explicit stop completes and clears a previous stream failure; seek while playing and stop return without blocking the platform thread.
-- Status reports `devicePeriodMicroseconds`, `minimumDevicePeriodMicroseconds`, `bufferFrames`, `callbacks`, `maxCallbackMicroseconds` and `outputEndpointName`. `underruns` counts ring starvation only, not missed WASAPI deadlines; compare the callback maximum with the buffer duration too.
+- Status reports `devicePeriodMicroseconds`, `minimumDevicePeriodMicroseconds`, `bufferFrames`, `callbacks`, `maxCallbackMicroseconds` and `outputEndpointName`. `underruns` counts this session's ring starvation (the bus then renders the synth alone for that block) plus device-level failures, not missed WASAPI deadlines; compare the callback maximum with the buffer duration too.
 - An invalid effect update or full bounded update queue returns an error rather than silently accepting the command.
 
 ## Validation
 
 - Run the focused Flutter API/channel and native DSP tests listed in `code-docs-map.md` after source changes. The standalone DSP test is configured from `flutter/shipglows_audio/native/engine/tests`; its Release CTest passes 1/1 on GNU C++ 13.2 with Ninja and on MSVC 2022.
 - Decoder changes: run `tests/decoder_trials` (generated MP3/AAC-LC/WAV fixtures and rejections) through CTest; see its README.
+- Bus or synth changes: run `shipglows_synth_engine_tests` (CTest), the plugin gtest runner `shipglows_audio_test` (its device tests skip without an endpoint), `example/integration_test/synth_integration_test.dart`, and `tools/synth_latency_probe` with and without `--with-playback` on the named endpoint.
 - Build and run the Windows host with a licensed/generated fixture on the named render endpoint.
 - Record app-reported underruns, callback p99, endpoint identity, device period, and bounded process-loopback results. Keep physical listening claims separate from process capture.
 

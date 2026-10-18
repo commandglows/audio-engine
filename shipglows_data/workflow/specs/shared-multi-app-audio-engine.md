@@ -1,12 +1,12 @@
 ---
 artifact: spec
 metadata_schema_version: "1.0"
-artifact_version: "1.14.0"
+artifact_version: "1.15.0"
 project: ShipGlows Audio Engine
 created: "2026-09-30"
-updated: "2026-10-13"
+updated: "2026-10-18"
 created_at: "2026-09-30T16:05:00Z"
-updated_at: "2026-10-13T16:21:00Z"
+updated_at: "2026-10-18T16:00:00Z"
 source_model: GPT-6
 status: ready
 source_skill: 100-sg-spec
@@ -113,6 +113,22 @@ Acceptance for this slice: deterministic PCM fixtures cover bypass, each process
 The existing capture API and recovery behavior remain compatible. BeatGlows' queue/project state and ContentGlows' media/timeline state remain product-owned. The Linux worker/export contract below is retained as a later consumer of the same DSP core, not a prerequisite for Windows playback.
 
 Export playback semantics (Delegated decision, 2026-10-13; see Evidence): for the deferred Linux export, the per-clip `playback_speed` is a pitch-preserving tempo change, as the existing Remotion/ffmpeg path ships it (`atempo`), and `tone_frequency` keeps its duration-preserving pitch-shift meaning (`asetrate` plus `atempo=1/t`). The two are independent controls: they are not multiplied, their serialized values stay separate, and clip bounds stay fixed. The engine's Windows varispeed is an interim preview for BeatGlows practice and ContentGlows audition, not the export semantics; the ContentGlows Windows preview labels `playback_speed` or `tone_frequency` values other than 1.0 as approximate until the engine has the time-stretch. Independent pitch correction and the engine's duration-preserving pitch shifter remain deferred.
+
+## Real-time Synthesizer (Windows implemented 2026-10-18; Android pending)
+
+BeatGlows Studio (Piano, Drums, Metronome) needs sound on touch instead of an offline WAV render. The engine owns one portable `SynthEngine` (`native/engine/include/shipglows/audio/synth_engine.hpp`) and, on Windows, plays it on the shared output bus described in `shipglows_data/technical/windows-playback.md`.
+
+Voices (mono, added equally to both channels, timbres follow the BeatGlows offline renderer `app_flutter/lib/core/synth/voices.dart` at 48 kHz): General MIDI drums 36 bass drum, 38 snare, 39 clap, 42 and 44 closed hi-hat, 46 open hi-hat; any later hi-hat strike chokes a ringing open hat with a 3 ms fade; drum note-off is ignored. FM piano for every MIDI note: sustains while held, 0.3 s linear release, a repeated key releases its previous strike, a key held 30 s is released. Metronome click 30 ms, 1 kHz at 0.45 or accented 1.5 kHz at 0.7. Polyphony 32 sounding voices in 40 slots; the oldest released or one-shot voice is stolen with a 3 ms fade. Velocity 0..1 (0 is note-off); unknown drum notes are counted as ignored.
+
+Realtime invariants: the callback never allocates, locks, waits, touches files or calls Flutter. Control events cross a preallocated 256-slot SPSC queue (platform thread producer, render callback consumer); a full queue rejects the event and counts it. Events apply at the next render-block start. Voices mix with the attached playback source before one master true-peak limiter (-1.5 dBTP internal guard), so the sum never clips; the analysis tap sees the limited mix. A native test overrides `operator new` and asserts zero allocations across 200 render blocks.
+
+Plugin API (Windows, `synthApiVersion: 1`, closed argument maps): `startSynth({generation, instrument})` opens a session with a generation greater than the last (same generation while open is idempotent) and starts the shared output; `noteOn({generation, midi, velocity[, instrument]})`, `noteOff({generation, midi[, instrument]})`, `click({generation, accent})`, `setVoice({generation, instrument})` return `true` when queued and `false` when the queue is full; `getSynthStatus` and `stopSynth` (fades all voices in 5 ms, releases the device when nothing else plays) return status: state, instrument, voice and event counters, native queue-wait and clock-estimated output latency histograms, low-latency flag, engine period, buffer, underruns and callback timing. Stale or missing sessions fail `stale_synth_generation`; invalid values fail `invalid_synth_request`. Dart `ShipglowsSynth` maps the BeatGlows `StudioSoundOutput` seam (noteOn/noteOff/click) to fire-and-forget calls that return without awaiting the platform and count dropped, rejected and failed commands.
+
+Latency target: below 30 ms from the native post to the Windows audio-engine mix. Measured 2026-10-18 on the Bluetooth `Headphones (Mon Bose QC35 II tupeupatest)` endpoint (evidence `shipglows_data/workflow/evidence/synth-latency/2026-10-18/README.md`): p50 15-21 ms, p95 26 ms, p99 30-37 ms over 100-click series with zero underruns; the Dart call adds about 1 ms one way. Device presentation on Bluetooth adds a link delay outside the engine (26-190 ms observed). Not yet proven: acoustic latency on a wired endpoint, and a driver with an IAudioClient3 period below 480 frames.
+
+Coexistence: playback and synth share the device without restarting it; starting, playing and stopping the synth during a continuous playback tone showed no loopback gap over 6,264 windows of 5 ms, and a gtest keeps a real decoded file playing at wall-clock pace with zero underruns across a synth session.
+
+Android (pending): the same `SynthEngine` compiles for the NDK; an Oboe output stream, JNI bridge and Kotlin channel handlers with the same method names remain to be written. The host Android toolchain and SDK licenses are not ready (`%USERPROFILE%\.shipglows\environment.md`), so no Android build or device proof exists.
 
 ## Deferred Implementation Slice: Linux Offline Export
 

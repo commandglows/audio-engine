@@ -1,10 +1,10 @@
 ---
 artifact: technical_docs_map
 metadata_schema_version: "1.0"
-artifact_version: "1.4.1"
+artifact_version: "1.5.0"
 project: ShipGlows Audio Engine
 created: "2026-08-31"
-updated: "2026-10-13"
+updated: "2026-10-18"
 status: reviewed
 source_skill: sg-docs
 scope: path-to-document-routing
@@ -28,6 +28,7 @@ evidence:
   - "2026-10-03: mapped ContentGlows Linux offline rendering as a shared-core consumer before Flutter realtime playback."
   - "2026-10-06: mapped Windows playback host, Flutter status/effect API, and named-default-endpoint proof to windows-playback.md and the shared multi-app spec."
   - "2026-10-06: mapped the standalone deterministic shared-DSP test project and the post-limiter callback-period proof gap."
+  - "2026-10-18: mapped the real-time synth, the shared Windows output bus, the Dart synth/output-analysis API and the latency probe."
 next_review: "2026-11-30"
 next_step: "Update this map with every new subsystem or validation route."
 ---
@@ -45,6 +46,7 @@ next_step: "Update this map with every new subsystem or validation route."
 | `tests/` | `recording-recovery-index.md` | `contracts/verification.md` | native CTest suite |
 | Shared DSP, offline render worker, DAW playback, and engine ownership | `audio-engine-research.md` | `../workflow/specs/shared-multi-app-audio-engine.md`, `contracts/engine-ownership-decision.md`, ContentGlows worker architecture/render contract | Prove offline processing in the Linux worker, then shared DSP equivalence and Windows/Android realtime gates |
 | `flutter/shipglows_audio/windows/windows_wasapi_playback.cpp`, `windows/shipglows_audio_plugin.cpp`, `native/engine/src/dsp_chain.cpp` | `windows-playback.md` | `../workflow/specs/shared-multi-app-audio-engine.md`, Flutter package README | Configure `flutter/shipglows_audio/native/engine/tests` with CMake in a temporary build directory, then run CTest; also run focused Flutter/channel tests and the Windows plugin build. Endpoint evidence records errors, underruns, callback p99 and maximum, endpoint name, and device period |
+| `native/engine/src/synth_engine.cpp`, `windows/windows_output_bus.cpp`, `lib/src/synth.dart`, `lib/src/output_analysis.dart`, `tools/synth_latency_probe/` | `windows-playback.md`, `../workflow/specs/shared-multi-app-audio-engine.md` (Real-time Synthesizer) | `../workflow/specs/shared-audio-analysis-and-visualization.md` (output-mix source), `../workflow/evidence/synth-latency/2026-10-18/README.md` | `shipglows_synth_engine_tests` in the root CTest; plugin gtest runner `shipglows_audio_test`; `flutter analyze`/`flutter test` in `flutter/shipglows_audio`; `synth_integration_test.dart` on Windows; latency probe on the named endpoint |
 | `flutter/shipglows_audio/windows/windows_mf_decoder.cpp`, `tests/decoder_trials/` | `windows-playback.md` | `tests/decoder_trials/README.md`, `../workflow/specs/shared-multi-app-audio-engine.md` | `cmake -S tests/decoder_trials -B build/decoder-trials -G "Visual Studio 17 2022" -A x64`, build Release, then `ctest --test-dir build/decoder-trials -C Release` |
 | `flutter/shipglows_audio/example/integration_test/` | `platform-adapters.md`, `../workflow/specs/shared-audio-analysis-and-visualization.md` | `flutter/shipglows_audio/README.md`, `contracts/verification.md` | Windows playback/analysis integration; opt-in A0 start/poll/stop test when the private CMake flag is enabled |
 | Private `tools/audio_analysis_a0/`, optional Windows A0 observer and sibling `beatglows/spikes/audio_analysis_a0/` | `windows-playback.md` | `../workflow/specs/shared-audio-analysis-and-visualization.md`, native/spike README, `../workflow/evidence/audio-analysis-a0/2026-10-07/`, `../../tools/audio_analysis_a0_windows/ETL_REVIEW.md`, `../../tools/audio_analysis_a0_windows/MEMORY_REVIEW.md`, `../../tools/audio_analysis_a0_windows/PHYSICAL_TIMING.md` | Direct native reference test, generated PCM, Windows profile evidence, plus callable private A0 handler test. These do not prove calibrated physical lag or aggregate transient allocation cap; A0 and A8 readiness remain open |

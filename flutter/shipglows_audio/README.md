@@ -29,6 +29,39 @@ Hardware timestamp queries are performed outside Oboe's data callback. The
 callback only copies PCM into the preallocated SPSC buffer and updates lock-free
 counters.
 
+## Real-time synth (Windows)
+
+`ShipglowsSynth` plays General MIDI drums, an FM piano and a metronome click on
+the same output as file playback; the sum goes through one true-peak limiter.
+Note and click calls return without awaiting the platform, so timers can call
+them directly. Android support is pending.
+
+```dart
+final synth = ShipglowsSynth();
+await synth.start(instrument: ShipglowsSynthInstrument.drums);
+synth.noteOn(36, velocity: 0.9);   // bass drum
+synth.noteOn(64, instrument: ShipglowsSynthInstrument.piano);
+synth.noteOff(64, instrument: ShipglowsSynthInstrument.piano);
+synth.click(accent: true);
+
+// Live analysis of the real mixed output, one request in flight.
+final analysis = await synth.startAnalysis();
+final subscription = analysis.batches().listen((batch) {
+  for (final record in batch.records) {
+    // record.peak, record.rms, record.visualBands (64 log bands)
+  }
+});
+// ...
+await subscription.cancel();
+await analysis.stop();
+await synth.stop();
+```
+
+`synth.status()` reports voice and event counters and the native latency
+histograms. Run `example/integration_test/synth_integration_test.dart` on
+Windows for the end-to-end check; `tools/synth_latency_probe` measures latency
+on the default endpoint.
+
 ### Shared playback visualization
 
 The private `shipglows_visualization` package consumes bounded batches tapped
