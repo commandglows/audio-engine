@@ -137,6 +137,71 @@ class MockShipglowsAudioPlatform
         rmsLevel: 0.25,
         errorCode: '',
       );
+
+  // Synth and analysis surfaces are covered by synth_and_output_analysis_test.
+  @override
+  Future<ShipglowsSynthStatus> startSynth({
+    required int generation,
+    required ShipglowsSynthInstrument instrument,
+  }) async => ShipglowsSynthStatus(generation: generation, state: 'running');
+
+  @override
+  Future<bool> synthNoteOn({
+    required int generation,
+    required int midi,
+    required double velocity,
+    ShipglowsSynthInstrument? instrument,
+  }) async => true;
+
+  @override
+  Future<bool> synthNoteOff({
+    required int generation,
+    required int midi,
+    ShipglowsSynthInstrument? instrument,
+  }) async => true;
+
+  @override
+  Future<bool> synthClick({
+    required int generation,
+    required bool accent,
+  }) async => true;
+
+  @override
+  Future<bool> synthSetVoice({
+    required int generation,
+    required ShipglowsSynthInstrument instrument,
+  }) async => true;
+
+  @override
+  Future<ShipglowsSynthStatus> getSynthStatus({
+    required int generation,
+  }) async => ShipglowsSynthStatus(generation: generation, state: 'running');
+
+  @override
+  Future<ShipglowsSynthStatus> stopSynth({required int generation}) async =>
+      ShipglowsSynthStatus(generation: generation, state: 'stopped');
+
+  @override
+  Future<Map<Object?, Object?>> startAnalysis({
+    required int generation,
+    required String source,
+    required String profile,
+    required int featureMask,
+    required Map<String, Object?> transformConfig,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<Map<Object?, Object?>> getAnalysisBatch({
+    required int generation,
+    required String leaseId,
+    required int afterSequence,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> stopAnalysis({
+    required int generation,
+    required String leaseId,
+  }) async {}
 }
 
 void main() {

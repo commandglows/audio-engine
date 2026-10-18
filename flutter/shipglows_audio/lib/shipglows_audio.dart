@@ -1,5 +1,8 @@
 import 'shipglows_audio_platform_interface.dart';
 
+export 'src/output_analysis.dart';
+export 'src/synth.dart';
+
 class ShipglowsAudioEngineInfo {
   const ShipglowsAudioEngineInfo({
     required this.name,

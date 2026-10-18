@@ -20,11 +20,21 @@ const _leaseResponseKeys = <String>{
 
 /// Windows audio-engine v2 source adapter. Capability discovery is read-only;
 /// it never opens playback or capture.
+///
+/// [source] selects the native tap: the file-playback output (fenced by the
+/// playback generation) or [outputMixSource], the mixed synth and playback
+/// output (fenced by the synth generation).
 final class MethodChannelAnalysisSource implements AnalysisSource {
-  MethodChannelAnalysisSource({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel('shipglows_audio');
+  MethodChannelAnalysisSource({
+    MethodChannel? channel,
+    this.source = playbackOutputSource,
+  }) : _channel = channel ?? const MethodChannel('shipglows_audio');
+
+  static const playbackOutputSource = 'windows_playback_output_v1';
+  static const outputMixSource = 'windows_output_mix_v1';
 
   final MethodChannel _channel;
+  final String source;
 
   @override
   Future<bool> isAvailable() async {
@@ -46,10 +56,10 @@ final class MethodChannelAnalysisSource implements AnalysisSource {
     final sources = capabilities['sources'];
     if (sources is! List<Object?>) return false;
     return sources.any(
-      (source) =>
-          source is Map<Object?, Object?> &&
-          source['id'] == 'windows_playback_output_v1' &&
-          source['available'] == true,
+      (entry) =>
+          entry is Map<Object?, Object?> &&
+          entry['id'] == source &&
+          entry['available'] == true,
     );
   }
 
@@ -71,6 +81,8 @@ final class MethodChannelAnalysisSource implements AnalysisSource {
             : 'sgav-speech-1',
         'featureMask': featureMask,
         'transformConfig': transformConfig,
+        // The playback source keeps its original five-key request.
+        if (source != playbackOutputSource) 'source': source,
       },
     );
     if (response == null ||

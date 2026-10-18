@@ -118,4 +118,64 @@ void main() {
       messenger.setMockMethodCallHandler(_channel, null);
     },
   );
+
+  test('mix source is discovered and requested explicitly', () async {
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final digest = visualTransformDigest(defaultVisualTransformConfig);
+    Map<Object?, Object?>? request;
+    messenger.setMockMethodCallHandler(_channel, (call) async {
+      switch (call.method) {
+        case 'getAnalysisCapabilities':
+          return <String, Object?>{
+            'analysis_api_version': 2,
+            'available': true,
+            'sources': [
+              {'id': 'windows_playback_output_v1', 'available': true},
+              {'id': 'windows_output_mix_v1', 'available': true},
+            ],
+          };
+        case 'startAnalysis':
+          request = call.arguments! as Map<Object?, Object?>;
+          return <String, Object?>{
+            'analysis_api_version': 2,
+            'generation': 3,
+            'lease_id': 'lease-3',
+            'stream_id': 'stream-3',
+            'source_identity': 'windows-output-mix-v1-3',
+            'profile': 'sgav-music-1',
+            'feature_mask': 11,
+            'transform_digest': digest,
+            'max_block_frames': 16384,
+            'max_batch_records': 16,
+            'max_response_bytes': 131072,
+          };
+      }
+      throw MissingPluginException(call.method);
+    });
+
+    final source = MethodChannelAnalysisSource(
+      channel: _channel,
+      source: MethodChannelAnalysisSource.outputMixSource,
+    );
+    expect(await source.isAvailable(), isTrue);
+    await source.startAnalysis(
+      generation: 3,
+      profile: AnalysisProfile.music,
+      featureMask: 11,
+      transformConfig: defaultVisualTransformConfig,
+    );
+    expect(request!['source'], 'windows_output_mix_v1');
+    expect(request!.length, 6);
+
+    final playback = MethodChannelAnalysisSource(channel: _channel);
+    await playback.startAnalysis(
+      generation: 3,
+      profile: AnalysisProfile.music,
+      featureMask: 11,
+      transformConfig: defaultVisualTransformConfig,
+    );
+    expect(request!.containsKey('source'), isFalse);
+    messenger.setMockMethodCallHandler(_channel, null);
+  });
 }

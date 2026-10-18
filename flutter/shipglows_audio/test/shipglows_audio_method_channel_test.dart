@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shipglows_audio/shipglows_audio.dart';
 import 'package:shipglows_audio/shipglows_audio_method_channel.dart';
 
 void main() {
@@ -123,4 +124,75 @@ void main() {
       expect(outputs.single.endpointId, 'stable-output');
     },
   );
+
+  test('synth and analysis calls send their versioned argument maps', () async {
+    final seen = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (MethodCall call) async {
+          seen.add(call);
+          switch (call.method) {
+            case 'startSynth':
+            case 'stopSynth':
+              return <Object?, Object?>{
+                'generation': 9,
+                'state': call.method == 'startSynth' ? 'running' : 'stopped',
+                'instrument': 'drums',
+                'queueLatency': <Object?, Object?>{
+                  'count': 2,
+                  'p99Microseconds': 9750,
+                },
+                'lowLatency': true,
+              };
+            case 'stopAnalysis':
+              throw PlatformException(code: 'stale_analysis_lease');
+            case 'startAnalysis':
+              return <Object?, Object?>{'lease_id': 'l'};
+            default:
+              return true;
+          }
+        });
+    final started = await platform.startSynth(
+      generation: 9,
+      instrument: ShipglowsSynthInstrument.drums,
+    );
+    expect(started.instrument, ShipglowsSynthInstrument.drums);
+    expect(started.queueLatency.p99Microseconds, 9750);
+    expect(started.lowLatency, isTrue);
+    expect(
+      await platform.synthNoteOn(generation: 9, midi: 36, velocity: 0.5),
+      isTrue,
+    );
+    await platform.synthNoteOff(
+      generation: 9,
+      midi: 60,
+      instrument: ShipglowsSynthInstrument.piano,
+    );
+    await platform.synthClick(generation: 9, accent: true);
+    await platform.startAnalysis(
+      generation: 9,
+      source: 'windows_output_mix_v1',
+      profile: 'sgav-music-1',
+      featureMask: 11,
+      transformConfig: const <String, Object?>{'version': 1},
+    );
+    await platform.stopAnalysis(generation: 9, leaseId: 'l');
+    final stopped = await platform.stopSynth(generation: 9);
+    expect(stopped.state, 'stopped');
+
+    expect(seen.first.arguments, <String, Object?>{
+      'synthApiVersion': 1,
+      'generation': 9,
+      'instrument': 'drums',
+    });
+    expect(seen[1].arguments, <String, Object?>{
+      'synthApiVersion': 1,
+      'generation': 9,
+      'midi': 36,
+      'velocity': 0.5,
+    });
+    expect(seen[2].arguments, containsPair('instrument', 'piano'));
+    expect(seen[3].arguments, containsPair('accent', true));
+    expect(seen[4].arguments, containsPair('source', 'windows_output_mix_v1'));
+    expect(seen[4].arguments, containsPair('analysisApiVersion', 2));
+  });
 }

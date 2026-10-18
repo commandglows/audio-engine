@@ -180,4 +180,149 @@ class MethodChannelShipglowsAudio extends ShipglowsAudioPlatform {
     }
     return ShipglowsAudioPlaybackStatus.fromMap(result);
   }
+
+  @override
+  Future<ShipglowsSynthStatus> startSynth({
+    required int generation,
+    required ShipglowsSynthInstrument instrument,
+  }) => _synthStatusCall('startSynth', <String, Object?>{
+    ..._synthArgs(generation),
+    'instrument': instrument.wireName,
+  });
+
+  @override
+  Future<bool> synthNoteOn({
+    required int generation,
+    required int midi,
+    required double velocity,
+    ShipglowsSynthInstrument? instrument,
+  }) => _synthCommand('noteOn', <String, Object?>{
+    ..._synthArgs(generation),
+    'midi': midi,
+    'velocity': velocity,
+    if (instrument != null) 'instrument': instrument.wireName,
+  });
+
+  @override
+  Future<bool> synthNoteOff({
+    required int generation,
+    required int midi,
+    ShipglowsSynthInstrument? instrument,
+  }) => _synthCommand('noteOff', <String, Object?>{
+    ..._synthArgs(generation),
+    'midi': midi,
+    if (instrument != null) 'instrument': instrument.wireName,
+  });
+
+  @override
+  Future<bool> synthClick({required int generation, required bool accent}) =>
+      _synthCommand('click', <String, Object?>{
+        ..._synthArgs(generation),
+        'accent': accent,
+      });
+
+  @override
+  Future<bool> synthSetVoice({
+    required int generation,
+    required ShipglowsSynthInstrument instrument,
+  }) => _synthCommand('setVoice', <String, Object?>{
+    ..._synthArgs(generation),
+    'instrument': instrument.wireName,
+  });
+
+  @override
+  Future<ShipglowsSynthStatus> getSynthStatus({required int generation}) =>
+      _synthStatusCall('getSynthStatus', _synthArgs(generation));
+
+  @override
+  Future<ShipglowsSynthStatus> stopSynth({required int generation}) =>
+      _synthStatusCall('stopSynth', _synthArgs(generation));
+
+  @override
+  Future<Map<Object?, Object?>> startAnalysis({
+    required int generation,
+    required String source,
+    required String profile,
+    required int featureMask,
+    required Map<String, Object?> transformConfig,
+  }) => _analysisMap('startAnalysis', <String, Object?>{
+    'analysisApiVersion': 2,
+    'generation': generation,
+    'profile': profile,
+    'featureMask': featureMask,
+    'transformConfig': transformConfig,
+    'source': source,
+  });
+
+  @override
+  Future<Map<Object?, Object?>> getAnalysisBatch({
+    required int generation,
+    required String leaseId,
+    required int afterSequence,
+  }) => _analysisMap('getAnalysisBatch', <String, Object?>{
+    'analysisApiVersion': 2,
+    'generation': generation,
+    'leaseId': leaseId,
+    'afterSequence': afterSequence,
+  });
+
+  @override
+  Future<void> stopAnalysis({
+    required int generation,
+    required String leaseId,
+  }) async {
+    try {
+      await methodChannel.invokeMethod<bool>('stopAnalysis', <String, Object?>{
+        'analysisApiVersion': 2,
+        'generation': generation,
+        'leaseId': leaseId,
+      });
+    } on PlatformException catch (error) {
+      if (error.code != 'stale_analysis_lease') rethrow;
+    }
+  }
+
+  Map<String, Object?> _synthArgs(int generation) => <String, Object?>{
+    'synthApiVersion': ShipglowsSynth.synthApiVersion,
+    'generation': generation,
+  };
+
+  Future<bool> _synthCommand(
+    String method,
+    Map<String, Object?> arguments,
+  ) async => await methodChannel.invokeMethod<bool>(method, arguments) ?? false;
+
+  Future<ShipglowsSynthStatus> _synthStatusCall(
+    String method,
+    Map<String, Object?> arguments,
+  ) async {
+    final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
+      method,
+      arguments,
+    );
+    if (result == null) {
+      throw PlatformException(
+        code: 'synth_status_missing',
+        message: 'The native audio engine returned no synth status.',
+      );
+    }
+    return ShipglowsSynthStatus.fromMap(result);
+  }
+
+  Future<Map<Object?, Object?>> _analysisMap(
+    String method,
+    Map<String, Object?> arguments,
+  ) async {
+    final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
+      method,
+      arguments,
+    );
+    if (result == null) {
+      throw PlatformException(
+        code: 'analysis_response_missing',
+        message: 'The native audio engine returned no analysis response.',
+      );
+    }
+    return result;
+  }
 }

@@ -101,4 +101,60 @@ abstract class ShipglowsAudioPlatform extends PlatformInterface {
     required int generation,
     required ShipglowsAudioPlaybackEffects effects,
   }) => throw UnimplementedError('setPlaybackEffects() has not been implemented.');
+
+  Future<ShipglowsSynthStatus> startSynth({
+    required int generation,
+    required ShipglowsSynthInstrument instrument,
+  }) => throw UnimplementedError('startSynth() has not been implemented.');
+
+  /// Returns false when the native event queue is full.
+  Future<bool> synthNoteOn({
+    required int generation,
+    required int midi,
+    required double velocity,
+    ShipglowsSynthInstrument? instrument,
+  }) => throw UnimplementedError('synthNoteOn() has not been implemented.');
+
+  Future<bool> synthNoteOff({
+    required int generation,
+    required int midi,
+    ShipglowsSynthInstrument? instrument,
+  }) => throw UnimplementedError('synthNoteOff() has not been implemented.');
+
+  Future<bool> synthClick({required int generation, required bool accent}) =>
+      throw UnimplementedError('synthClick() has not been implemented.');
+
+  Future<bool> synthSetVoice({
+    required int generation,
+    required ShipglowsSynthInstrument instrument,
+  }) => throw UnimplementedError('synthSetVoice() has not been implemented.');
+
+  Future<ShipglowsSynthStatus> getSynthStatus({required int generation}) =>
+      throw UnimplementedError('getSynthStatus() has not been implemented.');
+
+  Future<ShipglowsSynthStatus> stopSynth({required int generation}) =>
+      throw UnimplementedError('stopSynth() has not been implemented.');
+
+  /// Analysis API v2 lease; returns the raw native lease map.
+  Future<Map<Object?, Object?>> startAnalysis({
+    required int generation,
+    required String source,
+    required String profile,
+    required int featureMask,
+    required Map<String, Object?> transformConfig,
+  }) => throw UnimplementedError('startAnalysis() has not been implemented.');
+
+  /// Returns the raw native batch map; callers validate it.
+  Future<Map<Object?, Object?>> getAnalysisBatch({
+    required int generation,
+    required String leaseId,
+    required int afterSequence,
+  }) =>
+      throw UnimplementedError('getAnalysisBatch() has not been implemented.');
+
+  /// Releases a lease; an already released lease is not an error.
+  Future<void> stopAnalysis({
+    required int generation,
+    required String leaseId,
+  }) => throw UnimplementedError('stopAnalysis() has not been implemented.');
 }
