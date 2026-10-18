@@ -531,7 +531,7 @@ function particle(
     v = hash32(h ^ 2) / 4294967296;
   const influence = zero ? 0 : c.intensity * energy;
   if (full) {
-    const pulse = Math.sin(Math.PI * q),
+    const pulse = Math.min(1, 3 * Math.sin(Math.PI * q)),
       x = (((u + (v - 0.5) * 0.12 * q) % 1) + 1) % 1;
     return {
       index: i,

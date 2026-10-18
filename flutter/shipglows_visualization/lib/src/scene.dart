@@ -731,7 +731,8 @@ final class SceneEvaluator {
     final v = _hash32(h ^ 2) / 4294967296.0;
     final influence = intensityZero ? 0.0 : config.intensity * energy;
     if (full) {
-      final pulse = math.sin(math.pi * q);
+      // Full size and opacity over most of the rise; fades only at the edges.
+      final pulse = math.min(1.0, 3 * math.sin(math.pi * q));
       final x = (u + (v - .5) * .12 * q) % 1.0;
       return ParticleState(
         index,
