@@ -15,3 +15,9 @@
 /tests/decoder_trials/**/*.mp3
 /tests/decoder_trials/**/*.m4a
 /tests/decoder_trials/**/*.flac
+
+# Local build objects and heavy profiling traces
+*.obj
+*.etl
+*.wprp
+shipglows_data/workflow/evidence/audio-analysis-a0/2026-10-07/s21-exploratory/

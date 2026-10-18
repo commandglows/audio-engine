@@ -1,0 +1,26 @@
+﻿[
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\tools\\audio_analysis_a0_windows\\measure_vm_allocation_profile.ps1",
+        "Hash":  "63228FABC3E25BA2639EF8174CD740F2354D2F31A8793E6847A5DACE4DCD2431"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\flutter\\shipglows_audio\\windows\\a0_windows_probe.h",
+        "Hash":  "925886B51A52B0FEF83C57BFB918CAF8BCA40531B9C9FFD63A21743A6451BA25"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\flutter\\shipglows_audio\\windows\\shipglows_audio_plugin.cpp",
+        "Hash":  "0648D8A0B78F8EE02304DA7C7A15E1F8F00A64BFBAB6B3EF13950E7AA40A7256"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\lib\\main.dart",
+        "Hash":  "7BB60A291A72251B8C066A72078799A5C273030C99B22F6032A458583E12BE09"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\lib\\analysis_source.dart",
+        "Hash":  "EFF2EA7047011C21C4B4356C3C74996BBF7FDCBA847E886E0E2F9447D85623F2"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\build\\windows\\x64\\runner\\Profile\\audio_analysis_a0.exe",
+        "Hash":  "CB2BB78BC57C806F121312D759538794376027071EC12EFC379C9D7E1D2DAB45"
+    }
+]

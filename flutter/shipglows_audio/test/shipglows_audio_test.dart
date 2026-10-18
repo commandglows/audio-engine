@@ -154,6 +154,8 @@ void main() {
       'devicePeriodMicroseconds': 10000,
       'minimumDevicePeriodMicroseconds': 2666,
       'outputEndpointName': 'Headphones',
+      'sampleRate': 48000,
+      'endpointPeriod100ns': 100000,
     });
     expect(status.state, 'error');
     expect(status.errorCode, 'wasapi_device_unavailable');
@@ -166,6 +168,8 @@ void main() {
     expect(status.devicePeriodMicroseconds, 10000);
     expect(status.minimumDevicePeriodMicroseconds, 2666);
     expect(status.outputEndpointName, 'Headphones');
+    expect(status.sampleRate, 48000);
+    expect(status.endpointPeriod100ns, 100000);
     final empty = ShipglowsAudioPlaybackStatus.fromMap({});
     expect(empty.nativeErrorHresult, 0);
     expect(empty.devicePeriodMicroseconds, 0);

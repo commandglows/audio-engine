@@ -1,0 +1,19 @@
+{
+  "kind": "private_a0_admin_heap_trace_review",
+  "trace": "A0Heap-20261007-130059-20868.etl",
+  "sha256": "14C5907C60E3206C7131D65F23056A002ADAE7FD6258FB3FD00A3076968BCF5A",
+  "configured_target_pid": 20868,
+  "start_utc": "2026-10-07T11:03:07.9454863Z",
+  "end_utc": "2026-10-07T11:04:08.5833819Z",
+  "session_seconds": 60.6378956,
+  "retained_event_span_seconds": 1.7309957,
+  "lost_buffers": 0,
+  "lost_events": 0,
+  "event_counts": { "total": 107179, "heap_provider": 107083, "heap_alloc": 50889, "heap_realloc": 346, "heap_free": 51569 },
+  "analysis": "Local xperf tracestats and dumper; derived files under build/audio_analysis_a0/wpr-20868-*",
+  "pid_attribution": "Profile targets 20868; xperf allocation rows resolve process as Unknown (-1), and heap -pid 20868 -totals produced no output. Filename and stop annotation are not independent event PID verification.",
+  "coverage_limit": "Memory circular buffers retained only the final event tail. Zero lost events does not prove coverage of the full session.",
+  "proof": "Administrator WPR start/stop and saved heap events succeeded. Global transient allocation caps, retained-live heap peak and Dart managed allocations are not validated by this capture.",
+  "previous_trace": "A0Heap-previous-20261007-130306.etl preserved separately; target PID not verified",
+  "a0_validated": false
+}

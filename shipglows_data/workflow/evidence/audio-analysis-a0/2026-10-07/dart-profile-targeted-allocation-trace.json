@@ -1,0 +1,29 @@
+﻿{
+    "kind":  "a0_targeted_dart_allocation_trace",
+    "utc":  "2026-10-07T06:33:43.0339134Z",
+    "trace_seconds":  15,
+    "classes":  [
+                    {
+                        "name":  "CompactHop",
+                        "sample_count":  1502,
+                        "returned_samples":  1502,
+                        "time_origin_micros":  41876577943,
+                        "time_extent_micros":  15006871
+                    },
+                    {
+                        "name":  "AnalysisRecord",
+                        "sample_count":  2714,
+                        "returned_samples":  2714,
+                        "time_origin_micros":  41876577887,
+                        "time_extent_micros":  27678739
+                    }
+                ],
+    "errors":  [
+
+               ],
+    "restored":  [
+                     "CompactHop",
+                     "AnalysisRecord"
+                 ],
+    "limits":  "Separate diagnostic run; tracing changes overhead. Target classes only, no total bytes or exhaustive allocation throughput claim. Empty traces are inconclusive."
+}

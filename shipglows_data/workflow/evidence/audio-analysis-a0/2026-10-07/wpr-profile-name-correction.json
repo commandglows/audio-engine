@@ -1,0 +1,20 @@
+﻿{
+    "kind":  "private_a0_wpr_profile_argument_correction",
+    "observed_local":  "2026-10-07 12:53 Europe/Paris",
+    "diagnostic_pid":  29756,
+    "diagnostic_process_path":  "C:/Users/Diane/ShipGlows/beatglows/spikes/audio_analysis_a0/build/windows/x64/runner/Profile/audio_analysis_a0.exe",
+    "incorrect_command_suffix":  "A0Heap.Verbose.Memory",
+    "incorrect_command_result":  "WPR error 0xc5600611: Profile element could not be found in the profile file",
+    "corrected_cli_profile_name":  "A0Heap.Verbose",
+    "profile_details_result":  "WPR -profiledetails accepted the generated profile and resolved Profile A0Heap.Verbose.Memory, 128 KiB x 64 buffers",
+    "trace_status_after_failure":  "WPR is not recording",
+    "corrected_command_attempt":  {
+                                      "command_profile_variable":  "$profile",
+                                      "result":  "WPR error 0x80070002: The system cannot find the file specified",
+                                      "wpr_status_after_failure":  "WPR is not recording",
+                                      "diagnostic_pid_still_live_at_observation":  29756,
+                                      "diagnostic_phase":  "The 300-second ON-only A0_RESULT had already completed"
+                                  },
+    "corrected_start_stop_result":  "Subsequent PID 20868 administrator recording saved successfully; see wpr-20868-trace-review.json for coverage and attribution limitations",
+    "limits":  "Initial failed commands collected no trace. The subsequent memory recording retains only a short tail and does not validate global allocation caps."
+}

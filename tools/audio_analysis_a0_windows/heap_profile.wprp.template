@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WindowsPerformanceRecorder Version="1.0" Author="ShipGlows">
+  <Profiles>
+    <HeapEventCollector Id="A0HeapCollector" Name="ShipGlows A0 Heap">
+      <BufferSize Value="128" />
+      <Buffers Value="64" />
+    </HeapEventCollector>
+    <HeapEventProvider Id="A0HeapProvider">
+      <HeapProcessIds>
+        <HeapProcessId Value="__PROBE_PID__" />
+      </HeapProcessIds>
+    </HeapEventProvider>
+    <Profile Id="A0Heap.Verbose.Memory" Name="A0Heap" Description="Private A0 process heap events only" LoggingMode="Memory" DetailLevel="Verbose">
+      <Collectors>
+        <HeapEventCollectorId Value="A0HeapCollector">
+          <HeapEventProviders>
+            <HeapEventProviderId Value="A0HeapProvider" />
+          </HeapEventProviders>
+        </HeapEventCollectorId>
+      </Collectors>
+    </Profile>
+    <Profile Id="A0Heap.Verbose.File" Name="A0Heap" Description="Private A0 process heap events only" LoggingMode="File" DetailLevel="Verbose">
+      <Collectors>
+        <HeapEventCollectorId Value="A0HeapCollector">
+          <HeapEventProviders>
+            <HeapEventProviderId Value="A0HeapProvider" />
+          </HeapEventProviders>
+        </HeapEventCollectorId>
+      </Collectors>
+    </Profile>
+  </Profiles>
+</WindowsPerformanceRecorder>

@@ -151,6 +151,8 @@ class ShipglowsAudioPlaybackStatus {
     this.devicePeriodMicroseconds = 0,
     this.minimumDevicePeriodMicroseconds = 0,
     this.outputEndpointName = '',
+    this.sampleRate = 0,
+    this.endpointPeriod100ns = 0,
   });
 
   factory ShipglowsAudioPlaybackStatus.fromMap(Map<Object?, Object?> map) =>
@@ -174,6 +176,9 @@ class ShipglowsAudioPlaybackStatus {
         minimumDevicePeriodMicroseconds:
             (map['minimumDevicePeriodMicroseconds'] as num?)?.toInt() ?? 0,
         outputEndpointName: map['outputEndpointName'] as String? ?? '',
+        sampleRate: (map['sampleRate'] as num?)?.toInt() ?? 0,
+        endpointPeriod100ns:
+            (map['endpointPeriod100ns'] as num?)?.toInt() ?? 0,
       );
 
   final int generation;
@@ -203,6 +208,9 @@ class ShipglowsAudioPlaybackStatus {
 
   /// Friendly name of the endpoint opened by the last successful start.
   final String outputEndpointName;
+
+  final int sampleRate;
+  final int endpointPeriod100ns;
 }
 
 /// Bounded, optional DSP controls for the playback host API v1.

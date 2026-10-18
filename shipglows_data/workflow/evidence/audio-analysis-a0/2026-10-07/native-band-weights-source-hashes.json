@@ -1,0 +1,22 @@
+﻿[
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\tools\\audio_analysis_a0\\analysis_a0.hpp",
+        "Hash":  "0BA5CEFA98F54D9D27CEAB1DB37E61EDCE67AEDD9AC4BCE5A49B782D748B0263"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\tools\\audio_analysis_a0\\calibration.cpp",
+        "Hash":  "FBDFBE95375AA07710A3ED145DBE2190774C95C40E62AB87C89247F0C356DA4C"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0_baseline_source\\analysis_a0.hpp",
+        "Hash":  "873867F20C9C635BF42F4E04D375839EB4DD9D99A11A7C0E7BFC2369CBDF17A9"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0\\audio_analysis_a0.exe",
+        "Hash":  "51562C2653D1EF87FB53ADD390A6EFF9E40DE1DCE872EB5834C9186950C8DA05"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0_baseline\\audio_analysis_a0.exe",
+        "Hash":  "47F80F6E0D0EE07DA4B46A2B5E0943B136CFA363D6FD1B47A82BEEA68692B018"
+    }
+]

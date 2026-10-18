@@ -105,3 +105,39 @@ product adapter
 
 Update this doc and the code-docs map when a decoder, effect, status field,
 endpoint policy, or platform validation gate changes.
+
+## Private A0 calibration (2026-10-07)
+
+The disposable native analyser is `tools/audio_analysis_a0/`; BeatGlows owns the
+separate `spikes/audio_analysis_a0/` diagnostic app. Only its Windows CMake flag
+`SHIPGLOWS_AUDIO_A0` registers the private `shipglows_audio/a0` channel. Ordinary
+product builds do not instantiate this analyser or synthetic source. The optional
+WASAPI observer admits preallocated storage before audio starts, copies successful
+submitted PCM (including known silence), and never analyses or transforms on the
+callback. Submission failures and queue drops fence continuity; a dropped final
+tail is not padded as clean EOF. Stop now acknowledges the completed command.
+
+The probe uses precomputed 997 Hz stereo anti-phase PCM at amplitude 0.025,
+speed 1.0 and default shared DSP, including the limiter. It exercises the shared
+WASAPI/DSP route, not Media Foundation decoding or either product's player.
+Native reference tests and generated 30-second sequences are separate evidence
+from actual endpoint runs. Both builds and execution use Doppler beatglows/dev.
+
+Render p99 retains the existing coarse power-of-two upper-bound histogram.
+A0 additionally measures render-through-submission/tap; these extra clocks and
+buckets execute only with an observer. A bucket straddling the endpoint period
+does not prove pass or fail. Process CPU, working set and private bytes include
+Flutter; process peak working set is lifetime-wide. `worker_us` includes mutex
+wait plus analysis/transform, excludes queue pop; separate pop/copy, FFT,
+measurement and transform counters identify their own costs. FFT timing is a
+subset of measurement timing, never an additional total.
+
+The private float32 map transfer includes requested physical and visual fields,
+not callback PCM. Its bounded extra codec-size probe adds a measured encoding
+pass to RTT; this overhead is experimental, not a production bridge promise.
+Native context capacity is bounded; native/Dart allocator counts and source-to-
+photon/audible lag are separate proof. Submitted-frame lag is only a labelled
+proxy. Records, configuration, source hashes and interruptions belong in
+`shipglows_data/workflow/evidence/audio-analysis-a0/2026-10-07/`. The canonical
+analysis spec remains draft 1.1.0; no schema freeze or Stage A readiness follows
+from this prototype.

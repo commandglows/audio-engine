@@ -1,0 +1,26 @@
+﻿{
+    "kind":  "private_a0_admin_file_heap_trace_review",
+    "trace":  "A0Heap-file-20261007-131213-20868.etl",
+    "bytes":  569245696,
+    "sha256":  "405688C695CDA971EFB047C254320CF44B1F79216A72B8CF1004A4BCDA465CF9",
+    "configured_target_pid":  20868,
+    "start_utc":  "2026-10-07T11:12:13.9226370Z",
+    "end_utc":  "2026-10-07T11:13:21.3534886Z",
+    "session_seconds":  67.4308516,
+    "retained_event_span_seconds":  67.4308516,
+    "lost_buffers":  0,
+    "lost_events":  0,
+    "event_counts":  {
+                         "total":  9452396,
+                         "heap_provider":  9452302,
+                         "heap_alloc":  4625598,
+                         "heap_realloc":  29050,
+                         "heap_free":  4619670,
+                         "heap_snapshot":  16
+                     },
+    "analysis":  "Local xperf tracestats and heap -totals. Derived files: build/audio_analysis_a0/wpr-file-20868-tracestats.txt and wpr-file-20868-heap.txt",
+    "coverage":  "File mode fixes the earlier circular-tail limitation: first and last events span the full session, with zero reported event/buffer losses.",
+    "limits":  "Subsequent native ETW/TDH reader verifies PID 20868 for Alloc/Realloc/Free and validates property layouts; see wpr-file-20868-decoded.json. Observed-live ledger excludes blocks already live at capture start and non-heap paths. Original xperf heap totals remain unusable. Active ON phase is not independently paired to a full A0_RESULT log. WPR heap events do not enumerate Dart managed objects within arenas.",
+    "admin_collection_complete":  true,
+    "a0_validated":  false
+}

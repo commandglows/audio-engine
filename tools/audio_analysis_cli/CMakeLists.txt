@@ -1,0 +1,11 @@
+add_library(shipglows_audio_offline_job STATIC offline_job.cpp)
+target_compile_features(shipglows_audio_offline_job PUBLIC cxx_std_20)
+target_include_directories(shipglows_audio_offline_job PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+target_link_libraries(shipglows_audio_offline_job PUBLIC shipglows::audio_engine)
+
+add_executable(shipglows_audio_analysis_cli main.cpp)
+target_compile_features(shipglows_audio_analysis_cli PRIVATE cxx_std_20)
+target_link_libraries(shipglows_audio_analysis_cli PRIVATE
+  shipglows_audio_offline_job)

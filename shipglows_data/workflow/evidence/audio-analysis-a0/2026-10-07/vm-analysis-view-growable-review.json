@@ -1,0 +1,87 @@
+﻿{
+    "kind":  "a0_retained_view_growable_baseline",
+    "runtime":  {
+                    "target_cpu":  "x64",
+                    "target_os":  null,
+                    "vm_name":  "vm"
+                },
+    "initial_view":  {
+                         "utc":  "2026-10-07T11:47:43.5750830Z",
+                         "view_id":  "objects/7/4",
+                         "view_size":  128,
+                         "cursor":  "504",
+                         "latest_published":  "504",
+                         "counters":  {
+                                          "cursor":  "504",
+                                          "latestPublished":  "504",
+                                          "received":  "504",
+                                          "missing":  "0",
+                                          "resyncs":  "0",
+                                          "pcmResets":  "0",
+                                          "compactHopHighWater":  "150"
+                                      },
+                         "latest_id":  "objects/37/4",
+                         "speech_id":  "objects/35/4",
+                         "speech_length":  150,
+                         "speech_class":  "_GrowableList"
+                     },
+    "stability":  {
+                      "same_state_view_reference":  true,
+                      "cursor_unchanged":  true,
+                      "latest_published_unchanged":  true,
+                      "latest_record_unchanged":  true,
+                      "speech_list_unchanged":  true,
+                      "stable":  true,
+                      "initial_speech_element_count":  150,
+                      "final_speech_element_count":  150
+                  },
+    "node_count":  488,
+    "edge_count":  787,
+    "known_size_sum_lower_bound_bytes":  12976,
+    "incomplete_reasons":  [
+                               "growable_list_capacity_backing_not_exposed:objects/35/4"
+                           ],
+    "class_sizes":  [
+                        {
+                            "class":  "AnalysisView",
+                            "objects":  1,
+                            "shallow_bytes":  128
+                        },
+                        {
+                            "class":  "AnalysisRecord",
+                            "objects":  1,
+                            "shallow_bytes":  80
+                        },
+                        {
+                            "class":  "_GrowableList",
+                            "objects":  1,
+                            "shallow_bytes":  32
+                        },
+                        {
+                            "class":  "_Smi",
+                            "objects":  5,
+                            "shallow_bytes":  0
+                        },
+                        {
+                            "class":  "_ImmutableList",
+                            "objects":  3,
+                            "shallow_bytes":  2704
+                        },
+                        {
+                            "class":  "Null",
+                            "objects":  1,
+                            "shallow_bytes":  16
+                        },
+                        {
+                            "class":  "CompactHop",
+                            "objects":  150,
+                            "shallow_bytes":  4800
+                        },
+                        {
+                            "class":  "_Double",
+                            "objects":  326,
+                            "shallow_bytes":  5216
+                        }
+                    ],
+    "limits":  "VM getObject graph excludes hidden growable backing; measured lower bound only, not full client footprint or incoming batch."
+}

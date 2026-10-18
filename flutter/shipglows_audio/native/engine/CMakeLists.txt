@@ -3,6 +3,10 @@ add_library(shipglows_audio_engine STATIC
   src/audio_device_manager.cpp
   src/capture_session.cpp
   src/dsp_chain.cpp
+  src/analysis_stream.cpp
+  src/offline_wav_analysis.cpp
+  src/offline_sidecar.cpp
+  src/visual_transform_contract.cpp
   src/pcm_analysis.cpp
   src/recording_preflight.cpp
   src/segmented_pcm_store.cpp

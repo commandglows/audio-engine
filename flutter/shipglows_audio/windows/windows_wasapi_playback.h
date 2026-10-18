@@ -59,6 +59,9 @@ struct WasapiPlaybackMetrics final {
   // IAudioClient::GetDevicePeriod for the opened endpoint, in 100 ns units.
   std::int64_t default_period_100ns = 0;
   std::int64_t minimum_period_100ns = 0;
+  std::uint64_t endpoint_period_100ns = 0;
+  std::uint64_t max_submission_microseconds = 0;
+  std::uint64_t p99_submission_microseconds = 0;
 };
 
 // Fills `frames` interleaved float frames and returns true on success. False
@@ -68,9 +71,26 @@ using WasapiRenderFunction = bool (*)(float* interleaved, std::uint32_t frames,
                                       std::uint32_t channels,
                                       void* context) noexcept;
 
+// Private A0 observer. Admission runs off the render path before Start;
+// submission is bounded/noexcept and may only copy to preallocated storage.
+struct WasapiA0Observer {
+  bool (*admit)(std::uint32_t max_frames, void*) = nullptr;
+  void (*submitted)(const float*, std::uint32_t, bool, bool, void*) noexcept = nullptr;
+  void* context = nullptr;
+  // Optional private observation, raw device ticks/frequency and correlated QPC
+  // in 100 ns units. Query bracket uses the adapter's steady-clock ns origin.
+  void (*clock)(std::uint64_t ticks, std::uint64_t frequency,
+                std::uint64_t qpc_100ns, std::uint64_t begin_ns,
+                std::uint64_t end_ns, long status, void*) noexcept = nullptr;
+  void (*analysis_submitted)(const float*, std::uint32_t, std::uint64_t,
+                             bool, bool, void*) noexcept = nullptr;
+  void* analysis_context = nullptr;
+};
+
 class WindowsWasapiPlayback final {
  public:
-  WindowsWasapiPlayback(WasapiRenderFunction render, void* context);
+  WindowsWasapiPlayback(WasapiRenderFunction render, void* context,
+                       WasapiA0Observer observer = {});
   ~WindowsWasapiPlayback();
   WindowsWasapiPlayback(const WindowsWasapiPlayback&) = delete;
   WindowsWasapiPlayback& operator=(const WindowsWasapiPlayback&) = delete;
@@ -92,6 +112,10 @@ class WindowsWasapiPlayback final {
 
   WasapiRenderFunction render_;
   void* context_;
+  WasapiA0Observer observer_;
+  std::atomic<std::uint64_t> endpoint_period_100ns_{0};
+  std::atomic<std::uint64_t> max_submission_us_{0};
+  std::array<std::atomic<std::uint64_t>,64> submission_buckets_{};
   mutable std::mutex mutex_;
   std::condition_variable command_cv_;
   std::condition_variable completion_cv_;

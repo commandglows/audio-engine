@@ -1,0 +1,18 @@
+﻿[
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\flutter\\shipglows_audio\\windows\\windows_wasapi_playback.cpp",
+        "Hash":  "EE94D5CE389ACB288F86E8EDE493D2EB5381669BCFB20EA8BA4994D01F098251"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\flutter\\shipglows_audio\\windows\\windows_wasapi_playback.h",
+        "Hash":  "1C4400A20B07A8AAF9D904B4420CBBE484AF0674A5CB53833D2DC5C8392F4FFF"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\flutter\\shipglows_audio\\windows\\a0_windows_probe.h",
+        "Hash":  "2AC20D38CE2DA80138E887F4619C2DA8E80E5993456C675B88A85EA61BCF3068"
+    },
+    {
+        "Path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\build\\windows\\x64\\plugins\\shipglows_audio\\Profile\\shipglows_audio_plugin.dll",
+        "Hash":  "7EAB41F09E28744BAA6E5A164916A4F9C5E7D089E9C02669C13F120F5819C4F2"
+    }
+]

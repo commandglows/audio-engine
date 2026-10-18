@@ -1,0 +1,33 @@
+﻿{
+    "observed_utc":  "2026-10-07T07:30:16.6283378Z",
+    "compiler":  "MSVC 19.44.35229.0",
+    "configuration":  "Release x64",
+    "doppler":  "NONE",
+    "files":  [
+                  {
+                      "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\tools\\audio_analysis_a0\\allocations.cpp",
+                      "Hash":  "0499B443408BCB545BAAD46F58CC07A3BD80F5F5F733FFF3323CC4BDCC0400B8"
+                  },
+                  {
+                      "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\tools\\audio_analysis_a0\\bridge_record.hpp",
+                      "Hash":  "17F9967AF1307E3A99E9014E765B83E63666E8570072047EEFA9C87E508B4164"
+                  },
+                  {
+                      "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\tools\\audio_analysis_a0\\analysis_a0.hpp",
+                      "Hash":  "0BA5CEFA98F54D9D27CEAB1DB37E61EDCE67AEDD9AC4BCE5A49B782D748B0263"
+                  },
+                  {
+                      "Path":  "C:\\Users\\Diane\\ShipGlows\\beatglows\\spikes\\audio_analysis_a0\\windows\\flutter\\ephemeral\\cpp_client_wrapper\\standard_codec.cc",
+                      "Hash":  "3D75B7F17D482E0047672EA5E3CB7ADF309976E7877FD3C5CC04D293BA671641"
+                  },
+                  {
+                      "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0_msvc\\Release\\audio_analysis_a0_allocations.exe",
+                      "Hash":  "DC38A73B7C9F5346917E719A986C2D0571BEA647119611C94BB0185CEFFD7608"
+                  },
+                  {
+                      "Path":  "C:\\Users\\Diane\\ShipGlows\\shipglows-audio-engine\\build\\audio_analysis_a0_msvc\\Release\\audio_analysis_a0_bridge_allocations.exe",
+                      "Hash":  "9B9CCC39705F35E2B8A96BC48FDDF56DC3DDEFFBA54B8E47C2E402D4CDCCB08D"
+                  }
+              ],
+    "limits":  "Standalone single-thread ordinary new/new[] interception only. Excludes aligned allocation, direct malloc, allocator metadata, actual Flutter channel and Dart."
+}

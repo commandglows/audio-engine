@@ -1,0 +1,32 @@
+﻿{
+    "kind":  "private_a0_clock_review",
+    "observed_utc":  "2026-10-07T07:26:05.6478272Z",
+    "completed_phase_count":  2,
+    "phases":  [
+                   {
+                       "enabled":  false,
+                       "elapsed_seconds":  600.001738,
+                       "raw_interval_relative_rate_ppm":  -52.424687966348706,
+                       "raw_final_nominal_residual_ns":  -31401333.333333332,
+                       "native_relative_rate_ppm":  -52.42468796640143,
+                       "max_nominal_residual_ns":  39746833.33331299,
+                       "issues":  [
+
+                                  ],
+                       "status":  "listed_checks_pass"
+                   },
+                   {
+                       "enabled":  true,
+                       "elapsed_seconds":  600.001399,
+                       "raw_interval_relative_rate_ppm":  -150.44305249294749,
+                       "raw_final_nominal_residual_ns":  -90113866.666666672,
+                       "native_relative_rate_ppm":  -150.44305249289903,
+                       "max_nominal_residual_ns":  90130733.33337402,
+                       "issues":  [
+
+                                  ],
+                       "status":  "listed_checks_pass"
+                   }
+               ],
+    "limits":  "Independent endpoint-rate recomputation only. Maximum residual comes from native observations, not raw per-callback replay. No absolute timestamp uncertainty, acoustic latency, production anchor or A0 acceptance claim."
+}

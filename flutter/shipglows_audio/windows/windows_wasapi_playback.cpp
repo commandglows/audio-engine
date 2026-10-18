@@ -32,8 +32,8 @@ inline bool IsDeviceInvalidated(HRESULT hr) noexcept {
 }  // namespace
 
 WindowsWasapiPlayback::WindowsWasapiPlayback(WasapiRenderFunction render,
-                                             void* context)
-    : render_(render), context_(context) {
+                                             void* context, WasapiA0Observer observer)
+    : render_(render), context_(context), observer_(observer) {
   for (auto& bucket : callback_time_buckets_) bucket.store(0, std::memory_order_relaxed);
   worker_ = std::thread(&WindowsWasapiPlayback::Worker, this);
 }
@@ -127,6 +127,15 @@ WasapiPlaybackMetrics WindowsWasapiPlayback::Metrics() const noexcept {
   m.buffer_frames = buffer_frames_.load(std::memory_order_relaxed);
   m.default_period_100ns = default_period_100ns_.load(std::memory_order_relaxed);
   m.minimum_period_100ns = minimum_period_100ns_.load(std::memory_order_relaxed);
+  m.endpoint_period_100ns = endpoint_period_100ns_.load(std::memory_order_relaxed);
+  m.max_submission_microseconds = max_submission_us_.load(std::memory_order_relaxed);
+  if(total) {
+    std::uint64_t cumulative=0;
+    for(std::size_t i=0;i<submission_buckets_.size();++i) {
+      cumulative+=submission_buckets_[i].load(std::memory_order_relaxed);
+      if(cumulative>=(total*99+99)/100){m.p99_submission_microseconds=BucketUpperBound(i);break;}
+    }
+  }
   return m;
 }
 
@@ -173,6 +182,8 @@ void WindowsWasapiPlayback::Worker() {
 
   ComPtr<IAudioClient> client;
   ComPtr<IAudioRenderClient> render_client;
+  ComPtr<IAudioClock> diagnostic_clock;
+  UINT64 diagnostic_frequency = 0;
   WAVEFORMATEXTENSIBLE engine_format{};
   engine_format.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
   engine_format.Format.nChannels = 2;
@@ -189,6 +200,7 @@ void WindowsWasapiPlayback::Worker() {
   bool active = false;
   bool paused = false;
   bool quit = false;
+  std::uint64_t analysis_output_position = 0;
   // Stream failures stop the client on this thread and keep the typed result
   // for Status(). No caller waits for them, so they must not post a command.
   const auto fail_stream = [&](WasapiPlaybackFailure kind, HRESULT hr) {
@@ -196,6 +208,8 @@ void WindowsWasapiPlayback::Worker() {
     active = false;
     paused = false;
     render_client.Reset();
+    diagnostic_clock.Reset();
+    diagnostic_frequency = 0;
     client.Reset();
     sample_rate_.store(0, std::memory_order_relaxed);
     std::lock_guard<std::mutex> lock(mutex_);
@@ -247,6 +261,32 @@ void WindowsWasapiPlayback::Worker() {
       if (!rendered) underruns_.fetch_add(1, std::memory_order_relaxed);
       else std::memcpy(bytes, float_buffer.data(), static_cast<std::size_t>(frames) * channels * sizeof(float));
       hr = render_client->ReleaseBuffer(frames, rendered ? 0 : AUDCLNT_BUFFERFLAGS_SILENT);
+      if (observer_.submitted) observer_.submitted(rendered ? float_buffer.data() : nullptr,
+          frames, !rendered, SUCCEEDED(hr), observer_.context);
+      if (observer_.analysis_submitted) {
+        observer_.analysis_submitted(rendered ? float_buffer.data() : nullptr,
+            frames, analysis_output_position, !rendered, SUCCEEDED(hr),
+            observer_.analysis_context);
+      }
+      if (analysis_output_position <= UINT64_MAX - frames)
+        analysis_output_position += frames;
+      if (observer_.clock && diagnostic_clock) {
+        UINT64 position=0,qpc=0;
+        const auto begin_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        const HRESULT clock_hr=diagnostic_clock->GetPosition(&position,&qpc);
+        const auto end_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        observer_.clock(position,diagnostic_frequency,qpc,static_cast<std::uint64_t>(begin_ns),static_cast<std::uint64_t>(end_ns),clock_hr,observer_.context);
+      }
+      if (observer_.submitted) {
+      const auto submission_us = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::steady_clock::now() - begin).count());
+      std::size_t submission_bucket=0;
+      for(auto value=submission_us;value>1 && submission_bucket<63;value>>=1)++submission_bucket;
+      submission_buckets_[submission_bucket].fetch_add(1,std::memory_order_relaxed);
+      // One writer (this WASAPI thread), readers only sample the metric.
+      if (submission_us > max_submission_us_.load(std::memory_order_relaxed))
+        max_submission_us_.store(submission_us, std::memory_order_relaxed);
+      }
       if (FAILED(hr)) {
         if (IsDeviceInvalidated(hr)) {
           fail_stream(WasapiPlaybackFailure::device_unavailable, hr);
@@ -274,8 +314,14 @@ void WindowsWasapiPlayback::Worker() {
       active = false;
       paused = false;
       render_client.Reset();
+      diagnostic_clock.Reset();diagnostic_frequency=0;
       client.Reset();
       sample_rate_.store(0, std::memory_order_relaxed);
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        completed_id_ = id;
+      }
+      completion_cv_.notify_all();
       if (quit) break;
       {
         // An explicit stop quiesces the callback; it also clears a stream
@@ -312,6 +358,13 @@ void WindowsWasapiPlayback::Worker() {
       if (result && FAILED(hr)) result = Failure(WasapiPlaybackFailure::initialization_failed, hr);
       if (result) hr = client->GetService(IID_PPV_ARGS(&render_client));
       if (result && FAILED(hr)) result = Failure(WasapiPlaybackFailure::initialization_failed, hr);
+      if (result && observer_.clock) {
+        diagnostic_clock.Reset();diagnostic_frequency=0;
+        if (SUCCEEDED(client->GetService(IID_PPV_ARGS(&diagnostic_clock)))) {
+          if (FAILED(diagnostic_clock->GetFrequency(&diagnostic_frequency)) || !diagnostic_frequency)
+            diagnostic_clock.Reset();
+        }
+      }
       UINT32 buffer_frames = 0;
       if (result) hr = client->GetBufferSize(&buffer_frames);
       if (result && FAILED(hr)) result = Failure(WasapiPlaybackFailure::initialization_failed, hr);
@@ -334,10 +387,23 @@ void WindowsWasapiPlayback::Worker() {
         PropVariantClear(&name);
       }
       if (result) {
+        REFERENCE_TIME period = 0;
+        if (SUCCEEDED(client->GetDevicePeriod(&period, nullptr)))
+          endpoint_period_100ns_.store(static_cast<std::uint64_t>(period), std::memory_order_relaxed);
+        try {
+          if (observer_.admit && !observer_.admit(buffer_frames, observer_.context))
+            result = Failure(WasapiPlaybackFailure::initialization_failed, E_OUTOFMEMORY);
+        } catch(...) {
+          result = Failure(WasapiPlaybackFailure::initialization_failed, E_OUTOFMEMORY);
+        }
+      }
+      if (result) {
         float_buffer.resize(static_cast<std::size_t>(buffer_frames) * channels);
         BYTE* initial = nullptr;
         hr = render_client->GetBuffer(buffer_frames, &initial);
         if (SUCCEEDED(hr)) hr = render_client->ReleaseBuffer(buffer_frames, AUDCLNT_BUFFERFLAGS_SILENT);
+        if (observer_.submitted) observer_.submitted(nullptr, buffer_frames, true,
+            SUCCEEDED(hr), observer_.context);
         if (FAILED(hr)) result = Failure(WasapiPlaybackFailure::initialization_failed, hr);
       }
       if (result) hr = client->Start();
@@ -351,6 +417,7 @@ void WindowsWasapiPlayback::Worker() {
         default_period_100ns_.store(default_period, std::memory_order_relaxed);
         minimum_period_100ns_.store(minimum_period, std::memory_order_relaxed);
       } else {
+        diagnostic_clock.Reset();diagnostic_frequency=0;
         client.Reset(); render_client.Reset();
       }
       {
@@ -376,6 +443,7 @@ void WindowsWasapiPlayback::Worker() {
     }
   }
   if (client) client->Stop();
+  diagnostic_clock.Reset();
   CloseHandle(audio_event);
   CloseHandle(control_event);
   control_event_.store(nullptr, std::memory_order_relaxed);
