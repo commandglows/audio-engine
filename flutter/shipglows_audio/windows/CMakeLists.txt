@@ -29,6 +29,8 @@ list(APPEND PLUGIN_SOURCES
   "shipglows_audio_plugin.h"
   "windows_wasapi_capture.cpp"
   "windows_wasapi_playback.cpp"
+  "windows_output_bus.cpp"
+  "windows_output_bus.h"
   "windows_mf_decoder.cpp"
   "windows_wasapi_sources.cpp"
   "windows_wasapi_capture.h"

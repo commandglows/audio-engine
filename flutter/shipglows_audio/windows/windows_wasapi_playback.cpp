@@ -7,6 +7,7 @@
 
 #include <windows.h>
 #include <audioclient.h>
+#include <avrt.h>
 #include <mmdeviceapi.h>
 #include <ksmedia.h>
 #include <propkeydef.h>
@@ -32,8 +33,9 @@ inline bool IsDeviceInvalidated(HRESULT hr) noexcept {
 }  // namespace
 
 WindowsWasapiPlayback::WindowsWasapiPlayback(WasapiRenderFunction render,
-                                             void* context, WasapiA0Observer observer)
-    : render_(render), context_(context), observer_(observer) {
+                                             void* context, WasapiA0Observer observer,
+                                             bool low_latency)
+    : render_(render), context_(context), observer_(observer), low_latency_(low_latency) {
   for (auto& bucket : callback_time_buckets_) bucket.store(0, std::memory_order_relaxed);
   worker_ = std::thread(&WindowsWasapiPlayback::Worker, this);
 }
@@ -128,6 +130,10 @@ WasapiPlaybackMetrics WindowsWasapiPlayback::Metrics() const noexcept {
   m.default_period_100ns = default_period_100ns_.load(std::memory_order_relaxed);
   m.minimum_period_100ns = minimum_period_100ns_.load(std::memory_order_relaxed);
   m.endpoint_period_100ns = endpoint_period_100ns_.load(std::memory_order_relaxed);
+  m.engine_period_frames = engine_period_frames_.load(std::memory_order_relaxed);
+  m.target_fill_frames = target_fill_frames_.load(std::memory_order_relaxed);
+  m.low_latency = low_latency_active_.load(std::memory_order_relaxed);
+  m.stream_latency_100ns = stream_latency_100ns_.load(std::memory_order_relaxed);
   m.max_submission_microseconds = max_submission_us_.load(std::memory_order_relaxed);
   if(total) {
     std::uint64_t cumulative=0;
@@ -160,12 +166,17 @@ void WindowsWasapiPlayback::Worker() {
     return;
   }
 
+  // MMCSS keeps the render deadline under CPU load. Without it the thread
+  // still runs at normal priority, so a failure is not fatal.
+  DWORD mmcss_task = 0;
+  HANDLE mmcss = AvSetMmThreadCharacteristicsW(L"Pro Audio", &mmcss_task);
   HANDLE control_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
   HANDLE audio_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
   if (!control_event || !audio_event) {
     const HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
     if (control_event) CloseHandle(control_event);
     if (audio_event) CloseHandle(audio_event);
+    if (mmcss) AvRevertMmThreadCharacteristics(mmcss);
     CoUninitialize();
     std::lock_guard<std::mutex> lock(mutex_);
     result_ = Failure(WasapiPlaybackFailure::initialization_failed, hr);
@@ -201,6 +212,9 @@ void WindowsWasapiPlayback::Worker() {
   bool paused = false;
   bool quit = false;
   std::uint64_t analysis_output_position = 0;
+  // Low-latency streams keep at most one engine period plus a quarter queued
+  // instead of the whole shared buffer; zero means fill the whole buffer.
+  UINT32 target_fill_frames = 0;
   // Stream failures stop the client on this thread and keep the typed result
   // for Status(). No caller waits for them, so they must not post a command.
   const auto fail_stream = [&](WasapiPlaybackFailure kind, HRESULT hr) {
@@ -229,6 +243,8 @@ void WindowsWasapiPlayback::Worker() {
         UINT32 total = 0;
         hr = client->GetBufferSize(&total);
         if (SUCCEEDED(hr)) frames = total > padding ? total - padding : 0;
+        if (SUCCEEDED(hr) && target_fill_frames != 0)
+          frames = padding >= target_fill_frames ? 0 : (std::min)(frames, target_fill_frames - padding);
       }
       if (FAILED(hr)) {
         fail_stream(IsDeviceInvalidated(hr) ? WasapiPlaybackFailure::device_unavailable
@@ -346,7 +362,31 @@ void WindowsWasapiPlayback::Worker() {
       if (result) hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                                        reinterpret_cast<void**>(client.GetAddressOf()));
       if (result && FAILED(hr)) result = Failure(WasapiPlaybackFailure::device_unavailable, hr);
-      if (result) {
+      bool low_latency_granted = false;
+      UINT32 granted_period_frames = 0;
+      if (result && low_latency_) {
+        // InitializeSharedAudioStream cannot convert formats: it succeeds only
+        // when the shared engine accepts 48 kHz float stereo as is. A failed
+        // attempt leaves this client unusable, so reactivate a fresh one.
+        ComPtr<IAudioClient3> client3;
+        UINT32 default_frames = 0, fundamental_frames = 0, min_frames = 0, max_frames = 0;
+        if (SUCCEEDED(client.As(&client3)) &&
+            SUCCEEDED(client3->GetSharedModeEnginePeriod(&engine_format.Format, &default_frames,
+                &fundamental_frames, &min_frames, &max_frames)) && min_frames != 0 &&
+            SUCCEEDED(client3->InitializeSharedAudioStream(AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+                min_frames, &engine_format.Format, nullptr))) {
+          low_latency_granted = true;
+          granted_period_frames = min_frames;
+          channels = 2;
+        } else {
+          client3.Reset();
+          client.Reset();
+          hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                                reinterpret_cast<void**>(client.GetAddressOf()));
+          if (FAILED(hr)) result = Failure(WasapiPlaybackFailure::device_unavailable, hr);
+        }
+      }
+      if (result && !low_latency_granted) {
         channels = 2;
         hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED,
               AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_NOPERSIST |
@@ -411,6 +451,16 @@ void WindowsWasapiPlayback::Worker() {
       active = static_cast<bool>(result);
       paused = false;
       if (result) {
+        REFERENCE_TIME stream_latency = 0;
+        if (FAILED(client->GetStreamLatency(&stream_latency))) stream_latency = 0;
+        if (!low_latency_granted)
+          granted_period_frames = static_cast<UINT32>((default_period * 48000 + 5'000'000) / 10'000'000);
+        engine_period_frames_.store(granted_period_frames, std::memory_order_relaxed);
+        target_fill_frames = low_latency_ && granted_period_frames != 0
+            ? (std::min<UINT32>)(buffer_frames, granted_period_frames + granted_period_frames / 4) : 0;
+        target_fill_frames_.store(target_fill_frames, std::memory_order_relaxed);
+        low_latency_active_.store(low_latency_granted, std::memory_order_relaxed);
+        stream_latency_100ns_.store(stream_latency, std::memory_order_relaxed);
         sample_rate_.store(48000, std::memory_order_relaxed);
         channels_.store(channels, std::memory_order_relaxed);
         buffer_frames_.store(buffer_frames, std::memory_order_relaxed);
@@ -447,6 +497,7 @@ void WindowsWasapiPlayback::Worker() {
   CloseHandle(audio_event);
   CloseHandle(control_event);
   control_event_.store(nullptr, std::memory_order_relaxed);
+  if (mmcss) AvRevertMmThreadCharacteristics(mmcss);
   CoUninitialize();
 }
 

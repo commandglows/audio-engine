@@ -6,6 +6,9 @@ option(SHIPGLOWS_AUDIO_BUILD_TESTS "Build native engine tests" ON)
 
 add_subdirectory(flutter/shipglows_audio/native/engine)
 add_subdirectory(tools/audio_analysis_cli)
+if(WIN32)
+  add_subdirectory(tools/synth_latency_probe)
+endif()
 
 if(SHIPGLOWS_AUDIO_BUILD_TESTS)
   enable_testing()

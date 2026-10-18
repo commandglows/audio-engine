@@ -62,6 +62,14 @@ struct WasapiPlaybackMetrics final {
   std::uint64_t endpoint_period_100ns = 0;
   std::uint64_t max_submission_microseconds = 0;
   std::uint64_t p99_submission_microseconds = 0;
+  // Shared-engine period actually granted to this stream, in frames, and
+  // whether it came from IAudioClient3 low-latency initialization.
+  std::uint32_t engine_period_frames = 0;
+  // Frames kept queued in the shared buffer; zero when the whole buffer is used.
+  std::uint32_t target_fill_frames = 0;
+  bool low_latency = false;
+  // IAudioClient::GetStreamLatency, in 100 ns units.
+  std::int64_t stream_latency_100ns = 0;
 };
 
 // Fills `frames` interleaved float frames and returns true on success. False
@@ -89,8 +97,10 @@ struct WasapiA0Observer {
 
 class WindowsWasapiPlayback final {
  public:
+  // `low_latency` requests the smallest shared-engine period through
+  // IAudioClient3 and falls back to the default period when unavailable.
   WindowsWasapiPlayback(WasapiRenderFunction render, void* context,
-                       WasapiA0Observer observer = {});
+                       WasapiA0Observer observer = {}, bool low_latency = false);
   ~WindowsWasapiPlayback();
   WindowsWasapiPlayback(const WindowsWasapiPlayback&) = delete;
   WindowsWasapiPlayback& operator=(const WindowsWasapiPlayback&) = delete;
@@ -113,6 +123,11 @@ class WindowsWasapiPlayback final {
   WasapiRenderFunction render_;
   void* context_;
   WasapiA0Observer observer_;
+  bool low_latency_ = false;
+  std::atomic<std::uint32_t> engine_period_frames_{0};
+  std::atomic<std::uint32_t> target_fill_frames_{0};
+  std::atomic<bool> low_latency_active_{false};
+  std::atomic<std::int64_t> stream_latency_100ns_{0};
   std::atomic<std::uint64_t> endpoint_period_100ns_{0};
   std::atomic<std::uint64_t> max_submission_us_{0};
   std::array<std::atomic<std::uint64_t>,64> submission_buckets_{};

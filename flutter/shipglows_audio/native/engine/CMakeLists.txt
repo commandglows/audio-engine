@@ -29,6 +29,18 @@ else()
   target_compile_options(shipglows_audio_engine PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+# The render callback runs this code under a hard deadline in every build
+# configuration: unoptimized, the true-peak limiter alone costs about 6.4 ms
+# per 10 ms block. Debug consumers keep their runtime and iterator ABI; only
+# code generation is optimized. These flag edits are scoped to this directory.
+if(MSVC)
+  string(REGEX REPLACE "/RTC[1csu]*" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  string(REPLACE "/Od" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  target_compile_options(shipglows_audio_engine PRIVATE $<$<CONFIG:Debug>:/O2>)
+else()
+  target_compile_options(shipglows_audio_engine PRIVATE $<$<CONFIG:Debug>:-O2>)
+endif()
+
 set_target_properties(shipglows_audio_engine PROPERTIES
   POSITION_INDEPENDENT_CODE ON
 )

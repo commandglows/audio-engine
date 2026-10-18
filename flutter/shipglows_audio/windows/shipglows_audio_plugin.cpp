@@ -36,11 +36,13 @@
 
 #include "shipglows/audio/engine_info.hpp"
 #include "shipglows/audio/dsp_chain.hpp"
+#include "shipglows/audio/synth_engine.hpp"
 #include "shipglows/audio/visual_analysis_wire.hpp"
 #include "shipglows/audio/visual_transform_contract.hpp"
 #include "windows_wasapi_capture.h"
 #include "windows_mf_decoder.h"
 #include "windows_wasapi_playback.h"
+#include "windows_output_bus.h"
 #ifdef SHIPGLOWS_AUDIO_A0
 #include "a0_windows_probe.h"
 #endif
@@ -560,7 +562,7 @@ bool ParseEffects(const flutter::MethodCall<flutter::EncodableValue>& call,
 flutter::EncodableValue PlaybackStatusValue(int64_t generation,
     const std::string& state, const WindowsLocalPlayback* source,
     double speed, const std::string& error = {},
-    const WindowsWasapiPlayback* output = nullptr) {
+    const BusPlaybackOutput* output = nullptr) {
   flutter::EncodableMap value;
   const auto output_status = output ? output->Status() : WasapiPlaybackResult{};
   const bool output_failed = output_status.failure != WasapiPlaybackFailure::none;
@@ -664,6 +666,82 @@ bool ParseTransformConfig(const flutter::EncodableValue& value,
   return true;
 }
 
+bool SynthApiVersionIsOne(const flutter::MethodCall<flutter::EncodableValue>& call) {
+  int64_t version = 0;
+  return IntegerArgument(call, "synthApiVersion", &version) && version == 1;
+}
+
+bool ParseInstrument(const std::string* name, shipglows::audio::SynthInstrument* instrument) {
+  if (!name || !instrument) return false;
+  if (*name == "piano") {
+    *instrument = shipglows::audio::SynthInstrument::piano;
+    return true;
+  }
+  if (*name == "drums") {
+    *instrument = shipglows::audio::SynthInstrument::drums;
+    return true;
+  }
+  return false;
+}
+
+const char* InstrumentName(shipglows::audio::SynthInstrument instrument) {
+  return instrument == shipglows::audio::SynthInstrument::drums ? "drums" : "piano";
+}
+
+flutter::EncodableValue LatencyValue(const shipglows::audio::SynthLatencyHistogram::Summary& summary) {
+  flutter::EncodableMap value;
+  value[flutter::EncodableValue("count")] = flutter::EncodableValue(static_cast<int64_t>(summary.count));
+  value[flutter::EncodableValue("minMicroseconds")] = flutter::EncodableValue(static_cast<int64_t>(summary.min_us));
+  value[flutter::EncodableValue("meanMicroseconds")] = flutter::EncodableValue(static_cast<int64_t>(summary.mean_us));
+  value[flutter::EncodableValue("p50Microseconds")] = flutter::EncodableValue(static_cast<int64_t>(summary.p50_us));
+  value[flutter::EncodableValue("p95Microseconds")] = flutter::EncodableValue(static_cast<int64_t>(summary.p95_us));
+  value[flutter::EncodableValue("p99Microseconds")] = flutter::EncodableValue(static_cast<int64_t>(summary.p99_us));
+  value[flutter::EncodableValue("maxMicroseconds")] = flutter::EncodableValue(static_cast<int64_t>(summary.max_us));
+  return flutter::EncodableValue(value);
+}
+
+flutter::EncodableValue SynthStatusValue(int64_t generation, bool active,
+                                         const WindowsOutputBus& bus) {
+  const auto& synth = bus.Synth();
+  const auto counters = synth.counters();
+  const auto metrics = bus.Metrics();
+  const auto status = bus.Status();
+  const bool failed = status.failure != WasapiPlaybackFailure::none;
+  flutter::EncodableMap value;
+  const auto put = [&value](const char* key, flutter::EncodableValue item) {
+    value[flutter::EncodableValue(key)] = std::move(item);
+  };
+  put("generation", flutter::EncodableValue(generation));
+  put("state", flutter::EncodableValue(failed ? "error" : (active ? "running" : "stopped")));
+  put("errorCode", flutter::EncodableValue(failed ? WasapiPlaybackFailureCode(status.failure) : ""));
+  put("nativeErrorHresult", flutter::EncodableValue(static_cast<int64_t>(failed ? status.hresult : 0)));
+  put("instrument", flutter::EncodableValue(InstrumentName(synth.instrument())));
+  put("activeVoices", flutter::EncodableValue(static_cast<int64_t>(counters.active_voices)));
+  put("peakActiveVoices", flutter::EncodableValue(static_cast<int64_t>(counters.peak_active_voices)));
+  put("eventsPosted", flutter::EncodableValue(static_cast<int64_t>(counters.posted)));
+  put("eventsRejected", flutter::EncodableValue(static_cast<int64_t>(counters.rejected)));
+  put("eventsApplied", flutter::EncodableValue(static_cast<int64_t>(counters.applied)));
+  put("eventsIgnored", flutter::EncodableValue(static_cast<int64_t>(counters.ignored)));
+  put("stolenVoices", flutter::EncodableValue(static_cast<int64_t>(counters.stolen_voices)));
+  put("queueLatency", LatencyValue(synth.queue_latency()));
+  put("outputLatency", LatencyValue(synth.output_latency()));
+  put("playbackAttached", flutter::EncodableValue(bus.PlaybackAttached()));
+  put("lowLatency", flutter::EncodableValue(metrics.low_latency));
+  put("sampleRate", flutter::EncodableValue(static_cast<int64_t>(metrics.sample_rate)));
+  put("bufferFrames", flutter::EncodableValue(static_cast<int64_t>(metrics.buffer_frames)));
+  put("enginePeriodFrames", flutter::EncodableValue(static_cast<int64_t>(metrics.engine_period_frames)));
+  put("streamLatencyMicroseconds", flutter::EncodableValue(metrics.stream_latency_100ns / 10));
+  const auto timing = bus.Timing();
+  put("queuedFrames", timing.valid ? flutter::EncodableValue(static_cast<int64_t>(timing.queued_frames))
+                                   : flutter::EncodableValue());
+  put("callbacks", flutter::EncodableValue(static_cast<int64_t>(metrics.callbacks)));
+  put("underruns", flutter::EncodableValue(static_cast<int64_t>(metrics.underruns)));
+  put("p99CallbackMicroseconds", flutter::EncodableValue(static_cast<int64_t>(metrics.p99_callback_microseconds)));
+  put("maxCallbackMicroseconds", flutter::EncodableValue(static_cast<int64_t>(metrics.max_callback_microseconds)));
+  put("outputEndpointName", flutter::EncodableValue(Utf8String(bus.EndpointName())));
+  return flutter::EncodableValue(value);
+}
+
 }  // namespace
 
 // static
@@ -740,7 +818,8 @@ void ShipglowsAudioPlugin::RegisterWithRegistrar(
 ShipglowsAudioPlugin::ShipglowsAudioPlugin(
     flutter::PluginRegistrarWindows* registrar)
     : registrar_(registrar),
-      capture_(std::make_unique<WindowsWasapiCapture>()) {
+      capture_(std::make_unique<WindowsWasapiCapture>()),
+      output_bus_(std::make_unique<WindowsOutputBus>(true)) {
   if (registrar_ != nullptr) {
     window_proc_delegate_id_ = registrar_->RegisterTopLevelWindowProcDelegate(
         [this](HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -752,6 +831,7 @@ ShipglowsAudioPlugin::ShipglowsAudioPlugin(
 ShipglowsAudioPlugin::~ShipglowsAudioPlugin() {
   playback_output_.reset();
   ClearAnalysisStream(false);
+  output_bus_.reset();
   playback_.reset();
   if (registrar_ != nullptr && window_proc_delegate_id_ >= 0) {
     registrar_->UnregisterTopLevelWindowProcDelegate(window_proc_delegate_id_);
@@ -759,12 +839,23 @@ ShipglowsAudioPlugin::~ShipglowsAudioPlugin() {
 }
 
 void ShipglowsAudioPlugin::ClearAnalysisStream(bool clean_eof) {
-  analysis_stream_tap_.exchange(nullptr, std::memory_order_seq_cst);
-  while (analysis_callbacks_active_.load(std::memory_order_seq_cst) != 0)
-    std::this_thread::yield();
+  if (output_bus_) output_bus_->ClearAnalysisStream();
   if (analysis_stream_) analysis_stream_->stop(clean_eof);
   analysis_stream_.reset();
   analysis_lease_stopped_ = true;
+}
+
+void ShipglowsAudioPlugin::ReleasePlaybackAnalysisLease(bool clean_eof) {
+  if (analysis_source_ != AnalysisSource::playback_output) return;
+  ClearAnalysisStream(clean_eof);
+  analysis_source_ = AnalysisSource::none;
+  analysis_generation_ = 0;
+  analysis_lease_id_.clear();
+  analysis_stream_id_.clear();
+  analysis_source_identity_.clear();
+  analysis_profile_.clear();
+  analysis_transform_digest_.clear();
+  analysis_feature_mask_ = 0;
 }
 
 std::optional<LRESULT> ShipglowsAudioPlugin::HandleWindowProc(
@@ -783,9 +874,142 @@ std::optional<LRESULT> ShipglowsAudioPlugin::HandleWindowProc(
   return std::nullopt;
 }
 
+void ShipglowsAudioPlugin::HandleSynthCall(
+    const flutter::MethodCall<flutter::EncodableValue>& method_call,
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  using shipglows::audio::SynthEvent;
+  using shipglows::audio::SynthEventType;
+  const auto& method = method_call.method_name();
+  int64_t generation = 0;
+  if (!SynthApiVersionIsOne(method_call) ||
+      !IntegerArgument(method_call, "generation", &generation) || generation <= 0) {
+    result->Error("unsupported_synth_api", "Synth API version 1 with a positive generation is required.");
+    return;
+  }
+  if (method == "startSynth") {
+    shipglows::audio::SynthInstrument instrument;
+    if (!ExactArguments(method_call, {"synthApiVersion", "generation", "instrument"}) ||
+        !ParseInstrument(StringArgument(method_call, "instrument"), &instrument)) {
+      result->Error("invalid_synth_request", "startSynth requires instrument piano or drums.");
+      return;
+    }
+    if (generation < synth_generation_ || (generation == synth_generation_ && !synth_active_)) {
+      result->Error("stale_synth_generation", "startSynth requires a newer generation.");
+      return;
+    }
+    if (generation > synth_generation_) {
+      // A new synth session ends the previous session's mix analysis lease.
+      if (analysis_source_ == AnalysisSource::output_mix) {
+        ClearAnalysisStream(false);
+        analysis_source_ = AnalysisSource::none;
+        analysis_generation_ = 0;
+      }
+      synth_generation_ = generation;
+    }
+    synth_active_ = true;
+    SynthEvent voice;
+    voice.type = SynthEventType::set_instrument;
+    voice.instrument = instrument;
+    const auto started = output_bus_->StartSynth();
+    if (!started) {
+      synth_active_ = false;
+      result->Error(WasapiPlaybackFailureCode(started.failure), "The shared WASAPI output could not start.");
+      return;
+    }
+    (void)output_bus_->PostSynth(voice);
+    result->Success(SynthStatusValue(synth_generation_, synth_active_, *output_bus_));
+    return;
+  }
+  if (generation != synth_generation_) {
+    result->Error("stale_synth_generation", "The synth command does not match the active generation.");
+    return;
+  }
+  if (method == "getSynthStatus") {
+    if (!ExactArguments(method_call, {"synthApiVersion", "generation"})) {
+      result->Error("invalid_synth_request", "getSynthStatus takes only its version and generation.");
+      return;
+    }
+    result->Success(SynthStatusValue(synth_generation_, synth_active_, *output_bus_));
+    return;
+  }
+  if (method == "stopSynth") {
+    if (!ExactArguments(method_call, {"synthApiVersion", "generation"})) {
+      result->Error("invalid_synth_request", "stopSynth takes only its version and generation.");
+      return;
+    }
+    if (synth_active_) {
+      if (analysis_source_ == AnalysisSource::output_mix) {
+        ClearAnalysisStream(false);
+        analysis_source_ = AnalysisSource::none;
+        analysis_generation_ = 0;
+      }
+      output_bus_->StopSynth();
+      synth_active_ = false;
+    }
+    result->Success(SynthStatusValue(synth_generation_, synth_active_, *output_bus_));
+    return;
+  }
+  if (!synth_active_) {
+    result->Error("stale_synth_generation", "The synth session is stopped.");
+    return;
+  }
+  SynthEvent event;
+  if (method == "noteOn" || method == "noteOff") {
+    const bool on = method == "noteOn";
+    const bool with_instrument = on
+        ? ExactArguments(method_call, {"synthApiVersion", "generation", "midi", "velocity", "instrument"})
+        : ExactArguments(method_call, {"synthApiVersion", "generation", "midi", "instrument"});
+    const bool plain = on
+        ? ExactArguments(method_call, {"synthApiVersion", "generation", "midi", "velocity"})
+        : ExactArguments(method_call, {"synthApiVersion", "generation", "midi"});
+    int64_t midi = -1;
+    double velocity = 0;
+    if ((!with_instrument && !plain) || !IntegerArgument(method_call, "midi", &midi) || midi > 127 ||
+        (on && (!NumberArgument(method_call, "velocity", &velocity) || !std::isfinite(velocity) ||
+                velocity < 0 || velocity > 1)) ||
+        (with_instrument && !ParseInstrument(StringArgument(method_call, "instrument"), &event.instrument))) {
+      result->Error("invalid_synth_request", "Notes need midi 0..127, velocity 0..1 and an optional instrument.");
+      return;
+    }
+    event.type = on ? SynthEventType::note_on : SynthEventType::note_off;
+    event.midi = static_cast<std::uint8_t>(midi);
+    event.velocity = static_cast<float>(velocity);
+    event.use_instrument = with_instrument;
+  } else if (method == "click") {
+    const bool* accent = nullptr;
+    if (ExactArguments(method_call, {"synthApiVersion", "generation", "accent"}))
+      accent = std::get_if<bool>(&ArgumentMap(method_call)->at(flutter::EncodableValue("accent")));
+    if (!accent) {
+      result->Error("invalid_synth_request", "click requires a boolean accent.");
+      return;
+    }
+    event.type = SynthEventType::click;
+    event.accent = *accent;
+  } else if (method == "setVoice") {
+    if (!ExactArguments(method_call, {"synthApiVersion", "generation", "instrument"}) ||
+        !ParseInstrument(StringArgument(method_call, "instrument"), &event.instrument)) {
+      result->Error("invalid_synth_request", "setVoice requires instrument piano or drums.");
+      return;
+    }
+    event.type = SynthEventType::set_instrument;
+  } else {
+    result->NotImplemented();
+    return;
+  }
+  result->Success(flutter::EncodableValue(output_bus_->PostSynth(event)));
+}
+
 void ShipglowsAudioPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  {
+    const auto& name = method_call.method_name();
+    if (name == "startSynth" || name == "stopSynth" || name == "noteOn" || name == "noteOff" ||
+        name == "click" || name == "setVoice" || name == "getSynthStatus") {
+      HandleSynthCall(method_call, std::move(result));
+      return;
+    }
+  }
   if (method_call.method_name() == "getAnalysisCapabilities") {
     if (!ExactArguments(method_call, {"analysisApiVersion"}) ||
         !AnalysisApiVersionIsTwo(method_call)) {
@@ -802,6 +1026,11 @@ void ShipglowsAudioPlugin::HandleMethodCall(
     playback_source[flutter::EncodableValue("available")] = flutter::EncodableValue(true);
     playback_source[flutter::EncodableValue("reason")] = flutter::EncodableValue();
     sources.emplace_back(playback_source);
+    flutter::EncodableMap mix_source;
+    mix_source[flutter::EncodableValue("id")] = flutter::EncodableValue("windows_output_mix_v1");
+    mix_source[flutter::EncodableValue("available")] = flutter::EncodableValue(true);
+    mix_source[flutter::EncodableValue("reason")] = flutter::EncodableValue();
+    sources.emplace_back(mix_source);
     flutter::EncodableMap wav_source;
     wav_source[flutter::EncodableValue("id")] = flutter::EncodableValue("wav_host_v1");
     wav_source[flutter::EncodableValue("available")] = flutter::EncodableValue(false);
@@ -843,11 +1072,24 @@ void ShipglowsAudioPlugin::HandleMethodCall(
         flutter::EncodableList{flutter::EncodableValue("sgav-visual-transform-1")});
     result->Success(flutter::EncodableValue(caps));
   } else if (method_call.method_name() == "startAnalysis") {
-    if (!ExactArguments(method_call, {"analysisApiVersion", "generation", "profile", "featureMask", "transformConfig"}) ||
+    // The optional `source` selects the synth-fenced mix; without it the
+    // lease keeps the original playback-fenced contract.
+    const bool has_source = ExactArguments(method_call,
+        {"analysisApiVersion", "generation", "profile", "featureMask", "transformConfig", "source"});
+    if ((!has_source && !ExactArguments(method_call,
+            {"analysisApiVersion", "generation", "profile", "featureMask", "transformConfig"})) ||
         !AnalysisApiVersionIsTwo(method_call)) {
       result->Error("unsupported_analysis_api", "startAnalysis requires the exact v2 argument map.");
       return;
     }
+    const auto* source_name = has_source ? StringArgument(method_call, "source") : nullptr;
+    if (has_source && (!source_name || (*source_name != "windows_playback_output_v1" &&
+                                        *source_name != "windows_output_mix_v1"))) {
+      result->Error("unsupported_analysis_source", "The analysis source is not supported on Windows.");
+      return;
+    }
+    const auto source = source_name && *source_name == "windows_output_mix_v1"
+        ? AnalysisSource::output_mix : AnalysisSource::playback_output;
     int64_t generation = 0, mask_value = 0;
     const auto* profile = StringArgument(method_call, "profile");
     const auto* arguments = ArgumentMap(method_call);
@@ -859,16 +1101,21 @@ void ShipglowsAudioPlugin::HandleMethodCall(
         ((profile && *profile == "sgav-music-1" && (mask_value == 3 || mask_value == 11)) ||
          (profile && *profile == "sgav-speech-1" && (mask_value == 5 || mask_value == 13)));
     if (!IntegerArgument(method_call, "generation", &generation) || generation <= 0 ||
-        generation != playback_generation_ || !playback_ || !playback_output_) {
-      result->Error("stale_analysis_generation", "Analysis generation must match a loaded playback session.");
+        (source == AnalysisSource::playback_output &&
+         (generation != playback_generation_ || !playback_ || !playback_output_)) ||
+        (source == AnalysisSource::output_mix &&
+         (generation != synth_generation_ || !synth_active_))) {
+      result->Error("stale_analysis_generation", source == AnalysisSource::output_mix
+          ? "Analysis generation must match a running synth session."
+          : "Analysis generation must match a loaded playback session.");
       return;
     }
     if (!mask_valid || !config_valid) {
       result->Error("invalid_analysis_configuration", "Profile, feature mask, and transform configuration must match the v2 contract.");
       return;
     }
-    if (analysis_stream_ && !analysis_lease_stopped_ &&
-        analysis_profile_ == *profile && analysis_feature_mask_ == static_cast<unsigned>(mask_value) &&
+    if (analysis_stream_ && !analysis_lease_stopped_ && analysis_source_ == source &&
+        analysis_generation_ == generation && analysis_profile_ == *profile && analysis_feature_mask_ == static_cast<unsigned>(mask_value) &&
         analysis_transform_digest_ == digest) {
       flutter::EncodableMap lease;
       lease[flutter::EncodableValue("analysis_api_version")] = flutter::EncodableValue(2);
@@ -895,14 +1142,18 @@ void ShipglowsAudioPlugin::HandleMethodCall(
       return;
     }
     analysis_stream_ = std::move(stream);
+    analysis_source_ = source;
+    analysis_generation_ = generation;
+    const std::string source_prefix = source == AnalysisSource::output_mix
+        ? "windows-output-mix" : "windows-playback";
     analysis_lease_id_ = "analysis-lease-" + std::to_string(serial);
-    analysis_stream_id_ = "windows-playback-" + std::to_string(generation) + "-" + std::to_string(serial);
-    analysis_source_identity_ = "windows-playback-v1-" + std::to_string(generation);
+    analysis_stream_id_ = source_prefix + "-" + std::to_string(generation) + "-" + std::to_string(serial);
+    analysis_source_identity_ = source_prefix + "-v1-" + std::to_string(generation);
     analysis_profile_ = *profile;
     analysis_feature_mask_ = static_cast<unsigned>(mask_value);
     analysis_transform_digest_ = digest;
     analysis_lease_stopped_ = false;
-    analysis_stream_tap_.store(analysis_stream_.get(), std::memory_order_seq_cst);
+    output_bus_->SetAnalysisStream(analysis_stream_.get());
     flutter::EncodableMap lease;
     lease[flutter::EncodableValue("analysis_api_version")] = flutter::EncodableValue(2);
     lease[flutter::EncodableValue("generation")] = flutter::EncodableValue(generation);
@@ -924,17 +1175,17 @@ void ShipglowsAudioPlugin::HandleMethodCall(
     }
     int64_t generation = 0, after = 0;
     const auto* lease_id = StringArgument(method_call, "leaseId");
-    if (!IntegerArgument(method_call, "generation", &generation) || generation != playback_generation_ ||
+    if (!IntegerArgument(method_call, "generation", &generation) || generation != analysis_generation_ ||
+        (analysis_source_ == AnalysisSource::playback_output && generation != playback_generation_) ||
         !IntegerArgument(method_call, "afterSequence", &after) ||
         static_cast<std::uint64_t>(after) > 9007199254740991ULL ||
         !lease_id || *lease_id != analysis_lease_id_ || !analysis_stream_) {
       result->Error("stale_analysis_lease", "Analysis lease, generation, or cursor is invalid.");
       return;
     }
-    if (!analysis_lease_stopped_ && playback_ && playback_->completed()) {
-      analysis_stream_tap_.exchange(nullptr, std::memory_order_seq_cst);
-      while (analysis_callbacks_active_.load(std::memory_order_seq_cst) != 0)
-        std::this_thread::yield();
+    const bool playback_lease = analysis_source_ == AnalysisSource::playback_output;
+    if (!analysis_lease_stopped_ && playback_lease && playback_ && playback_->completed()) {
+      output_bus_->ClearAnalysisStream();
       analysis_stream_->stop(true);
       analysis_lease_stopped_ = true;
     }
@@ -945,8 +1196,10 @@ void ShipglowsAudioPlugin::HandleMethodCall(
       result->Error("invalid_analysis_cursor", "Analysis cursor is ahead of the committed producer sequence.");
       return;
     }
-    if (!analysis_lease_stopped_ && playback_state_ == "paused") batch.state = "paused";
-    if (playback_ && playback_->failed()) batch.state = "failed";
+    if (playback_lease && !analysis_lease_stopped_ && playback_state_ == "paused") batch.state = "paused";
+    if (playback_lease && playback_ && playback_->failed()) batch.state = "failed";
+    if (!playback_lease && !analysis_lease_stopped_ &&
+        output_bus_->Status().failure != WasapiPlaybackFailure::none) batch.state = "failed";
     static const auto observation_origin = std::chrono::steady_clock::now();
     const auto observation_ns = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now() - observation_origin).count());
@@ -1009,15 +1262,13 @@ void ShipglowsAudioPlugin::HandleMethodCall(
     }
     int64_t generation = 0;
     const auto* lease_id = StringArgument(method_call, "leaseId");
-    if (!IntegerArgument(method_call, "generation", &generation) || generation != playback_generation_ ||
+    if (!IntegerArgument(method_call, "generation", &generation) || generation != analysis_generation_ ||
         !lease_id || *lease_id != analysis_lease_id_ || !analysis_stream_) {
       result->Error("stale_analysis_lease", "Analysis lease or generation is stale.");
       return;
     }
     if (!analysis_lease_stopped_) {
-      analysis_stream_tap_.exchange(nullptr, std::memory_order_seq_cst);
-      while (analysis_callbacks_active_.load(std::memory_order_seq_cst) != 0)
-        std::this_thread::yield();
+      output_bus_->ClearAnalysisStream();
       analysis_stream_->stop(false);
       analysis_lease_stopped_ = true;
     }
@@ -1174,13 +1425,7 @@ void ShipglowsAudioPlugin::HandleMethodCall(
       return;
     }
     playback_output_.reset();
-    ClearAnalysisStream(false);
-    analysis_lease_id_.clear();
-    analysis_stream_id_.clear();
-    analysis_source_identity_.clear();
-    analysis_profile_.clear();
-    analysis_transform_digest_.clear();
-    analysis_feature_mask_ = 0;
+    ReleasePlaybackAnalysisLease(false);
     playback_.reset();
     auto source = std::make_unique<WindowsLocalPlayback>();
     source->SetSpeed(speed);
@@ -1188,34 +1433,8 @@ void ShipglowsAudioPlugin::HandleMethodCall(
       result->Error("playback_source_open_failed", "The local source could not be opened with the admitted Windows decoder profile.");
       return;
     }
-    WasapiA0Observer observer;
-    observer.analysis_submitted = [](const float* pcm, std::uint32_t frames,
-                                     std::uint64_t position_frames,
-                                     bool render_failed,
-                                     bool submission_succeeded,
-                                     void* context) noexcept {
-      auto* plugin = static_cast<ShipglowsAudioPlugin*>(context);
-      plugin->analysis_callbacks_active_.fetch_add(1, std::memory_order_seq_cst);
-      auto* stream = plugin->analysis_stream_tap_.load(std::memory_order_seq_cst);
-      const bool source_ended = plugin->playback_ &&
-          plugin->playback_->completed() && render_failed;
-      const bool source_failed = plugin->playback_ &&
-          plugin->playback_->failed();
-      if (stream && source_ended) {
-        stream->stop_async(true);
-        plugin->analysis_stream_tap_.store(nullptr, std::memory_order_seq_cst);
-      } else if (stream && source_failed) {
-        stream->stop_async(false);
-        plugin->analysis_stream_tap_.store(nullptr, std::memory_order_seq_cst);
-      } else if (stream) {
-        (void)stream->submit(pcm, frames, position_frames,
-                            render_failed, submission_succeeded);
-      }
-      plugin->analysis_callbacks_active_.fetch_sub(1, std::memory_order_seq_cst);
-    };
-    observer.analysis_context = this;
-    auto output = std::make_unique<WindowsWasapiPlayback>(
-        &WindowsLocalPlayback::Render, source.get(), observer);
+    auto output = std::make_unique<BusPlaybackOutput>(
+        output_bus_.get(), &WindowsLocalPlayback::Render, source.get());
     playback_generation_ = generation;
     playback_speed_ = speed;
     playback_ = std::move(source);
@@ -1280,16 +1499,12 @@ void ShipglowsAudioPlugin::HandleMethodCall(
         result->Error("playback_seek_failed", "The local decoder could not seek to that position.");
         return;
       }
-      if (analysis_stream_) analysis_stream_->mark_discontinuity();
+      if (analysis_stream_ && analysis_source_ == AnalysisSource::playback_output)
+        analysis_stream_->mark_discontinuity();
+      // A paused session stays detached from the bus, so it stays silent.
       if (resume && !playback_output_->Start()) {
         result->Error("playback_output_start_failed", "WASAPI could not resume after seeking.");
         return;
-      }
-      if (stay_paused) {
-        if (!playback_output_->Start() || !playback_output_->Pause()) {
-          result->Error("playback_output_pause_failed", "WASAPI could not restore the paused state after seeking.");
-          return;
-        }
       }
     } else if (method == "playPlayback") {
       if (playback_->completed()) {
@@ -1297,13 +1512,7 @@ void ShipglowsAudioPlugin::HandleMethodCall(
           result->Error("playback_stop_failed", "WASAPI could not restart the completed source.");
           return;
         }
-        ClearAnalysisStream(true);
-        analysis_lease_id_.clear();
-        analysis_stream_id_.clear();
-        analysis_source_identity_.clear();
-        analysis_profile_.clear();
-        analysis_transform_digest_.clear();
-        analysis_feature_mask_ = 0;
+        ReleasePlaybackAnalysisLease(true);
         if (!playback_->Seek(0)) {
           result->Error("playback_seek_failed", "The completed source could not rewind.");
           return;
@@ -1328,13 +1537,7 @@ void ShipglowsAudioPlugin::HandleMethodCall(
         result->Error("playback_stop_failed", "WASAPI could not stop playback.");
         return;
       }
-      ClearAnalysisStream(false);
-      analysis_lease_id_.clear();
-      analysis_stream_id_.clear();
-      analysis_source_identity_.clear();
-      analysis_profile_.clear();
-      analysis_transform_digest_.clear();
-      analysis_feature_mask_ = 0;
+      ReleasePlaybackAnalysisLease(false);
       // StopOutput is a generation boundary: fence all commands from the old
       // playback session as soon as the callback has been quiesced.
       playback_generation_ = generation;
