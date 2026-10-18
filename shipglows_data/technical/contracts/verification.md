@@ -1,10 +1,10 @@
 ---
 artifact: verification_record
 metadata_schema_version: "1.0"
-artifact_version: "1.3.0"
+artifact_version: "1.4.0"
 project: ShipGlows Audio Engine
 created: "2026-08-30"
-updated: "2026-08-31"
+updated: "2026-10-18"
 status: reviewed
 source_skill: sg-docs
 scope: release-candidate-verification
@@ -22,6 +22,7 @@ evidence:
   - "Final validation matrix and two-hour Windows soak recorded on 2026-08-31."
   - "Samsung/Bose physical interruption matrix completed on commit b5a2038d089f02fa5dab01af39d9744d5befc524."
   - "Windows/Senary physical unplug, default-route switch, and suspend/resume matrix completed on the local working tree based on b5a2038d089f02fa5dab01af39d9744d5befc524."
+  - "2026-10-18: real-time synth and shared output bus checks added; results are in ../../workflow/evidence/synth-latency/2026-10-18/README.md."
 next_review: "2026-09-30"
 next_step: "Review and deliver the validated local WASAPI corrections and documentary evidence without absorbing unrelated changes."
 ---
@@ -69,6 +70,36 @@ flutter build windows --debug
 flutter build apk --debug
 Pop-Location
 ```
+
+### Real-time synth and shared output (Windows)
+
+The root CTest suite includes `shipglows_synth_engine_tests` (voices, choke,
+release, polyphony, zero allocations in the render path, latency histograms).
+Run the CLI smoke with an empty `PSModulePath` when CTest is started from
+PowerShell 7, otherwise Windows PowerShell cannot load `Get-FileHash`.
+
+```powershell
+# Plugin gtests, built from the example's Windows CMake tree; the two device
+# tests skip without an active render endpoint.
+cmake --build flutter/shipglows_audio/example/build/windows/x64 --config Debug --target shipglows_audio_test
+flutter/shipglows_audio/example/build/windows/x64/plugins/shipglows_audio/Debug/shipglows_audio_test.exe
+
+# Dart-to-native synth and mix analysis; prints one SYNTH_EVIDENCE JSON line.
+# Run integration test files one at a time on Windows desktop.
+Push-Location flutter/shipglows_audio/example
+flutter test integration_test/synth_integration_test.dart -d windows
+Pop-Location
+
+# Latency and coexistence on the default endpoint (audible clicks).
+cmake --build build/msvc --config Debug --target shipglows_synth_latency_probe
+build/msvc/tools/synth_latency_probe/Debug/shipglows_synth_latency_probe.exe --clicks 100
+build/msvc/tools/synth_latency_probe/Debug/shipglows_synth_latency_probe.exe --clicks 60 --with-playback
+```
+
+Record the endpoint name with every latency figure: Bluetooth presentation
+delay is outside the engine. The probe exits 1 when a click is missing in
+loopback or the playback tone shows a gap. Android synth checks do not exist
+yet.
 
 ### Samsung/Bose physical interruption matrix — 2026-08-31
 
