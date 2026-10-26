@@ -4,7 +4,7 @@ metadata_schema_version: "1.0"
 artifact_version: "1.2.0"
 project: ShipGlows Audio Engine
 created: "2026-08-31"
-updated: "2026-10-18"
+updated: "2026-10-26"
 status: reviewed
 source_skill: sg-docs
 scope: system-overview
@@ -26,6 +26,7 @@ evidence:
   - "Current code and validation evidence were reviewed on 2026-08-31."
   - "2026-10-06: a distinct Windows local-playback surface and documentation route now sit beside capture; BeatGlows completed a ten-minute generated-WAV run, while device-period comparison, ContentGlows runtime proof, and full DSP verification remain open."
   - "2026-10-18: a real-time synthesizer and one shared Windows output bus (playback + synth -> master true-peak limiter -> WASAPI) were added, with an analysis tap of the submitted mix; latency, coexistence and integration evidence is in the synth-latency record. Android synth and wired-endpoint acoustic latency remain open."
+  - "2026-10-26: the synth also plays on Android through its own Oboe stream, reopened on output route changes to regain low latency, with the same output-mix analysis channel API; verified by ear and logcat on a Galaxy S21. Android file playback output and wired-endpoint acoustic latency remain open."
 next_review: "2026-11-30"
 next_step: "Maintain the separate capture and playback contracts as new platform adapters and validation evidence are added."
 ---

@@ -29,12 +29,17 @@ Hardware timestamp queries are performed outside Oboe's data callback. The
 callback only copies PCM into the preallocated SPSC buffer and updates lock-free
 counters.
 
-## Real-time synth (Windows)
+## Real-time synth (Windows, Android)
 
 `ShipglowsSynth` plays General MIDI drums, an FM piano and a metronome click on
 the same output as file playback; the sum goes through one true-peak limiter.
 Note and click calls return without awaiting the platform, so timers can call
-them directly. Android support is pending.
+them directly. On Android the synth plays through its own low-latency Oboe
+stream (no file playback is mixed in); it reopens on an output route change so
+the speaker or wired headphones regain the low-latency path after a Bluetooth
+headset disconnects. `startAnalysis` taps the limited output on both platforms;
+Android accepts the same `windows_output_mix_v1` source id (or
+`android_output_mix_v1`).
 
 ```dart
 final synth = ShipglowsSynth();

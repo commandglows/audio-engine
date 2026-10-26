@@ -4,7 +4,7 @@ metadata_schema_version: "1.0"
 artifact_version: "1.0.0"
 project: ShipGlows Audio Engine
 created: "2026-08-31"
-updated: "2026-08-31"
+updated: "2026-10-26"
 status: reviewed
 source_skill: sg-docs
 scope: platform-adapters
@@ -22,6 +22,7 @@ depends_on: []
 supersedes: []
 evidence:
   - "Windows and Android runtime integrations passed on 2026-08-31."
+  - "2026-10-26: Galaxy S21 showed the Android synth reopening from the A2DP shared path (burst 882) to LowLatency/Exclusive (burst 96, 48 kHz) on the speaker, and live mix analysis batches driving the BeatGlows visualizer."
 next_review: "2026-11-30"
 next_step: "Update after a platform API, route, or Flutter status contract change."
 ---
@@ -40,6 +41,8 @@ Flutter or perform storage/locking work in their real-time callback path.
 | --- | --- | --- |
 | `windows/windows_wasapi_capture.cpp` | event-driven WASAPI capture and recovery | Route monitoring stays outside packet consumption. |
 | `android/src/main/cpp/android_oboe_capture.cpp` | Oboe input callback and recovery | Do not query timestamps from `onAudioReady`. |
+| `android/src/main/cpp/android_oboe_synth_output.cpp` | Oboe synth output, limiter, disconnect recovery, route reopen and analysis tap | `onAudioReady` never locks or allocates; `ClearAnalysisStream` fences the callback before the stream is freed. |
+| `android/src/main/cpp/jni_bridge.cpp` | JNI for capture, synth and mix analysis | Keep the analysis metadata field order synchronized with the Kotlin parser. |
 | `windows/shipglows_audio_plugin.cpp` | Windows status serialization | Keep error/recovery fields backward-compatible. |
 | `android/.../ShipglowsAudioPlugin.kt` | Android status serialization | Keep pipe-field order synchronized with C++. |
 | `lib/shipglows_audio.dart` | Flutter status API | Add default values for additive diagnostics. |
@@ -61,6 +64,8 @@ native packets/callback
 - Route/device recovery creates causal journal checkpoints and lifecycle
   generations rather than appending across an unknown timebase.
 - Oboe hardware timestamps are queried on a non-callback worker.
+- The Android synth stream opened on a Bluetooth A2DP route gets the shared, resampled path and Android may later reroute it without a disconnect. An output `AudioDeviceCallback` (debounced 300 ms) reopens it only when it lacks `LowLatency`; a low-latency stream is left to the disconnect recovery. Every open resets the synth and master chain and marks an analysis discontinuity; analysis positions stay monotonic across reopens.
+- The Android mix analysis lease (generation, ids, profile) lives in Kotlin and is fenced by the synth generation, like the Windows output-mix lease; a new synth generation or `stopSynth` releases it.
 - Flutter receives recoverability information, not raw audio. Device enumeration additionally returns stable local endpoint IDs for explicit selection and preferences; never include these IDs in diagnostics or uploads.
 
 `windows_wasapi_sources.cpp` requests shared float32 stereo 48 kHz conversion for both input and loopback, aligns packets with QPC timestamps, and feeds the existing segmented store through the bounded ring. Dual-source mixing applies half gain per source for headroom. `wasapi_stereo_timeline.h` owns bounded accumulation. Input/output enumeration lists the actual Windows multimedia default first, while saved explicit IDs always remain authoritative.
