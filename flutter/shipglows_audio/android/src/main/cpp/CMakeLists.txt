@@ -14,6 +14,8 @@ endif()
 add_library(shipglows_audio_jni SHARED
   android_oboe_capture.cpp
   android_oboe_capture.h
+  android_oboe_synth_output.cpp
+  android_oboe_synth_output.h
   android_recovery_policy.h
   jni_bridge.cpp
 )

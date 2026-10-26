@@ -2,15 +2,29 @@
 
 #include <filesystem>
 #include <memory>
+#include <cstdint>
 #include <mutex>
 #include <string>
 
 #include "android_oboe_capture.h"
+#include "android_oboe_synth_output.h"
 
 namespace {
 
 std::mutex capture_mutex;
 std::unique_ptr<shipglows_audio::AndroidOboeCapture> capture;
+
+// Created on first use and kept for the process: every synth session reuses
+// the same output, like the shared output bus on Windows.
+std::mutex synth_mutex;
+std::unique_ptr<shipglows_audio::AndroidOboeSynthOutput> synth_output;
+
+shipglows_audio::AndroidOboeSynthOutput& SynthOutput() {
+  if (synth_output == nullptr) {
+    synth_output = std::make_unique<shipglows_audio::AndroidOboeSynthOutput>();
+  }
+  return *synth_output;
+}
 
 std::string FromJavaString(JNIEnv* environment, jstring value) {
   if (value == nullptr) {
@@ -59,4 +73,41 @@ Java_com_commandglows_shipglows_1audio_ShipglowsAudioPlugin_nativeCommand(
                       capture == nullptr
                           ? "idle|0|0|unknown|0|0|0|0|0|"
                           : capture->StatusLine());
+}
+
+// Synth commands: 1 start, 2 stop, anything else returns the status line.
+// A failed start returns the status line with state "error".
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_commandglows_shipglows_1audio_ShipglowsAudioPlugin_nativeSynthCommand(
+    JNIEnv* environment, jobject /*plugin*/, jint command) {
+  std::lock_guard lock(synth_mutex);
+  auto& output = SynthOutput();
+  if (command == 1) {
+    (void)output.Start();
+  } else if (command == 2) {
+    output.Stop();
+  }
+  return ToJavaString(environment, output.StatusLine());
+}
+
+// Queues one synth event; `type` and `instrument` follow SynthEventType and
+// SynthInstrument. Returns false when the output is stopped or the queue full.
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_commandglows_shipglows_1audio_ShipglowsAudioPlugin_nativeSynthPost(
+    JNIEnv* /*environment*/, jobject /*plugin*/, jint type, jint instrument,
+    jboolean use_instrument, jboolean accent, jint midi, jfloat velocity) {
+  using shipglows::audio::SynthEvent;
+  using shipglows::audio::SynthEventType;
+  using shipglows::audio::SynthInstrument;
+  if (type < 0 || type > 4 || midi < 0 || midi > 127) return JNI_FALSE;
+  SynthEvent event;
+  event.type = static_cast<SynthEventType>(type);
+  event.instrument =
+      instrument == 1 ? SynthInstrument::drums : SynthInstrument::piano;
+  event.use_instrument = use_instrument == JNI_TRUE;
+  event.accent = accent == JNI_TRUE;
+  event.midi = static_cast<std::uint8_t>(midi);
+  event.velocity = velocity;
+  std::lock_guard lock(synth_mutex);
+  return SynthOutput().Post(event) ? JNI_TRUE : JNI_FALSE;
 }

@@ -16,6 +16,12 @@ class ShipglowsAudioPlugin :
     FlutterPlugin,
     MethodCallHandler {
     companion object {
+        // SynthEventType values of the native engine.
+        private const val SYNTH_NOTE_ON = 0
+        private const val SYNTH_NOTE_OFF = 1
+        private const val SYNTH_CLICK = 2
+        private const val SYNTH_SET_INSTRUMENT = 3
+
         private val nativeLoaded: Boolean =
             try {
                 System.loadLibrary("shipglows_audio_jni")
@@ -30,6 +36,22 @@ class ShipglowsAudioPlugin :
         sessionDirectory: String?,
         inputDeviceId: Int,
     ): String
+
+    private external fun nativeSynthCommand(command: Int): String
+
+    private external fun nativeSynthPost(
+        type: Int,
+        instrument: Int,
+        useInstrument: Boolean,
+        accent: Boolean,
+        midi: Int,
+        velocity: Float,
+    ): Boolean
+
+    // Synth session fence, as on Windows: a newer generation takes the output
+    // over and commands of any other generation are refused.
+    private var synthGeneration = 0L
+    private var synthActive = false
 
     // The MethodChannel that will the communication between Flutter and native Android
     //
@@ -71,6 +93,8 @@ class ShipglowsAudioPlugin :
         result: Result
     ) {
         when (call.method) {
+            "startSynth", "stopSynth", "noteOn", "noteOff", "click", "setVoice",
+            "getSynthStatus" -> handleSynthCall(call, result)
             "getEngineInfo" ->
                 result.success(
                     mapOf(
@@ -165,6 +189,166 @@ class ShipglowsAudioPlugin :
             "getRecordingStatus" -> runNativeCommand(0, result)
             else -> result.notImplemented()
         }
+    }
+
+    private fun handleSynthCall(
+        call: MethodCall,
+        result: Result,
+    ) {
+        if (!nativeLoaded) {
+            result.error("native_engine_missing", "The native Oboe engine is unavailable.", null)
+            return
+        }
+        val generation = (call.argument<Any>("generation") as? Number)?.toLong() ?: 0L
+        if (call.argument<Int>("synthApiVersion") != 1 || generation <= 0L) {
+            result.error(
+                "unsupported_synth_api",
+                "Synth API version 1 with a positive generation is required.",
+                null,
+            )
+            return
+        }
+        if (call.method == "startSynth") {
+            val instrument = instrumentCode(call.argument<String>("instrument"))
+            if (instrument == null) {
+                result.error("invalid_synth_request", "startSynth requires instrument piano or drums.", null)
+                return
+            }
+            if (generation < synthGeneration || (generation == synthGeneration && !synthActive)) {
+                result.error("stale_synth_generation", "startSynth requires a newer generation.", null)
+                return
+            }
+            synthGeneration = generation
+            val status = synthStatus(nativeSynthCommand(1))
+            if (status["state"] == "error") {
+                synthActive = false
+                result.error(
+                    status["errorCode"] as? String ?: "output_start_failed",
+                    "The native Oboe output could not start.",
+                    null,
+                )
+                return
+            }
+            synthActive = true
+            nativeSynthPost(SYNTH_SET_INSTRUMENT, instrument, false, false, 0, 0f)
+            result.success(status)
+            return
+        }
+        if (generation != synthGeneration) {
+            result.error(
+                "stale_synth_generation",
+                "The synth command does not match the active generation.",
+                null,
+            )
+            return
+        }
+        when (call.method) {
+            "getSynthStatus" -> {
+                result.success(synthStatus(nativeSynthCommand(0)))
+                return
+            }
+            "stopSynth" -> {
+                val line = nativeSynthCommand(if (synthActive) 2 else 0)
+                synthActive = false
+                result.success(synthStatus(line))
+                return
+            }
+        }
+        if (!synthActive) {
+            result.error("stale_synth_generation", "The synth session is stopped.", null)
+            return
+        }
+        when (call.method) {
+            "noteOn", "noteOff" -> {
+                val on = call.method == "noteOn"
+                val midi = call.argument<Int>("midi") ?: -1
+                val velocity = (call.argument<Any>("velocity") as? Number)?.toDouble() ?: 0.0
+                val instrumentName = call.argument<String>("instrument")
+                val instrument = if (instrumentName == null) 0 else instrumentCode(instrumentName)
+                if (midi !in 0..127 || instrument == null ||
+                    (on && (velocity.isNaN() || velocity < 0.0 || velocity > 1.0))
+                ) {
+                    result.error(
+                        "invalid_synth_request",
+                        "Notes need midi 0..127, velocity 0..1 and an optional instrument.",
+                        null,
+                    )
+                    return
+                }
+                result.success(
+                    nativeSynthPost(
+                        if (on) SYNTH_NOTE_ON else SYNTH_NOTE_OFF,
+                        instrument,
+                        instrumentName != null,
+                        false,
+                        midi,
+                        velocity.toFloat(),
+                    ),
+                )
+            }
+            "click" -> {
+                val accent = call.argument<Boolean>("accent")
+                if (accent == null) {
+                    result.error("invalid_synth_request", "click requires a boolean accent.", null)
+                    return
+                }
+                result.success(nativeSynthPost(SYNTH_CLICK, 0, false, accent, 0, 0f))
+            }
+            "setVoice" -> {
+                val instrument = instrumentCode(call.argument<String>("instrument"))
+                if (instrument == null) {
+                    result.error("invalid_synth_request", "setVoice requires instrument piano or drums.", null)
+                    return
+                }
+                result.success(nativeSynthPost(SYNTH_SET_INSTRUMENT, instrument, false, false, 0, 0f))
+            }
+            else -> result.notImplemented()
+        }
+    }
+
+    private fun instrumentCode(name: String?): Int? =
+        when (name) {
+            "piano" -> 0
+            "drums" -> 1
+            else -> null
+        }
+
+    // Maps the native status line (see AndroidOboeSynthOutput::StatusLine) to
+    // the keys ShipglowsSynthStatus.fromMap reads.
+    private fun synthStatus(line: String): Map<String, Any> {
+        val fields = line.split('|')
+        fun number(index: Int): Long = fields.getOrNull(index)?.toLongOrNull() ?: 0L
+        fun latency(p50: Int, p99: Int, max: Int): Map<String, Any> =
+            mapOf(
+                "p50Microseconds" to number(p50),
+                "p99Microseconds" to number(p99),
+                "maxMicroseconds" to number(max),
+            )
+        return mapOf(
+            "generation" to synthGeneration,
+            "state" to (fields.getOrNull(0) ?: "unknown"),
+            "errorCode" to (fields.getOrNull(1) ?: ""),
+            "instrument" to (fields.getOrNull(2) ?: "piano"),
+            "activeVoices" to number(3),
+            "peakActiveVoices" to number(4),
+            "eventsPosted" to number(5),
+            "eventsRejected" to number(6),
+            "eventsApplied" to number(7),
+            "eventsIgnored" to number(8),
+            "stolenVoices" to number(9),
+            "sampleRate" to number(10),
+            "bufferFrames" to number(11),
+            "enginePeriodFrames" to number(12),
+            "lowLatency" to (number(13) == 1L),
+            "callbacks" to number(14),
+            "underruns" to number(15),
+            "maxCallbackMicroseconds" to number(16),
+            "queueLatency" to latency(17, 18, 19),
+            "outputLatency" to latency(20, 21, 22),
+            "streamLatencyMicroseconds" to number(23),
+            "playbackAttached" to false,
+            "outputEndpointName" to "oboe",
+        )
     }
 
     private fun runNativeCommand(
@@ -309,6 +493,10 @@ class ShipglowsAudioPlugin :
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        if (nativeLoaded && synthActive) {
+            nativeSynthCommand(2)
+            synthActive = false
+        }
         selectedInput = null
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         clearCommunicationRoute()
