@@ -40,9 +40,50 @@ bool AndroidOboeSynthOutput::Start() {
     return true;
   }
   CloseLocked();
-  if (OpenLocked()) return true;
+  if (OpenLocked("start")) return true;
   enabled_.store(false, std::memory_order_release);
   return false;
+}
+
+void AndroidOboeSynthOutput::Reroute() {
+  std::lock_guard lock(mutex_);
+  // A missing stream is the recovery thread's business.
+  if (!enabled_.load(std::memory_order_acquire) || stream_ == nullptr) return;
+  // A low-latency stream already has the fast path; Android disconnects it
+  // on a route change, so the recovery thread reopens it when needed.
+  if (stream_->getPerformanceMode() == oboe::PerformanceMode::LowLatency) {
+    return;
+  }
+  const auto previous_device = stream_->getDeviceId();
+  CloseLocked();
+  if (!OpenLocked("route")) return;
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "output rerouted: device %d -> %d, low latency 0 -> %d",
+                      previous_device, stream_->getDeviceId(),
+                      stream_->getPerformanceMode() ==
+                              oboe::PerformanceMode::LowLatency
+                          ? 1
+                          : 0);
+}
+
+void AndroidOboeSynthOutput::SetAnalysisStream(
+    shipglows::audio::AnalysisStream* stream) noexcept {
+  ClearAnalysisStream();
+  analysis_stream_.store(stream, std::memory_order_seq_cst);
+}
+
+void AndroidOboeSynthOutput::ClearAnalysisStream() noexcept {
+  analysis_stream_.exchange(nullptr, std::memory_order_seq_cst);
+  while (analysis_active_.load(std::memory_order_seq_cst) != 0) {
+    std::this_thread::yield();
+  }
+}
+
+bool AndroidOboeSynthOutput::Failed() const {
+  std::lock_guard lock(mutex_);
+  return enabled_.load(std::memory_order_acquire) && !error_code_.empty() &&
+         (stream_ == nullptr ||
+          stream_->getState() != oboe::StreamState::Started);
 }
 
 void AndroidOboeSynthOutput::Stop() {
@@ -73,7 +114,7 @@ bool AndroidOboeSynthOutput::Post(shipglows::audio::SynthEvent event) noexcept {
   return synth_->post(event);
 }
 
-bool AndroidOboeSynthOutput::OpenLocked() {
+bool AndroidOboeSynthOutput::OpenLocked(const char* reason) {
   oboe::AudioStreamBuilder builder;
   builder.setDirection(oboe::Direction::Output)
       ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
@@ -102,6 +143,10 @@ bool AndroidOboeSynthOutput::OpenLocked() {
   // Events queued while the stream was down would otherwise play as a burst.
   synth_->reset();
   master_.reset();
+  // The stream restarts from silence: tell the analysis about the gap.
+  if (auto* analysis = analysis_stream_.load(std::memory_order_seq_cst)) {
+    analysis->mark_discontinuity();
+  }
   stream_ = stream;
   result = stream_->requestStart();
   if (result != oboe::Result::OK) {
@@ -116,8 +161,11 @@ bool AndroidOboeSynthOutput::OpenLocked() {
       latency ? static_cast<std::uint64_t>(latency.value() * 1'000'000.0) : 0,
       std::memory_order_relaxed);
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "output started: %d Hz, %d ch, burst %d, buffer %d, %s, %s",
-                      stream_->getSampleRate(), stream_->getChannelCount(),
+                      "output started (%s): device %d, %d Hz (device %d Hz), "
+                      "%d ch, burst %d, buffer %d, %s, %s",
+                      reason, stream_->getDeviceId(), stream_->getSampleRate(),
+                      stream_->getHardwareSampleRate(),
+                      stream_->getChannelCount(),
                       stream_->getFramesPerBurst(),
                       stream_->getBufferSizeInFrames(),
                       oboe::convertToText(stream_->getPerformanceMode()),
@@ -153,9 +201,15 @@ oboe::DataCallbackResult AndroidOboeSynthOutput::onAudioReady(
     synth_->render_add(output, frames, start_ns,
                        latency_ns == 0 ? 0 : start_ns + latency_ns);
     master_.process(output, frames);
+    analysis_active_.fetch_add(1, std::memory_order_seq_cst);
+    if (auto* analysis = analysis_stream_.load(std::memory_order_seq_cst)) {
+      (void)analysis->submit(output, frames, rendered_frames_, false, true);
+    }
+    analysis_active_.fetch_sub(1, std::memory_order_seq_cst);
   } else {
     std::memset(output, 0, sizeof(float) * frames * channels);
   }
+  rendered_frames_ += frames;
   callbacks_.fetch_add(1, std::memory_order_relaxed);
   const auto elapsed = SteadyNanoseconds() - start_ns;
   auto previous = max_callback_ns_.load(std::memory_order_relaxed);
@@ -185,7 +239,7 @@ void AndroidOboeSynthOutput::onErrorAfterClose(oboe::AudioStream* stream,
           if (!enabled_.load(std::memory_order_acquire) || stream_ != nullptr) {
             return;
           }
-          if (OpenLocked()) return;
+          if (OpenLocked("recovery")) return;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
       }

@@ -5,6 +5,9 @@ import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -21,6 +24,18 @@ class ShipglowsAudioPlugin :
         private const val SYNTH_NOTE_OFF = 1
         private const val SYNTH_CLICK = 2
         private const val SYNTH_SET_INSTRUMENT = 3
+
+        // Mix analysis source ids: the Dart client sends the Windows contract
+        // id, which names the same synth-fenced mixed output on Android.
+        private val OUTPUT_MIX_SOURCES = setOf("windows_output_mix_v1", "android_output_mix_v1")
+        private const val ANALYSIS_RECORD_LAYOUT = "sgav-record-2-compact-speech-1"
+        private const val ANALYSIS_MAX_BLOCK_FRAMES = 16384
+        private const val ANALYSIS_MAX_BATCH_RECORDS = 16
+        private const val ANALYSIS_MAX_RESPONSE_BYTES = 131072
+
+        // Lets Android settle the new route before the stream is reopened.
+        private const val REROUTE_DELAY_MS = 300L
+        private const val LOG_TAG = "shipglows_synth"
 
         private val nativeLoaded: Boolean =
             try {
@@ -39,6 +54,25 @@ class ShipglowsAudioPlugin :
 
     private external fun nativeSynthCommand(command: Int): String
 
+    private external fun nativeSynthReroute()
+
+    private external fun nativeAnalysisStart(
+        featureMask: Int,
+        sensitivityDb: Double,
+        gamma: Double,
+        attackMs: Double,
+        releaseMs: Double,
+        floorDb: Double,
+        ceilingDb: Double,
+    ): String
+
+    private external fun nativeAnalysisStop(release: Boolean)
+
+    private external fun nativeAnalysisPoll(
+        featureMask: Int,
+        afterSequence: Long,
+    ): Array<Any?>
+
     private external fun nativeSynthPost(
         type: Int,
         instrument: Int,
@@ -52,6 +86,28 @@ class ShipglowsAudioPlugin :
     // over and commands of any other generation are refused.
     private var synthGeneration = 0L
     private var synthActive = false
+
+    // Mix analysis lease, fenced by the synth generation like on Windows.
+    private data class AnalysisLease(
+        val generation: Long,
+        val leaseId: String,
+        val streamId: String,
+        val sourceIdentity: String,
+        val profile: String,
+        val featureMask: Int,
+        val config: List<Double>,
+        val digest: String,
+    )
+
+    private var analysisLease: AnalysisLease? = null
+    private var analysisStopped = true
+    private var analysisSerial = 0L
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val rerouteSynth =
+        Runnable {
+            if (nativeLoaded && synthActive) nativeSynthReroute()
+        }
 
     // The MethodChannel that will the communication between Flutter and native Android
     //
@@ -72,10 +128,12 @@ class ShipglowsAudioPlugin :
         object : AudioDeviceCallback() {
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
                 refreshRecoveryRoute()
+                scheduleSynthReroute(addedDevices)
             }
 
             override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
                 refreshRecoveryRoute()
+                scheduleSynthReroute(removedDevices)
             }
         }
 
@@ -95,6 +153,8 @@ class ShipglowsAudioPlugin :
         when (call.method) {
             "startSynth", "stopSynth", "noteOn", "noteOff", "click", "setVoice",
             "getSynthStatus" -> handleSynthCall(call, result)
+            "getAnalysisCapabilities", "startAnalysis", "getAnalysisBatch", "stopAnalysis" ->
+                handleAnalysisCall(call, result)
             "getEngineInfo" ->
                 result.success(
                     mapOf(
@@ -218,6 +278,8 @@ class ShipglowsAudioPlugin :
                 result.error("stale_synth_generation", "startSynth requires a newer generation.", null)
                 return
             }
+            // A new synth session ends the previous session's mix analysis lease.
+            if (generation > synthGeneration) releaseAnalysis()
             synthGeneration = generation
             val status = synthStatus(nativeSynthCommand(1))
             if (status["state"] == "error") {
@@ -248,6 +310,7 @@ class ShipglowsAudioPlugin :
                 return
             }
             "stopSynth" -> {
+                if (synthActive) releaseAnalysis()
                 val line = nativeSynthCommand(if (synthActive) 2 else 0)
                 synthActive = false
                 result.success(synthStatus(line))
@@ -305,6 +368,272 @@ class ShipglowsAudioPlugin :
             else -> result.notImplemented()
         }
     }
+
+    // Output changes Android may apply by silently rerouting the live stream
+    // (Bluetooth headset off: the A2DP-sized stream moves to the speaker), so
+    // the stream is reopened to get the new route's low-latency path.
+    private fun scheduleSynthReroute(devices: Array<out AudioDeviceInfo>) {
+        if (!synthActive || devices.none { it.isSink }) return
+        mainHandler.removeCallbacks(rerouteSynth)
+        mainHandler.postDelayed(rerouteSynth, REROUTE_DELAY_MS)
+    }
+
+    private fun handleAnalysisCall(
+        call: MethodCall,
+        result: Result,
+    ) {
+        if (!nativeLoaded) {
+            result.error("native_engine_missing", "The native Oboe engine is unavailable.", null)
+            return
+        }
+        val arguments = call.arguments as? Map<*, *>
+        val keys = arguments?.keys ?: emptySet<Any?>()
+        if (call.argument<Int>("analysisApiVersion") != 2) {
+            result.error("unsupported_analysis_api", "${call.method} requires the exact v2 argument map.", null)
+            return
+        }
+        when (call.method) {
+            "getAnalysisCapabilities" -> {
+                if (keys != setOf("analysisApiVersion")) {
+                    result.error("unsupported_analysis_api", "Analysis API v2 requires its exact versioned argument map.", null)
+                    return
+                }
+                result.success(analysisCapabilities())
+            }
+            "startAnalysis" -> startAnalysis(call, keys, result)
+            "getAnalysisBatch" -> {
+                val lease = analysisLease
+                val generation = (call.argument<Any>("generation") as? Number)?.toLong()
+                val after = (call.argument<Any>("afterSequence") as? Number)?.toLong()
+                if (keys != setOf("analysisApiVersion", "generation", "leaseId", "afterSequence")) {
+                    result.error("unsupported_analysis_api", "getAnalysisBatch requires the exact v2 argument map.", null)
+                    return
+                }
+                if (lease == null || generation != lease.generation ||
+                    call.argument<String>("leaseId") != lease.leaseId ||
+                    after == null || after < 0L || after > 9007199254740991L
+                ) {
+                    result.error("stale_analysis_lease", "Analysis lease, generation, or cursor is invalid.", null)
+                    return
+                }
+                val polled = nativeAnalysisPoll(lease.featureMask, after)
+                val metadata = polled.getOrNull(0) as? String ?: "!stale_analysis_lease"
+                if (metadata.startsWith("!")) {
+                    result.error(metadata.substring(1), "The analysis batch could not be read.", null)
+                    return
+                }
+                result.success(analysisBatch(lease, metadata, polled[1] as ByteArray))
+            }
+            "stopAnalysis" -> {
+                val lease = analysisLease
+                val generation = (call.argument<Any>("generation") as? Number)?.toLong()
+                if (keys != setOf("analysisApiVersion", "generation", "leaseId")) {
+                    result.error("unsupported_analysis_api", "stopAnalysis requires the exact v2 argument map.", null)
+                    return
+                }
+                if (lease == null || generation != lease.generation ||
+                    call.argument<String>("leaseId") != lease.leaseId
+                ) {
+                    result.error("stale_analysis_lease", "Analysis lease or generation is stale.", null)
+                    return
+                }
+                if (!analysisStopped) {
+                    nativeAnalysisStop(false)
+                    analysisStopped = true
+                }
+                result.success(true)
+            }
+        }
+    }
+
+    private fun startAnalysis(
+        call: MethodCall,
+        keys: Set<Any?>,
+        result: Result,
+    ) {
+        val base = setOf("analysisApiVersion", "generation", "profile", "featureMask", "transformConfig")
+        if (keys != base && keys != base + "source") {
+            result.error("unsupported_analysis_api", "startAnalysis requires the exact v2 argument map.", null)
+            return
+        }
+        // Android has no file playback output yet: only the synth mix exists.
+        val source = call.argument<String>("source")
+        if (source !in OUTPUT_MIX_SOURCES) {
+            result.error("unsupported_analysis_source", "The analysis source is not supported on Android.", null)
+            return
+        }
+        val generation = (call.argument<Any>("generation") as? Number)?.toLong() ?: 0L
+        if (generation <= 0L || generation != synthGeneration || !synthActive) {
+            result.error("stale_analysis_generation", "Analysis generation must match a running synth session.", null)
+            return
+        }
+        val profile = call.argument<String>("profile")
+        val mask = call.argument<Int>("featureMask")
+        val config = transformConfig(call.argument<Map<*, *>>("transformConfig"))
+        val maskValid =
+            (profile == "sgav-music-1" && (mask == 3 || mask == 11)) ||
+                (profile == "sgav-speech-1" && (mask == 5 || mask == 13))
+        if (!maskValid || config == null || profile == null || mask == null) {
+            result.error(
+                "invalid_analysis_configuration",
+                "Profile, feature mask, and transform configuration must match the v2 contract.",
+                null,
+            )
+            return
+        }
+        val current = analysisLease
+        if (current != null && !analysisStopped && current.generation == generation &&
+            current.profile == profile && current.featureMask == mask && current.config == config
+        ) {
+            result.success(leaseMap(current))
+            return
+        }
+        val digest = nativeAnalysisStart(mask, config[0], config[1], config[2], config[3], config[4], config[5])
+        if (digest.startsWith("!")) {
+            releaseAnalysis()
+            result.error(digest.substring(1), "The analysis stream could not start.", null)
+            return
+        }
+        val serial = ++analysisSerial
+        val lease =
+            AnalysisLease(
+                generation = generation,
+                leaseId = "analysis-lease-$serial",
+                streamId = "android-output-mix-$generation-$serial",
+                sourceIdentity = "android-output-mix-v1-$generation",
+                profile = profile,
+                featureMask = mask,
+                config = config,
+                digest = digest,
+            )
+        analysisLease = lease
+        analysisStopped = false
+        result.success(leaseMap(lease))
+    }
+
+    // sensitivity, gamma, attack, release, floor, ceiling; null when outside
+    // the v2 contract.
+    private fun transformConfig(map: Map<*, *>?): List<Double>? {
+        if (map == null || map.size != 7 || (map["version"] as? Number)?.toLong() != 1L) return null
+        val values =
+            listOf(
+                "sensitivity_db",
+                "amplitude_gamma",
+                "attack_ms",
+                "release_ms",
+                "spectrum_floor_db",
+                "spectrum_ceiling_db",
+            ).map { (map[it] as? Number)?.toDouble() ?: return null }
+        if (values.any { !it.isFinite() }) return null
+        val (sensitivity, gamma, attack, release, floor) = values
+        val ceiling = values[5]
+        val valid =
+            sensitivity in -24.0..24.0 && gamma in 0.25..2.0 && attack in 1.0..200.0 &&
+                release in 10.0..2000.0 && floor in -120.0..-20.0 && ceiling in -6.0..12.0 &&
+                floor < ceiling
+        return if (valid) values else null
+    }
+
+    private fun releaseAnalysis() {
+        if (analysisLease == null) return
+        nativeAnalysisStop(true)
+        analysisLease = null
+        analysisStopped = true
+    }
+
+    private fun leaseMap(lease: AnalysisLease): Map<String, Any> =
+        mapOf(
+            "analysis_api_version" to 2,
+            "generation" to lease.generation,
+            "lease_id" to lease.leaseId,
+            "stream_id" to lease.streamId,
+            "source_identity" to lease.sourceIdentity,
+            "profile" to lease.profile,
+            "feature_mask" to lease.featureMask,
+            "transform_digest" to lease.digest,
+            "max_block_frames" to ANALYSIS_MAX_BLOCK_FRAMES,
+            "max_batch_records" to ANALYSIS_MAX_BATCH_RECORDS,
+            "max_response_bytes" to ANALYSIS_MAX_RESPONSE_BYTES,
+        )
+
+    // Maps the native batch metadata (see nativeAnalysisPoll) to the v2 batch.
+    private fun analysisBatch(
+        lease: AnalysisLease,
+        metadata: String,
+        records: ByteArray,
+    ): Map<String, Any?> {
+        val fields = metadata.split('|')
+        fun number(index: Int): Long = fields.getOrNull(index)?.toLongOrNull() ?: 0L
+        return mapOf(
+            "analysis_api_version" to 2,
+            "generation" to lease.generation,
+            "lease_id" to lease.leaseId,
+            "stream_id" to lease.streamId,
+            "source_identity" to lease.sourceIdentity,
+            "profile" to lease.profile,
+            "feature_mask" to lease.featureMask,
+            "transform_digest" to lease.digest,
+            "state" to (fields.getOrNull(0) ?: "failed"),
+            "continuity_id" to number(1),
+            "run_origin_frame" to if (number(2) == 1L) number(3) else null,
+            "record_layout" to ANALYSIS_RECORD_LAYOUT,
+            "first_sequence" to number(4),
+            "last_sequence" to number(5),
+            "next_sequence_cursor" to number(6),
+            "delivery_resync" to (number(7) == 1L),
+            "resync_reason" to (fields.getOrNull(8) ?: "none"),
+            "skipped_delivery_records" to number(9),
+            "pcm_gap" to (number(10) == 1L),
+            "dropped_pcm_frames" to number(11),
+            "native_observation_ns" to number(12),
+            "timing" to null,
+            "record_bytes" to number(13).toInt(),
+            "record_count" to number(14).toInt(),
+            "records" to records,
+        )
+    }
+
+    private fun analysisCapabilities(): Map<String, Any?> =
+        mapOf(
+            "analysis_api_version" to 2,
+            "available" to true,
+            "reason" to null,
+            "sources" to
+                listOf(
+                    mapOf("id" to "android_output_mix_v1", "available" to true, "reason" to null),
+                    mapOf("id" to "android_playback_output_v1", "available" to false, "reason" to "playback_unavailable"),
+                    mapOf("id" to "wav_host_v1", "available" to false, "reason" to "offline_adapter_unavailable"),
+                ),
+            "profiles" to
+                listOf(
+                    mapOf(
+                        "id" to "sgav-music-1",
+                        "feature_masks" to listOf(3, 11),
+                        "record_bytes" to mapOf(3 to 2136, 11 to 6492),
+                    ),
+                    mapOf(
+                        "id" to "sgav-speech-1",
+                        "feature_masks" to listOf(5, 13),
+                        "record_bytes" to mapOf(5 to 88, 13 to 4444),
+                    ),
+                ),
+            "record_layout" to ANALYSIS_RECORD_LAYOUT,
+            "format" to
+                mapOf(
+                    "sample_rate" to 48000,
+                    "channels" to 2,
+                    "layout" to "interleaved",
+                    "sample_type" to "float32",
+                ),
+            "max_block_frames" to ANALYSIS_MAX_BLOCK_FRAMES,
+            "max_native_bytes" to 4 * 1024 * 1024,
+            "history_records" to 128,
+            "history_bytes" to 1048576,
+            "history_span_frames" to 61440,
+            "max_batch_records" to ANALYSIS_MAX_BATCH_RECORDS,
+            "max_response_bytes" to ANALYSIS_MAX_RESPONSE_BYTES,
+            "transform_versions" to listOf("sgav-visual-transform-1"),
+        )
 
     private fun instrumentCode(name: String?): Int? =
         when (name) {
@@ -493,7 +822,9 @@ class ShipglowsAudioPlugin :
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        mainHandler.removeCallbacks(rerouteSynth)
         if (nativeLoaded && synthActive) {
+            releaseAnalysis()
             nativeSynthCommand(2)
             synthActive = false
         }

@@ -112,7 +112,8 @@ public:
  // Worker-only; arbitrary partition sizes, finite bounded float32 stereo PCM.
  void push(const float* pcm,size_t frames,uint64_t position,bool discontinuity=false,bool submitted_silence=false) {
   if(ended_)throw std::logic_error("push after EOF");
-  if(!pcm||frames>UINT64_MAX-position||frames>SIZE_MAX/2||frames>uint64_t(INT64_MAX)-2048)throw std::invalid_argument("invalid PCM span");
+  const uint64_t span=frames; // 64-bit even where size_t is 32-bit (armeabi-v7a).
+  if(!pcm||span>UINT64_MAX-position||frames>SIZE_MAX/2||span>uint64_t(INT64_MAX)-2048)throw std::invalid_argument("invalid PCM span");
   if(started_&&!discontinuity&&position==origin_+length_&&frames>uint64_t(INT64_MAX)-2048-length_)throw std::invalid_argument("local indexing budget exhausted");
   for(size_t i=0;i<frames*2;++i)if(!std::isfinite(pcm[i])||std::abs(pcm[i])>8)throw std::invalid_argument("invalid PCM sample");
   if(!started_){origin_=position;started_=true;}
