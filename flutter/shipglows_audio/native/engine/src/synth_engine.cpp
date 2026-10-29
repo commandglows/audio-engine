@@ -364,12 +364,12 @@ void SynthEngine::start_voice(Kind kind, std::uint8_t midi, float velocity, bool
       voice.held = true;
       voice.phase_increment = kTwoPi * frequency / kRate;
       switch (kind) {
-        case Kind::bass:  // plucked FM, the modulator on the fundamental
+        case Kind::bass:  // plucked: a short bite of harmonics, then a near-sine body
           voice.modulator_increment = voice.phase_increment;
-          voice.index_scale = 3.0;
-          voice.index_floor = 0.3;
-          voice.decay_a_step = DecayStep(5);
-          voice.decay_b_step = DecayStep(1.5);
+          voice.index_scale = 1.6;
+          voice.index_floor = 0.05;
+          voice.decay_a_step = DecayStep(12);
+          voice.decay_b_step = DecayStep(4);
           break;
         case Kind::lead:  // brighter, slower-fading FM on the fundamental
           voice.modulator_increment = voice.phase_increment;
