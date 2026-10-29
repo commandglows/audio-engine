@@ -31,8 +31,10 @@ counters.
 
 ## Real-time synth (Windows, Android)
 
-`ShipglowsSynth` plays General MIDI drums, an FM piano and a metronome click on
-the same output as file playback; the sum goes through one true-peak limiter.
+`ShipglowsSynth` plays General MIDI drums, an FM piano, an FM bass, an FM lead
+and a metronome click on the same output as file playback; the three FM voices
+sustain while held, each with its own timbre. The sum goes through one true-peak
+limiter.
 Note and click calls return without awaiting the platform, so timers can call
 them directly. On Android the synth plays through its own low-latency Oboe
 stream (no file playback is mixed in); it reopens on an output route change so

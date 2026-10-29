@@ -11,14 +11,23 @@ enum ShipglowsSynthInstrument {
   /// General MIDI drum kit: 36 bass drum, 38 snare, 39 clap, 42/44 closed
   /// hi-hat, 46 open hi-hat (choked by any later hi-hat). Drums ring out and
   /// ignore note-off.
-  drums;
+  drums,
+
+  /// FM bass: a plucked, low-register voice that sustains while held.
+  bass,
+
+  /// FM lead: a brighter, singing voice that sustains while held.
+  lead;
 
   /// Wire name used by the native synth API.
   String get wireName => name;
 
-  static ShipglowsSynthInstrument fromWire(Object? value) => value == 'drums'
-      ? ShipglowsSynthInstrument.drums
-      : ShipglowsSynthInstrument.piano;
+  static ShipglowsSynthInstrument fromWire(Object? value) => switch (value) {
+        'drums' => ShipglowsSynthInstrument.drums,
+        'bass' => ShipglowsSynthInstrument.bass,
+        'lead' => ShipglowsSynthInstrument.lead,
+        _ => ShipglowsSynthInstrument.piano,
+      };
 }
 
 /// Latency distribution measured natively, in microseconds. Percentiles are

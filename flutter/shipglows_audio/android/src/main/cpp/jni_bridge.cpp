@@ -119,8 +119,12 @@ Java_com_commandglows_shipglows_1audio_ShipglowsAudioPlugin_nativeSynthPost(
   if (type < 0 || type > 4 || midi < 0 || midi > 127) return JNI_FALSE;
   SynthEvent event;
   event.type = static_cast<SynthEventType>(type);
-  event.instrument =
-      instrument == 1 ? SynthInstrument::drums : SynthInstrument::piano;
+  switch (instrument) {
+    case 1: event.instrument = SynthInstrument::drums; break;
+    case 2: event.instrument = SynthInstrument::bass; break;
+    case 3: event.instrument = SynthInstrument::lead; break;
+    default: event.instrument = SynthInstrument::piano; break;
+  }
   event.use_instrument = use_instrument == JNI_TRUE;
   event.accent = accent == JNI_TRUE;
   event.midi = static_cast<std::uint8_t>(midi);

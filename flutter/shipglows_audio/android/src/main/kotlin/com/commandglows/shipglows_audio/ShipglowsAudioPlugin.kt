@@ -639,6 +639,8 @@ class ShipglowsAudioPlugin :
         when (name) {
             "piano" -> 0
             "drums" -> 1
+            "bass" -> 2
+            "lead" -> 3
             else -> null
         }
 

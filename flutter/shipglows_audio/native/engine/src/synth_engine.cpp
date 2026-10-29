@@ -196,7 +196,7 @@ void SynthEngine::apply(const SynthEvent& event, std::uint64_t now_ns,
         return;
       }
       note_on(instrument, event.midi, std::min(event.velocity, 1.0F));
-      sounding = instrument == SynthInstrument::piano ||
+      sounding = IsSustained(instrument) ||
                  event.midi == kBassDrum || event.midi == kSnare || event.midi == kClap ||
                  event.midi == kClosedHat || event.midi == kPedalHat || event.midi == kOpenHat;
       break;
@@ -208,7 +208,8 @@ void SynthEngine::apply(const SynthEvent& event, std::uint64_t now_ns,
       sounding = true;
       break;
     case SynthEventType::set_instrument:
-      if (event.instrument != SynthInstrument::piano && event.instrument != SynthInstrument::drums) {
+      if (static_cast<std::uint8_t>(event.instrument) >
+          static_cast<std::uint8_t>(SynthInstrument::lead)) {
         ignored_.fetch_add(1, std::memory_order_relaxed);
         return;
       }
@@ -227,13 +228,31 @@ void SynthEngine::apply(const SynthEvent& event, std::uint64_t now_ns,
     output_latency_.record(ElapsedMicroseconds(event.post_ns, presentation_ns));
 }
 
+bool SynthEngine::IsSustained(SynthInstrument instrument) noexcept {
+  return instrument == SynthInstrument::piano || instrument == SynthInstrument::bass ||
+         instrument == SynthInstrument::lead;
+}
+
+SynthEngine::Kind SynthEngine::KindOf(SynthInstrument instrument) noexcept {
+  switch (instrument) {
+    case SynthInstrument::bass: return Kind::bass;
+    case SynthInstrument::lead: return Kind::lead;
+    default: return Kind::piano;
+  }
+}
+
+bool SynthEngine::IsSustainedKind(Kind kind) noexcept {
+  return kind == Kind::piano || kind == Kind::bass || kind == Kind::lead;
+}
+
 void SynthEngine::note_on(SynthInstrument instrument, std::uint8_t midi, float velocity) noexcept {
-  if (instrument == SynthInstrument::piano) {
+  if (IsSustained(instrument)) {
     // A repeated key releases its previous strike instead of stacking voices.
+    const Kind kind = KindOf(instrument);
     for (auto& voice : voices_) {
-      if (voice.active && voice.kind == Kind::piano && voice.midi == midi && voice.held) release(voice);
+      if (voice.active && voice.kind == kind && voice.midi == midi && voice.held) release(voice);
     }
-    start_voice(Kind::piano, midi, velocity, false);
+    start_voice(kind, midi, velocity, false);
     return;
   }
   switch (midi) {
@@ -257,9 +276,10 @@ void SynthEngine::note_on(SynthInstrument instrument, std::uint8_t midi, float v
 }
 
 void SynthEngine::note_off(SynthInstrument instrument, std::uint8_t midi) noexcept {
-  if (instrument != SynthInstrument::piano) return;  // Drum voices ring out.
+  if (!IsSustained(instrument)) return;  // Drum voices ring out.
+  const Kind kind = KindOf(instrument);
   for (auto& voice : voices_) {
-    if (voice.active && voice.kind == Kind::piano && voice.midi == midi && voice.held) release(voice);
+    if (voice.active && voice.kind == kind && voice.midi == midi && voice.held) release(voice);
   }
 }
 
@@ -270,12 +290,12 @@ SynthEngine::Voice* SynthEngine::allocate_voice() noexcept {
     if (!voice.active || voice.fade_step > 0.0F) continue;
     ++sounding;
     // Prefer stealing a released key or a one-shot voice over a held key.
-    const bool candidate_held = voice.kind == Kind::piano && voice.held;
+    const bool candidate_held = IsSustainedKind(voice.kind) && voice.held;
     if (!oldest) {
       oldest = &voice;
       continue;
     }
-    const bool oldest_held = oldest->kind == Kind::piano && oldest->held;
+    const bool oldest_held = IsSustainedKind(oldest->kind) && oldest->held;
     if ((oldest_held && !candidate_held) ||
         (oldest_held == candidate_held && voice.serial < oldest->serial)) oldest = &voice;
   }
@@ -337,13 +357,35 @@ void SynthEngine::start_voice(Kind kind, std::uint8_t midi, float velocity, bool
       voice.velocity = accent ? 0.7F : 0.45F;
       voice.decay_a_step = DecayStep(140);
       break;
-    case Kind::piano: {
+    case Kind::piano:
+    case Kind::bass:
+    case Kind::lead: {
       const double frequency = 440.0 * std::pow(2.0, (static_cast<double>(midi) - 69.0) / 12.0);
       voice.held = true;
       voice.phase_increment = kTwoPi * frequency / kRate;
-      voice.modulator_increment = 2.0 * voice.phase_increment;
-      voice.decay_a_step = DecayStep(2.5);  // modulation index
-      voice.decay_b_step = DecayStep(2.0);  // level decay towards sustain
+      switch (kind) {
+        case Kind::bass:  // plucked FM, the modulator on the fundamental
+          voice.modulator_increment = voice.phase_increment;
+          voice.index_scale = 3.0;
+          voice.index_floor = 0.3;
+          voice.decay_a_step = DecayStep(5);
+          voice.decay_b_step = DecayStep(1.5);
+          break;
+        case Kind::lead:  // brighter, slower-fading FM on the fundamental
+          voice.modulator_increment = voice.phase_increment;
+          voice.index_scale = 1.4;
+          voice.index_floor = 0.5;
+          voice.decay_a_step = DecayStep(0.8);
+          voice.decay_b_step = DecayStep(0.5);
+          break;
+        default:  // piano: modulator an octave up
+          voice.modulator_increment = 2.0 * voice.phase_increment;
+          voice.index_scale = 2.2;
+          voice.index_floor = 0.25;
+          voice.decay_a_step = DecayStep(2.5);  // modulation index
+          voice.decay_b_step = DecayStep(2.0);  // level decay towards sustain
+          break;
+      }
       break;
     }
   }
@@ -424,8 +466,10 @@ float SynthEngine::next_sample(Voice& voice) noexcept {
       voice.phase += voice.phase_increment;
       break;
     }
-    case Kind::piano: {
-      const double index = 2.2 * voice.decay_a + 0.25;
+    case Kind::piano:
+    case Kind::bass:
+    case Kind::lead: {
+      const double index = voice.index_scale * voice.decay_a + voice.index_floor;
       const double modulator = std::sin(voice.modulator_phase);
       const double carrier = std::sin(voice.phase + index * modulator);
       voice.phase += voice.phase_increment;
@@ -450,7 +494,7 @@ float SynthEngine::next_sample(Voice& voice) noexcept {
     if (voice.fade_gain <= voice.fade_step * 0.5F) voice.active = false;
   }
   ++voice.frame;
-  if (voice.kind != Kind::piano && voice.frame >= voice.length) voice.active = false;
+  if (!IsSustainedKind(voice.kind) && voice.frame >= voice.length) voice.active = false;
   return static_cast<float>(value);
 }
 

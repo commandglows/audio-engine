@@ -21,8 +21,12 @@ std::uint64_t SteadyNanoseconds() noexcept {
 }
 
 const char* InstrumentName(shipglows::audio::SynthInstrument instrument) {
-  return instrument == shipglows::audio::SynthInstrument::drums ? "drums"
-                                                                : "piano";
+  switch (instrument) {
+    case shipglows::audio::SynthInstrument::drums: return "drums";
+    case shipglows::audio::SynthInstrument::bass: return "bass";
+    case shipglows::audio::SynthInstrument::lead: return "lead";
+    default: return "piano";
+  }
 }
 
 }  // namespace

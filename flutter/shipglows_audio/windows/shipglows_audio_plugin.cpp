@@ -681,11 +681,24 @@ bool ParseInstrument(const std::string* name, shipglows::audio::SynthInstrument*
     *instrument = shipglows::audio::SynthInstrument::drums;
     return true;
   }
+  if (*name == "bass") {
+    *instrument = shipglows::audio::SynthInstrument::bass;
+    return true;
+  }
+  if (*name == "lead") {
+    *instrument = shipglows::audio::SynthInstrument::lead;
+    return true;
+  }
   return false;
 }
 
 const char* InstrumentName(shipglows::audio::SynthInstrument instrument) {
-  return instrument == shipglows::audio::SynthInstrument::drums ? "drums" : "piano";
+  switch (instrument) {
+    case shipglows::audio::SynthInstrument::drums: return "drums";
+    case shipglows::audio::SynthInstrument::bass: return "bass";
+    case shipglows::audio::SynthInstrument::lead: return "lead";
+    default: return "piano";
+  }
 }
 
 flutter::EncodableValue LatencyValue(const shipglows::audio::SynthLatencyHistogram::Summary& summary) {

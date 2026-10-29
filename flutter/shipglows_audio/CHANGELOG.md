@@ -1,5 +1,6 @@
 ## Unreleased
 
+* Add FM bass and FM lead synth voices (`ShipglowsSynthInstrument.bass` and `.lead`), sustained like the piano with their own timbre, on Windows and Android.
 * Add a real-time synthesizer (General MIDI drums with hi-hat choke, FM piano, accented click) with an allocation-free render path and a lock-free event queue; Dart `ShipglowsSynth` sends notes without awaiting the platform.
 * Windows: play file sessions and the synth on one shared WASAPI output with a master true-peak limiter; request the IAudioClient3 period, cap the queued fill at one period plus a quarter, and run the render thread under MMCSS.
 * Add the `windows_output_mix_v1` analysis source and the Dart `ShipglowsOutputAnalysis` pollable stream (one request in flight, validated binary records).

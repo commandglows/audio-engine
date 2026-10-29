@@ -7,8 +7,9 @@
 
 namespace shipglows::audio {
 
-// Melodic target of a note event. Clicks are a separate event type.
-enum class SynthInstrument : std::uint8_t { piano = 0, drums = 1 };
+// Melodic target of a note event. Clicks are a separate event type. Piano, bass
+// and lead are sustained voices: they sound while held and release on note-off.
+enum class SynthInstrument : std::uint8_t { piano = 0, drums = 1, bass = 2, lead = 3 };
 
 enum class SynthEventType : std::uint8_t {
   note_on = 0,
@@ -93,7 +94,8 @@ struct SynthCounters final {
 };
 
 // Real-time polyphonic synthesizer: General MIDI drum voices (36, 38, 39, 42,
-// 44, 46 with hi-hat choke), an FM piano and an accented metronome click. All
+// 44, 46 with hi-hat choke), an FM piano, an FM bass, an FM lead and an
+// accented metronome click. All
 // voices are mono and added equally to both stereo channels; the caller owns
 // the master limiter. The timbres follow the BeatGlows offline renderer.
 //
@@ -133,13 +135,13 @@ class SynthEngine final {
   void clear_latency() noexcept;
 
  private:
-  enum class Kind : std::uint8_t { kick, snare, closed_hat, open_hat, clap, click, piano };
+  enum class Kind : std::uint8_t { kick, snare, closed_hat, open_hat, clap, click, piano, bass, lead };
   struct Voice final {
     bool active = false;
     Kind kind = Kind::kick;
     std::uint8_t midi = 0;
-    bool held = false;      // piano key down
-    bool released = false;  // piano release started
+    bool held = false;      // key down, for a sustained voice
+    bool released = false;  // release started, for a sustained voice
     std::uint64_t serial = 0;
     std::uint32_t frame = 0;
     std::uint32_t length = 0;      // natural end for one-shot voices
@@ -153,6 +155,9 @@ class SynthEngine final {
     double phase_increment = 0.0;
     double modulator_phase = 0.0;
     double modulator_increment = 0.0;
+    // Sustained voices: FM index = index_scale * decay_a + index_floor.
+    double index_scale = 0.0;
+    double index_floor = 0.0;
     double decay_a = 1.0, decay_a_step = 1.0;
     double decay_b = 1.0, decay_b_step = 1.0;
     std::array<double, 3> burst{};
@@ -164,6 +169,9 @@ class SynthEngine final {
              std::uint64_t presentation_ns) noexcept;
   void note_on(SynthInstrument instrument, std::uint8_t midi, float velocity) noexcept;
   void note_off(SynthInstrument instrument, std::uint8_t midi) noexcept;
+  [[nodiscard]] static bool IsSustained(SynthInstrument instrument) noexcept;
+  [[nodiscard]] static Kind KindOf(SynthInstrument instrument) noexcept;
+  [[nodiscard]] static bool IsSustainedKind(Kind kind) noexcept;
   void start_voice(Kind kind, std::uint8_t midi, float velocity, bool accent) noexcept;
   Voice* allocate_voice() noexcept;
   void fade(Voice& voice, float seconds) noexcept;
