@@ -63,6 +63,9 @@ class WindowsOutputBus final {
 
  private:
   WasapiPlaybackResult EnsureRunning();
+  // Reopens the device when the synth lost it (unplugged headphones, route
+  // change), at most every 500 ms so a missing device never stalls the notes.
+  void ReopenAfterLoss() noexcept;
   void StopIfIdle();
   static bool Render(float* output, std::uint32_t frames, std::uint32_t channels,
                      void* context) noexcept;
@@ -77,6 +80,7 @@ class WindowsOutputBus final {
 
   std::unique_ptr<shipglows::audio::SynthEngine> synth_;
   bool synth_enabled_ = false;  // platform thread
+  std::uint64_t last_reopen_ns_ = 0;  // platform thread
   // Playback input: render_ is written before context_ is published.
   WasapiRenderFunction playback_render_ = nullptr;
   std::atomic<void*> playback_context_{nullptr};

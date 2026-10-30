@@ -88,8 +88,19 @@ void WindowsOutputBus::StopSynth() {
 bool WindowsOutputBus::PostSynth(shipglows::audio::SynthEvent event) noexcept {
   if (!synth_enabled_ && event.type != shipglows::audio::SynthEventType::all_notes_off)
     return false;
+  if (synth_enabled_ && !Running()) ReopenAfterLoss();
   event.post_ns = SteadyNanoseconds();
   return synth_->post(event);
+}
+
+void WindowsOutputBus::ReopenAfterLoss() noexcept {
+  const auto now = SteadyNanoseconds();
+  constexpr std::uint64_t kReopenIntervalNs = 500'000'000ULL;
+  if (last_reopen_ns_ != 0 && now - last_reopen_ns_ < kReopenIntervalNs) return;
+  last_reopen_ns_ = now;
+  // EnsureRunning resets the synth queue and voices before the device starts,
+  // so the note posted right after this call plays on the new stream.
+  (void)EnsureRunning();
 }
 
 void WindowsOutputBus::SetAnalysisStream(shipglows::audio::AnalysisStream* stream) noexcept {
