@@ -232,9 +232,17 @@ void WindowsWasapiPlayback::Worker() {
 
   while (!quit) {
     HANDLE waits[] = {control_event, audio_event};
+    // An active stream that stops delivering buffer events (an endpoint that
+    // went idle or asleep reports no error) is failed after this timeout, so
+    // the next note or Start reopens the device instead of waiting forever.
+    constexpr DWORD kStallTimeoutMs = 1000;
     DWORD wait = active && !paused
-                     ? WaitForMultipleObjects(2, waits, FALSE, INFINITE)
+                     ? WaitForMultipleObjects(2, waits, FALSE, kStallTimeoutMs)
                      : WaitForSingleObject(control_event, INFINITE);
+    if (active && !paused && wait == WAIT_TIMEOUT) {
+      fail_stream(WasapiPlaybackFailure::device_unavailable, HRESULT_FROM_WIN32(WAIT_TIMEOUT));
+      continue;
+    }
     if (active && !paused && wait == WAIT_OBJECT_0 + 1) {
       UINT32 padding = 0;
       HRESULT hr = client->GetCurrentPadding(&padding);
